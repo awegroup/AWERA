@@ -4,9 +4,9 @@
 # TODO function descriptions docstrings
 import matplotlib.pyplot as plt
 import numpy as np
-from config_Lavi import start_year, final_year, output_dir
-from plotting_utils import read_dataset_user_input
-from process_data_paper import get_altitude_from_level
+from .config import start_year, final_year, output_dir
+from .plotting_utils import read_dataset_user_input
+from .process_data_paper import get_altitude_from_level
 plt.style.use('seaborn-whitegrid')
 
 

@@ -10,7 +10,7 @@ import pickle
 
 import warnings
 
-from config_clustering import file_name_cluster_labels, n_clusters
+from .config import file_name_cluster_labels, n_clusters
 
 warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
 

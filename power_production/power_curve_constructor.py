@@ -3,13 +3,13 @@ import numpy as np
 import pickle
 from scipy.stats import truncnorm
 
-from qsm import SteadyStateError, OperationalLimitViolation, PhaseError
+from .qsm import SteadyStateError, OperationalLimitViolation, PhaseError
 
-from cycle_optimizer import OptimizerError
+from .cycle_optimizer import OptimizerError
 
-from utils import flatten_dict
+from .utils import flatten_dict
 
-from config_production import plots_interactive, plot_output_file
+from .config import plots_interactive, plot_output_file
 
 if not plots_interactive:
     mpl.use('Pdf')

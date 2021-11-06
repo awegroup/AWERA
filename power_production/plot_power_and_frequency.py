@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import pickle
-from config_production import power_curve_output_file_name, n_clusters
-from config_clustering import locations, file_name_freq_distr
+from .config import power_curve_output_file_name, n_clusters
+from ..wind_profile_clustering.config import locations, file_name_freq_distr
 
 
 def plot_power_and_frequency(n_profiles=n_clusters):

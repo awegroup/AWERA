@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from copy import copy
 import pandas as pd
-from utils import zip_el, plot_traces
+from .utils import zip_el, plot_traces
 
 np.seterr(all='raise')
 

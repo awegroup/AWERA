@@ -4,8 +4,8 @@ import numpy as np
 
 import matplotlib as mpl
 
-from config_clustering import plots_interactive, result_dir, data_info, n_pcs
-from read_requested_data import get_wind_data
+from .config import plots_interactive, result_dir, data_info, n_pcs
+from .read_requested_data import get_wind_data
 
 if not plots_interactive:
     mpl.use('Pdf')
@@ -325,7 +325,7 @@ if __name__ == '__main__':
     time_elapsed = time.time() - since
     print('Input read - Time lapsed: ', '\t{:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
 
-    from preprocess_data import preprocess_data
+    from .preprocess_data import preprocess_data
     wind_data = preprocess_data(wind_data)
 
     time_elapsed = time.time() - since

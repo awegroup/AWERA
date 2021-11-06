@@ -5,20 +5,20 @@ import numpy as np
 import sys
 import getopt
 
-from config_clustering import n_clusters, n_pcs, file_name_cluster_profiles, \
+from .config import n_clusters, n_pcs, file_name_cluster_profiles, \
     file_name_freq_distr, file_name_cluster_labels, \
     file_name_cluster_pipeline, data_info, training_cluster_labels, \
     training_cluster_pipeline, training_cluster_profiles,\
     training_refined_cut_wind_speeds_file
-from config_production import \
+from ..power_production.config import \
     refined_cut_wind_speeds_file as cut_wind_speeds_file
-from read_requested_data import get_wind_data
+from .read_requested_data import get_wind_data
 
-from preprocess_data import preprocess_data
-from wind_profile_clustering import \
+from .preprocess_data import preprocess_data
+from .wind_profile_clustering import \
     cluster_normalized_wind_profiles_pca, predict_cluster
 
-from utils import write_timing_info
+from ..power_production.utils import write_timing_info
 n_wind_speed_bins = 100
 
 

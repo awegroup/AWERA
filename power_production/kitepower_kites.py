@@ -1,4 +1,4 @@
-from qsm import SystemProperties
+from .qsm import SystemProperties
 
 # V2 - As presented in Van der Vlugt et al.
 projected_area = 19.8  # [m^2]

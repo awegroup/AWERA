@@ -2,16 +2,16 @@ import numpy as np
 import pickle
 import pandas as pd
 
-from config_clustering import data_info, result_dir, \
+from ..wind_profile_clustering.config import data_info, result_dir, \
     cut_wind_speeds_file, n_clusters
-from config_production import get_loc_brute_force_name_and_locs, \
+from .config import get_loc_brute_force_name_and_locs, \
     sample_selection, brute_force_files, step
 
-from utils_validation import plot_diff_pdf, get_velocity_bin_mask, \
-    plot_diff_pdf_mult_data, plot_abs_rel_step_wise
-from plot_diff_map import plot_diff_map
+from ..wind_profile_clustering.utils_validation import plot_diff_pdf,\
+    get_velocity_bin_mask, plot_diff_pdf_mult_data, plot_abs_rel_step_wise
+from .plot_diff_map import plot_diff_map
 
-# !!! from config_production import plots_interactive
+# !!! from .config import plots_interactive
 plots_interactive = True
 if plots_interactive:
     import matplotlib.pyplot as plt

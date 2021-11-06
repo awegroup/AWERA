@@ -22,13 +22,13 @@ import getopt
 
 import dask
 
-from utils import hour_to_date_str, compute_level_heights, flatten_dict
-from config_Lavi import start_year, final_year, era5_data_dir, model_level_file_name_format, surface_file_name_format,\
+from .utils import hour_to_date_str, compute_level_heights, flatten_dict
+from .config import start_year, final_year, era5_data_dir, model_level_file_name_format, surface_file_name_format,\
     output_file_name, output_file_name_subset, read_n_lats_per_subset, output_dir
 
-from plot_histograms import plot_histogram
+from .plot_histograms import plot_histogram
 
-from process_data_paper import get_altitude_from_level, get_surface_elevation
+from .process_data_paper import get_altitude_from_level, get_surface_elevation
 # only as many threads as requested CPUs | only one to be requested, more threads don't seem to be used
 dask.config.set(scheduler='synchronous')
 

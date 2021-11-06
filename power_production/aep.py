@@ -3,7 +3,7 @@ import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
 
-from config import file_name_freq_distr, power_curve_output_file_name
+from .config import file_name_freq_distr, power_curve_output_file_name
 
 
 def get_mask_discontinuities(df):

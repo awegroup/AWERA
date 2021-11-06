@@ -8,16 +8,16 @@ import pickle
 
 import matplotlib as mpl
 
-from config_clustering import plots_interactive, result_dir_validation, data_info
+from .config import plots_interactive, result_dir_validation, data_info
 
-from config_clustering import validation_type, do_normalize_data, make_result_subdirs
+from .config import validation_type, do_normalize_data, make_result_subdirs
 
 if not plots_interactive:
     mpl.use('Pdf')
 import matplotlib.pyplot as plt
 
-from read_requested_data import get_wind_data
-from wind_profile_clustering import cluster_normalized_wind_profiles_pca, predict_cluster
+from .read_requested_data import get_wind_data
+from .wind_profile_clustering import cluster_normalized_wind_profiles_pca, predict_cluster
 
 import warnings
 from matplotlib.cbook import MatplotlibDeprecationWarning
@@ -656,7 +656,7 @@ if __name__ == '__main__':
 
     # Read wind data
     wind_data = get_wind_data()
-    from preprocess_data import preprocess_data
+    from .preprocess_data import preprocess_data
     wind_data_full = preprocess_data(wind_data, remove_low_wind_samples=False, normalize=do_normalize_data)
     wind_data_cut = preprocess_data(wind_data, normalize=do_normalize_data)
 

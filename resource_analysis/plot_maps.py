@@ -30,12 +30,8 @@ n_line_levels_default = 6
 color_map = plt.get_cmap('YlOrRd')
 
 if __name__ == "__main__":
-    try:
-        from .utils import hour_to_date_str
-        from .plotting_utils import read_dataset_user_input
-    except ImportError:
-        from utils import hour_to_date_str
-        from plotting_utils import read_dataset_user_input
+    from .utils import hour_to_date_str
+    from .plotting_utils import read_dataset_user_input
 
     # Load the processed data from the NetCDF files specified in the input.
     nc = read_dataset_user_input()

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.cbook import MatplotlibDeprecationWarning
 from mpl_toolkits.basemap import Basemap
 
-from config_production import file_name_freq_distr, \
+from .config import file_name_freq_distr, \
     power_curve_output_file_name, training_power_curve_output_file_name, \
     plots_interactive, result_dir, \
     n_clusters, data_info, locations

@@ -49,13 +49,13 @@ if n_locs == -1:
     locations = []
     location_type = 'all_locs'
 elif n_locs == 5000:
-    from location_selection import locations_europe_5000 as locations
+    from .location_selection import locations_europe_5000 as locations
     location_type = '5000_locs'
 elif n_locs == 1000:
-    from location_selection import locations_europe_1000 as locations
+    from .location_selection import locations_europe_1000 as locations
     location_type = '1000_locs'
 elif n_locs == 100:
-    from location_selection import locations_europe_5000 as locations
+    from .location_selection import locations_europe_5000 as locations
     locations = locations[4900:]
     location_type = '100_locs_predict'
 elif n_locs == 22:
@@ -210,10 +210,10 @@ cut_wind_speeds_file = (
     result_dir + 'cut_in_out_{}_estimate.csv'.format(data_info))
 
 data_info_training = '{}_clusters_{}_{}_{}_{}'.format(n_clusters,
-                                              location_type_training,
-                                              use_data,
-                                              start_year_training,
-                                              final_year_training)
+                                                      location_type_training,
+                                                      use_data,
+                                                      start_year_training,
+                                                      final_year_training)
 training_cluster_profiles = (
     result_dir + 'cluster_wind_profile_shapes_{}.csv'.format(
         data_info_training))
@@ -224,7 +224,7 @@ training_cluster_labels = (
 training_cut_wind_speeds_file = (
     result_dir + 'cut_in_out_{}_estimate.csv'.format(data_info_training))
 training_refined_cut_wind_speeds_file = training_cut_wind_speeds_file.replace(
-    'estimate','refined')
+    'estimate', 'refined')
 # Alternatives:
 #  cut_wind_speeds_file = (
 #  '/home/mark/Projects/quasi-steady-model-sandbox/wind_resource/'

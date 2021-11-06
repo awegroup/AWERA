@@ -4,7 +4,7 @@
 # Clustering chain
 
 # File name definitions
-from config_clustering import file_name_cluster_profiles, \
+from ..wind_profile_clustering.config import file_name_cluster_profiles, \
     file_name_freq_distr, cut_wind_speeds_file, data_info, data_info_training,\
     result_dir, plots_interactive, n_clusters, locations
 

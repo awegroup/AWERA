@@ -5,24 +5,24 @@ import pickle
 import pandas as pd
 
 import time
-from utils import write_timing_info
+from .utils import write_timing_info
 
-from cycle_optimizer import OptimizerCycle
+from .cycle_optimizer import OptimizerCycle
 
-from wind_profile_clustering.read_requested_data import get_wind_data
-from wind_profile_clustering.preprocess_data import \
+from ..wind_profile_clustering.read_requested_data import get_wind_data
+from ..wind_profile_clustering.preprocess_data import \
     preprocess_data, reduce_wind_data
 
-from qsm import NormalisedWindTable1D
+from .qsm import NormalisedWindTable1D
 
-from config_production import power_curve_output_file_name
-from config_clustering import locations, file_name_cluster_labels
+from .config import power_curve_output_file_name
+from ..wind_profile_clustering.config import locations, file_name_cluster_labels
 # from config_production import optimizer_history_file_name
 
 # Optimization trial runs
 from scipy.stats import truncnorm
-from qsm import SteadyStateError, OperationalLimitViolation, PhaseError
-from cycle_optimizer import OptimizerError
+from .qsm import SteadyStateError, OperationalLimitViolation, PhaseError
+from .cycle_optimizer import OptimizerError
 
 
 # Assumptions representative reel-out state at cut-in wind speed.
@@ -484,7 +484,7 @@ def multiple_locations(locs, sel_sample_ids, file_name):
 
 
 if __name__ == "__main__":
-    from config_production import sample_ids, \
+    from .config import sample_ids, \
         brute_force_testing_file_name, locs
     # TODO: timeing
     # single sample test

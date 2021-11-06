@@ -6,10 +6,10 @@ import matplotlib as mpl
 mpl.use('Pdf')
 import matplotlib.pyplot as plt
 
-from qsm import Cycle
-from utils import flatten_dict
+from .qsm import Cycle
+from .utils import flatten_dict
 
-from config_production import optimizer_history_file_name
+from .config import optimizer_history_file_name
 
 class OptimizerError(Exception):
     """Exception raised for optimizations not finishing successfully with 0."""
@@ -658,8 +658,8 @@ class OptimizerCycle(Optimizer):
 
 
 def test():
-    from qsm import LogProfile, TractionPhaseHybrid
-    from kitepower_kites import sys_props_v3
+    from .qsm import LogProfile, TractionPhaseHybrid
+    from .kitepower_kites import sys_props_v3
 
     import time
     since = time.time()

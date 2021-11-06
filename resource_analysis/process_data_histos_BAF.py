@@ -22,8 +22,8 @@ import getopt
 
 import dask
 
-from utils import hour_to_date_str, compute_level_heights, flatten_dict
-from config_Lavi import start_year, final_year, era5_data_dir, model_level_file_name_format, surface_file_name_format,\
+from .utils import hour_to_date_str, compute_level_heights, flatten_dict
+from .config import start_year, final_year, era5_data_dir, model_level_file_name_format, surface_file_name_format,\
     output_file_name, output_file_name_subset, read_n_lats_per_subset, output_dir
 
 from plot_histograms_BAF import plot_histogram
@@ -490,7 +490,7 @@ def grid_to_grid_bilinear(data_points, level_dependent=True, time_dependent=True
         if time_dependent:
             interp = (data_points[:, 0, 1] + data_points[:, 2, 1] + data_points[:, 1, 0] + data_points[:, 1, 2])/4
         else:
-            interp = (data_points[0, 1] + data_points[2, 1] + data_points[1, 0] + data_points[1, 2])/4            
+            interp = (data_points[0, 1] + data_points[2, 1] + data_points[1, 0] + data_points[1, 2])/4
     return interp
 
 

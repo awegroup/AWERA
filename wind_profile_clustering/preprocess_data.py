@@ -1,12 +1,8 @@
 import numpy as np
 from copy import copy
 
-try:
-    from .read_requested_data import get_wind_data
-    from .config_clustering import locations
-except (ImportError, ModuleNotFoundError):
-    from read_requested_data import get_wind_data
-    from config_clustering import locations
+from .read_requested_data import get_wind_data
+from .config_clustering import locations
 
 ref_vector_height = 100.
 

@@ -6,18 +6,15 @@ import numpy as np
 import sys
 from os.path import join as path_join
 
-try:
-    from .era5_ml_height_calc import compute_level_heights
-except ImportError:
-    from era5_ml_height_calc import compute_level_heights
+from .era5_ml_height_calc import compute_level_heights
 
-from config_clustering import use_data, start_year, final_year, year_final_month,\
+from .config import use_data, start_year, final_year, year_final_month,\
                    DOWA_data_dir, locations, \
                    era5_data_dir, model_level_file_name_format, latitude_ds_file_name, era5_data_input_format,\
                    surface_file_name_format, read_model_level_up_to, height_range
 
-from config_clustering import all_lats, all_lons # i_locations
-from config_clustering import latitude_ds_file_name_idx, latitude_ds_file_name_idx_monthly
+from .config import all_lats, all_lons # i_locations
+from .config import latitude_ds_file_name_idx, latitude_ds_file_name_idx_monthly
 # FIXME what of this is still necessary?
 
 import dask

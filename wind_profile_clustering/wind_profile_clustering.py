@@ -14,9 +14,9 @@ import numpy as np
 import copy
 import matplotlib as mpl
 
-from config_clustering import n_pcs, n_clusters, plots_interactive, \
+from .config import n_pcs, n_clusters, plots_interactive, \
     result_dir, data_info
-from read_requested_data import get_wind_data
+from .read_requested_data import get_wind_data
 
 if not plots_interactive:
     mpl.use('Pdf')
@@ -406,7 +406,7 @@ def predict_cluster(training_data, n_clusters, predict_fun, cluster_mapping):
 
 if __name__ == '__main__':
     wind_data = get_wind_data()
-    from preprocess_data import preprocess_data
+    from .preprocess_data import preprocess_data
     processed_data = preprocess_data(wind_data)
 
     res = cluster_normalized_wind_profiles_pca(processed_data['training_data'],

@@ -27,17 +27,47 @@ Attributes:
 # General settings.
 start_year = 2011
 final_year = 2017
-era5_data_dir = '~/ERA5Data/'
-model_level_file_name_format = 'ml_{:d}_{:02d}.netcdf'
-surface_file_name_format = 'sfc_{:d}_{:02d}.netcdf'
+era5_data_dir = '/cephfs/user/s6lathim/ERA5Data/'  #-fixed-height/' # -redownload/' #-#redownload/'#-112-redownload
+model_level_file_name_format = "{:d}_europe_{:d}_130_131_132_133_135.nc"  # 'ml_{:d}_{:02d}.netcdf'
+surface_file_name_format = "{:d}_europe_{:d}_152.nc" # 'sfc_{:d}_{:02d}.netcdf'
+# TODO include single loc data here
 
 # Downloading settings.
 area = "65/-20/30/20"
 upper_level = 112
 
 # Processing settings.
-output_file_name = "results/processed_data_{start_year:d}-{final_year:d}.nc"
-output_file_name_subset = "results/processed_data_{start_year:d}-{final_year:d}_" \
-                          "{lat_subset_id:04d}-{max_lat_subset_id:04d}.nc"
+#paper
+#output_file_name = "/cephfs/user/s6lathim/ERA5Data-112/results/processed_data_paper_rough_data_europe_{start_year:d}_{final_year:d}.nc".format(**{'start_year':start_year, 'final_year':final_year})
+#read_n_lats_at_once = 1
+
+#height pdfs
+output_dir = era5_data_dir + "results/"
+
+
+output_file_name = era5_data_dir + "results/processed_data_europe_{start_year:d}_{final_year:d}.nc"
+output_file_name_subset = era5_data_dir + "results/processed_data_europe_{start_year:d}_{final_year:d}_subset_{lat_subset_id:04d}_of_{max_lat_subset_id:04d}.nc"
+
+#Fiona:
+#output_file_name = "/cephfs/user/s6fipaul/Bachelorarbeit/new_analysis/results_time/processed_data_{start_year:d}_{final_year:d}.nc"
+
+# geopotential height calc
+#output_file_name = era5_data_dir + "results/processed_data_geopot_europe_{start_year:d}_{final_year:d}.nc"
+#output_file_name_subset = era5_data_dir + "results/processed_data_geopot_europe_{start_year:d}_{final_year:d}_subset_{lat_subset_id:04d}_of_{max_lat_subset_id:04d}.nc"
+
+
+
+#old
+#output_file_name = era5_data_dir + "results/old/processed_data_europe_{start_year:d}_{final_year:d}.nc"
+#output_file_name_subset = era5_data_dir + "results/old/processed_data_europe_{start_year:d}_{final_year:d}_subset_{lat_subset_id:04d}_of_{max_lat_subset_id:04d}.nc"
+
+#rough grid ::4 on lats and lons
+#output_file_name = era5_data_dir + "results/processed_rough_grid_data_europe_{start_year:d}_{final_year:d}.nc"
+#output_file_name_subset = era5_data_dir + "results/processed_rough_grid_data_europe_{start_year:d}_{final_year:d}_subset_{lat_subset_id:04d}_of_{max_lat_subset_id:04d}.nc"
+
+#geopotential download
+geopotential_file_name = "europe_geopotential.netcdf"
 
 read_n_lats_per_subset = 1
+read_n_lats_at_once = 1
+

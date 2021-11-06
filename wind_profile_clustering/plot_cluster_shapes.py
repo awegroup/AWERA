@@ -2,8 +2,8 @@ import pandas as pd
 
 import numpy as np
 
-from config import n_clusters, file_name_profiles, data_info
-from wind_profile_clustering import plot_wind_profile_shapes
+from .config import n_clusters, file_name_profiles, data_info
+from .wind_profile_clustering import plot_wind_profile_shapes
 
 
 df = pd.read_csv(file_name_profiles, sep=";")

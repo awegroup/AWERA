@@ -4,8 +4,8 @@ from netCDF4 import Dataset
 from timeit import default_timer as timer
 from os.path import join as path_join
 
-from config import start_year, final_year, era5_data_dir, output_file_name, read_n_lats_per_subset
-from process_data import read_raw_data, check_for_missing_data, initialize_result_dict,\
+from .config import start_year, final_year, era5_data_dir, output_file_name, read_n_lats_per_subset
+from .process_data import read_raw_data, check_for_missing_data, initialize_result_dict,\
     calc_power, get_statistics, get_percentile_ranks, create_empty_dict
 
 # Set the relevant heights for the different analysis types.

@@ -6,14 +6,14 @@ from copy import deepcopy
 
 import sys
 import getopt
-from qsm import LogProfile, NormalisedWindTable1D, KiteKinematics,\
+from .qsm import LogProfile, NormalisedWindTable1D, KiteKinematics,\
     SteadyState, TractionPhaseHybrid, TractionConstantElevation, \
     SteadyStateError, OperationalLimitViolation, TractionPhase
-from kitepower_kites import sys_props_v3
-from cycle_optimizer import OptimizerCycle
-from power_curve_constructor import PowerCurveConstructor
-from utils import write_timing_info
-from config_production import file_name_cluster_profiles, \
+from .kitepower_kites import sys_props_v3
+from .cycle_optimizer import OptimizerCycle
+from .power_curve_constructor import PowerCurveConstructor
+from .utils import write_timing_info
+from .config import file_name_cluster_profiles, \
     cut_wind_speeds_file, \
     refined_cut_wind_speeds_file, power_curve_output_file_name, \
     plots_interactive, plot_output_file, n_clusters

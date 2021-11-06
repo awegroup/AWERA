@@ -29,7 +29,7 @@ import os
 import datetime as dt
 from multiprocessing import Process
 
-from config import area, era5_data_dir, model_level_file_name_format, surface_file_name_format, \
+from .config import area, era5_data_dir, model_level_file_name_format, surface_file_name_format, \
     start_year, final_year, upper_level
 
 client = cdsapi.Client()  # Connect to server.
