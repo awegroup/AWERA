@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 
 from .cycle_optimizer import OptimizerCycle
 
-from .config import optimizer_history_file_name
+# TODO include? from .config import optimizer_history_file_name
 
-
+# TODO update, use this y/n?
 
 def test():
     from .qsm import LogProfile, TractionPhaseHybrid

@@ -5,13 +5,7 @@ import pickle
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.cbook import MatplotlibDeprecationWarning
-from mpl_toolkits.basemap import Basemap
-
-from .config import file_name_freq_distr, \
-    power_curve_output_file_name, training_power_curve_output_file_name, \
-    plots_interactive, result_dir, \
-    n_clusters, data_info, locations
-
+#from mpl_toolkits.basemap import Basemap
 
 import warnings
 warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
@@ -30,7 +24,7 @@ def get_mask_discontinuities(df):
 
 
 
-def plot_aep_matrix(freq, power, aep, plot_info=''):
+def plot_aep_matrix(config, freq, power, aep, plot_info=''):
     """Visualize the annual energy production contributions of each wind
     speed bin."""
     n_clusters = freq.shape[0]
@@ -58,27 +52,27 @@ def plot_aep_matrix(freq, power, aep, plot_info=''):
     cbar2 = plt.colorbar(im2, orientation="horizontal", ax=ax[2], aspect=12,
                          pad=.17)
     cbar2.set_label("AEP contribution [MWh]")
-    if not plots_interactive:
-        plt.savefig(result_dir + 'aep_production_conribution'
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.result_dir + 'aep_production_conribution'
                     + plot_info + '.pdf')
 
-def evaluate_aep(n_clusters=8):
+def evaluate_aep(config):
     """Calculate the annual energy production for the requested cluster wind
     resource representation. Reads the wind speed distribution file, then
     the csv file of each power curve, post-processes the curve, and
     numerically integrates the product of the power and probability curves
     to determine the AEP."""
-
-    with open(file_name_freq_distr, 'rb') as f:
+    n_clusters = config.Clustering.n_clusters
+    with open(config.IO.freq_distr, 'rb') as f:
         freq_distr = pickle.load(f)
     freq_full = freq_distr['frequency']
     wind_speed_bin_limits_full = freq_distr['wind_speed_bin_limits']
 
     loc_aep = []
     p_n = []
-    for i_loc, loc in enumerate(locations):
+    for i_loc, loc in enumerate(config.Data.locations):
         # Select location data
-        if len(locations) == 1:
+        if config.Data.n_locs == 1:
             freq = freq_full
             wind_speed_bin_limits = wind_speed_bin_limits_full
         else:
@@ -90,11 +84,11 @@ def evaluate_aep(n_clusters=8):
             i_profile = i + 1
             # Read power curve file
             # TODO make optional trianing / normal
-            df = pd.read_csv(training_power_curve_output_file_name
+            df = pd.read_csv(config.IO.power_curve
                              .format(suffix='csv',
                                      i_profile=i_profile),
                              sep=";")
-            #mask_faulty_point = get_mask_discontinuities(df)
+            # TODO drop? mask_faulty_point = get_mask_discontinuities(df)
             v = df['v_100m [m/s]'].values #.values[~mask_faulty_point]
             p = df['P [W]'].values #.values[~mask_faulty_point]
             if i_loc == 0:
@@ -128,15 +122,15 @@ def evaluate_aep(n_clusters=8):
         loc_aep.append(aep_sum)
         if i_loc % 100 == 0:
             print("AEP: {:.2f} MWh".format(aep_sum))
-            # plot_aep_matrix(freq, p_bins, aep_bins,
-            #                 plot_info=(data_info+str(i_loc)))
+            # plot_aep_matrix(config, freq, p_bins, aep_bins,
+            #                 plot_info=(config.Data.data_info+str(i_loc)))
             # print(('AEP matrix plotted for location number'
             #       ' {} of {} - at lat {}, lon {}').format(i_loc,
-            #                                               len(locations),
+            #                                               config.Data.n_locs,
             #                                               loc[0], loc[1]))
     # Estimate perfectly running & perfect conditions: nominal power
     # get relative cluster frequency:
-    rel_cluster_freq = np.sum(freq_full, axis=(0, 2))/len(locations)
+    rel_cluster_freq = np.sum(freq_full, axis=(0, 2))/config.Data.n_locs
     print('Cluster frequency:', rel_cluster_freq)
     print('Cluster frequency sum:', np.sum(rel_cluster_freq))
     # Scale up to 1: run full time with same relative impact of clusters
@@ -144,6 +138,7 @@ def evaluate_aep(n_clusters=8):
     aep_n_cluster = np.sum(np.array(p_n)*rel_cluster_freq)*24*365*1e-6
     aep_n_max = np.max(p_n)*24*365*1e-6
     print('Nominal aep [MWh]:', aep_n_cluster, aep_n_max)
+    # TODO write aep to file
     return loc_aep, aep_n_max
     # TODO nominal AEP -> average power and nominal power
 
@@ -192,112 +187,76 @@ def plot_aep_map(p_loc, aep_loc, c_f_loc):
     plot_panel_1x3_seperate_colorbar(plot_items, column_titles)
 
 
-if __name__ == "__main__":
-    # TODO include this into aep from own plotting
-    # plot_power_and_wind_speed_probability_curves()
-
-    aep, aep_n = evaluate_aep(n_clusters)
-    print('Location (52.25, 2.25, id:685) aep: ', aep[685])
-    # Match locations with values - rest NaN
-    p_loc = np.ma.array(np.zeros((141, 161)), mask=True)
-    aep_loc = np.ma.array(np.zeros((141, 161)), mask=True)
-    c_f_loc = np.ma.array(np.zeros((141, 161)), mask=True)
-    # TODO right way around?
-    from config_clustering import i_locations
-    for i, i_loc in enumerate(i_locations):
-        p_loc[i_loc[0], i_loc[1]] = aep[i]/365/24*1000  # p [kW]
-        aep_loc[i_loc[0], i_loc[1]] = aep[i]  # aep [MWh]
-        c_f_loc[i_loc[0], i_loc[1]] = aep[i]/aep_n  # c_f [-]
-    # plot location map aep
-    print('Location wise AEP determined. Plot map:')
-    plot_aep_map(p_loc, aep_loc, c_f_loc)
-    import sys
-    plt.show()
-    sys.exit()
-    # General plot settings.
-    # Options for resolution are c (crude), l (low), i (intermediate),
-    # h (high), f (full) or None
-    map_resolution = 'i'
-
-    # Europe map
-    map_lons = [-20, 20]
-    map_lats = [65, 30]
-
-    # Compute relevant map projection coordinates
-    lats = [lat for lat, _ in locations]
-    lons = [lon for _, lon in locations]
+def plot_discrete_map(config, values, title='', label=''):
+    # Map range
+    map_lons = config.Data.lon_range
+    map_lats = config.Data.lat_range
 
     cm = 1/2.54
-    # Plot AEP
+    # Plot Value
     fig = plt.figure(figsize=(13*cm, 14.5*cm))
     ax = fig.add_subplot(111)
 
-    plt.title("AEP for {} clusters".format(n_clusters))
+    plt.title(title)
 
     map_plot = Basemap(projection='merc', llcrnrlon=np.min(map_lons),
                        llcrnrlat=np.min(map_lats), urcrnrlon=np.max(map_lons),
-                       urcrnrlat=np.max(map_lats), resolution=map_resolution,
+                       urcrnrlat=np.max(map_lats),
+                       resolution=config.Plotting.map.map_resolution,
                        ax=ax)
-    # Compute map projection coordinates.
-    grid_x, grid_y = map_plot(lons, lats)
-
-    # Prepare the general map plot.
-    lons_grid, lats_grid = np.meshgrid(lons, lats)
-    # Compute map projection coordinates.
-    x_grid, y_grid = map_plot(lons_grid, lats_grid)
 
     color_map = plt.get_cmap('YlOrRd')
-    # color_map = plt.get_cmap('YlGnBu')  # Continuous
 
-    # if log_scale:
-    #    norm = colors.LogNorm(vmin=cf_lvls[0], vmax=cf_lvls[-1])
-    # else:
-    #    norm = None
-    normalize = mpl.colors.Normalize(vmin=min(aep), vmax=max(aep))
+    normalize = mpl.colors.Normalize(vmin=min(values), vmax=max(values))
 
-    # contour_fills = map_plot.contourf(x_grid, y_grid, z, cf_lvls,
-    #                                   cmap=color_map, norm=norm)
-
-    # map_plot.scatter(grid_x, grid_y, c=color_map(normalize(aep)))
-    # x,y as corners
-    from config_clustering import all_lats, all_lons
-    lons_grid, lats_grid = np.meshgrid(all_lons, all_lats)
+    lons_grid, lats_grid = np.meshgrid(config.Data.all_lons,
+                                       config.Data.all_lats)
     # Compute map projection coordinates.
     x_grid, y_grid = map_plot(lons_grid, lats_grid)
-    ax.pcolormesh(x_grid, y_grid, aep_loc, cmap=color_map, norm=normalize)
+    ax.pcolormesh(x_grid, y_grid, values, cmap=color_map, norm=normalize)
     map_plot.drawcoastlines(linewidth=.4)
 
     cbar_ax, _ = mpl.colorbar.make_axes(ax)
     cbar = mpl.colorbar.ColorbarBase(cbar_ax, cmap=color_map, norm=normalize,
-                                     label='AEP [MWh]')
-    # cbar = fig.colorbar(contour_fills, cax=cbar_ax,
-    #                     ticks=row_item['colorbar_ticks'])
-    # cbar.ax.set_yticklabels([cb_tick_fmt.format(t)
-    #                          for t in row_item['colorbar_ticks']])
-    # cbar.set_label(row_item['colorbar_label'])
-    # Plot Capacity factor
-    fig = plt.figure(figsize=(13*cm, 14.5*cm))
-    ax = fig.add_subplot(111)
-    data = np.array(aep)/aep_n
-    plt.title("Capacity factor for {} clusters".format(n_clusters))
+                                     label=label)
 
-    map_plot = Basemap(projection='merc', llcrnrlon=np.min(map_lons),
-                       llcrnrlat=np.min(map_lats), urcrnrlon=np.max(map_lons),
-                       urcrnrlat=np.max(map_lats), resolution=map_resolution,
-                       ax=ax)
-    # Compute map projection coordinates.
-    grid_x, grid_y = map_plot(lons, lats)
 
-    # color_map = plt.get_cmap('YlGnBu')  # Continuous
+def aep_map(config):
+    # TODO cleanup - what is needed in the end?
+    aep, aep_n = evaluate_aep(config)
+    # TODO reinclude map plotting
+    return 0
+    # Match locations with values - rest NaN
+    n_lats = len(config.Data.all_lats)
+    n_lons = len(config.Data.all_lons)
+    p_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
+    aep_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
+    c_f_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
+    # TODO right way around?
+    for i, i_loc in enumerate(config.Data.i_locations):
+        p_loc[i_loc[0], i_loc[1]] = aep[i]/365/24*1000  # p [kW]
+        aep_loc[i_loc[0], i_loc[1]] = aep[i]  # aep [MWh]
+        c_f_loc[i_loc[0], i_loc[1]] = aep[i]/aep_n  # c_f [-]
+    if np.sum(p_loc.mask) == 0:
+        # Plot continuous aep map
+        print('Location wise AEP determined. Plot map:')
+        plot_aep_map(p_loc, aep_loc, c_f_loc)
+    else:
+        plot_discrete_map(config,
+                          aep_loc,
+                          title="AEP for {} clusters".format(
+                              config.Clustering.n_clusters),
+                          label='AEP [MWh]')
+        plot_discrete_map(config,
+                          c_f_loc,
+                          title="Capacity factor for {} clusters".format(
+                              config.Clustering.n_clusters),
+                          label=r'c$_f$ [-]')
 
-    normalize = mpl.colors.Normalize(vmin=min(data), vmax=max(data))
-
-    map_plot.scatter(grid_x, grid_y, c=color_map(normalize(data)))
-
-    map_plot.drawcoastlines(linewidth=.4)
-
-    cax, _ = mpl.colorbar.make_axes(ax)
-    cbar = mpl.colorbar.ColorbarBase(cax, cmap=color_map, norm=normalize,
-                                     label=r'c$_f$ [-]')
-
-    plt.show()
+if __name__ == "__main__":
+    from ..config import config
+    # TODO include this into aep from own plotting
+    # plot_power_and_wind_speed_probability_curves() #TODO where??
+    aep_map(config)
+    if config.Plotting.plots_interactive:
+        plt.show()

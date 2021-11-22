@@ -15,7 +15,6 @@ from ..wind_profile_clustering.preprocess_data import \
 
 from .qsm import NormalisedWindTable1D
 
-from .config import power_curve_output_file_name
 from ..wind_profile_clustering.config import locations, file_name_cluster_labels
 # from config_production import optimizer_history_file_name
 
@@ -33,7 +32,7 @@ chi_ro = 100 * np.pi / 180.
 
 since = time.time()
 
-def read_matching_clustering_results(i_loc, single_sample_id, backscaling):
+def read_matching_clustering_results(config, i_loc, single_sample_id, backscaling):
     with open(file_name_cluster_labels, 'rb') as f:
         labels_file = pickle.load(f)
     n_locs = len(locations)
@@ -41,7 +40,7 @@ def read_matching_clustering_results(i_loc, single_sample_id, backscaling):
     matching_profile = labels_file['labels [-]'][single_sample_id +
                                                  i_loc*n_time_samples]
     cluster_id = matching_profile+1
-    clustering_df = pd.read_csv(power_curve_output_file_name
+    clustering_df = pd.read_csv(config.IO.power_curve
                                 .format(i_profile=cluster_id,
                                         suffix='csv'),
                                 sep=";")
@@ -238,7 +237,7 @@ def mult_x_trial_run_optimization(x0,
         return [-1]*len(x0), -1, -1, -1, sim_successfuls
 
 
-def single_profile_power(processed_data, single_sample_id, i_loc):
+def single_profile_power(config, processed_data, single_sample_id, i_loc):
     from qsm import TractionPhase, TractionPhaseHybrid
     from kitepower_kites import sys_props_v3
 
@@ -290,7 +289,10 @@ def single_profile_power(processed_data, single_sample_id, i_loc):
 
     # Read matching clustering results (cluster)
     p_cluster, x_opt_cluster, cluster_id = \
-        read_matching_clustering_results(i_loc, single_sample_id, backscaling)
+        read_matching_clustering_results(config,
+                                         i_loc,
+                                         single_sample_id,
+                                         backscaling)
 
     # Test clustering output: evaluate point using cluster control (cc)
     oc.x0_real_scale = x_opt_cluster
@@ -346,7 +348,7 @@ def single_profile_power(processed_data, single_sample_id, i_loc):
     # TODO optional what opts to run?
 
 
-def run_location(loc, sel_sample_ids):
+def run_location(config, loc, sel_sample_ids):
     power = np.zeros([4, len(sel_sample_ids)])
     # x_opt_sample, x_opt_cluster, x_opt_cc_opt
     x_opt = np.zeros([3, len(sel_sample_ids), 5])
@@ -378,7 +380,7 @@ def run_location(loc, sel_sample_ids):
                                                  return_copy=True)
         power[:, i_sample], x_opt[:, i_sample, :], \
             cluster_info[:, i_sample] = \
-            single_profile_power(processed_data_sample,
+            single_profile_power(config, processed_data_sample,
                                  sample_id,
                                  i_location)
         write_timing_info('Sample time', time.time() - sample_time)
@@ -387,7 +389,7 @@ def run_location(loc, sel_sample_ids):
     return power, x_opt, cluster_info
 
 
-def run_single_location_sample(loc, sample_id):
+def run_single_location_sample(config, loc, sample_id):
     # Read selected sample for location
     start_time = time.time()
     data = get_wind_data(locs=[loc], sel_sample_ids=[sample_id])
@@ -401,7 +403,8 @@ def run_single_location_sample(loc, sample_id):
     i_location = locations.index(loc)
     # TODO timing ( + compare to locaton funct?)
     power, x_opt, cluster_info = \
-        single_profile_power(processed_data_sample,
+        single_profile_power(config,
+                             processed_data_sample,
                              sample_id,
                              i_location)
     # print('Processing of location (lat {}, lon {}), sample {} done.'
@@ -411,7 +414,7 @@ def run_single_location_sample(loc, sample_id):
     return power, x_opt, cluster_info
 
 
-def multiple_locations(locs, sel_sample_ids, file_name):
+def multiple_locations(config, locs, sel_sample_ids, file_name):
     # TODO replace hard numbers n_x_opt, x_opt, ...
     # p_sample, p_cluster, p_cc, p_cc_opt
     power = np.zeros([4, len(locs), len(sel_sample_ids)])
@@ -419,8 +422,7 @@ def multiple_locations(locs, sel_sample_ids, file_name):
     x_opt = np.zeros([3, len(locs), len(sel_sample_ids), 5])
     # cluster_id, backscaling
     cluster_info = np.zeros([2, len(locs), len(sel_sample_ids)])
-    run_sequentially = False  # TODO include in config
-    if run_sequentially:
+    if not config.Processing.parallel:
         for i_loc, loc in enumerate(locs):
             # TODO include optional multiprocessing for samples?
             power[:, i_loc, :], x_opt[:, i_loc, :, :],\
@@ -428,25 +430,19 @@ def multiple_locations(locs, sel_sample_ids, file_name):
     else:
         # Define mapping all locations and all samples, respectively
         # Same location input for all sample ids, one location after the other
-        # mapping_location_input = [loc for loc in locs
-        #                           for i in range(len(sel_sample_ids))]
-        # # Sample id input, used completely for each location
-        # maping_sample_input = sel_sample_ids*len(locs)
-        # mapping_out = map(
-        #     run_single_location_sample,
-        #     mapping_location_input,
-        #     maping_sample_input)
+        import functools
+        funct = functools.partial(run_single_location_sample,
+                                  config)
         mapping_iterables = [(loc, sample_id) for loc in locs
                              for sample_id in sel_sample_ids]
         # TODO tqdm include and same as other mutiprocessing
         # TODO include tqdm in production environment
-        # TODO more cores: 40?
         # TODO timing info: only for single sample production add up?
         # TODO run for the 5k locations? or 1k locations only?
         from multiprocessing import Pool
-        with Pool(40) as p:  # TODO n_cores in config
+        with Pool(config.Processing.n_cores) as p:
             mapping_out = p.starmap(
-                run_single_location_sample,
+                funct,
                 mapping_iterables)
         # Interpret mapping output
         # ??? or write array during maping at different index?
@@ -484,8 +480,11 @@ def multiple_locations(locs, sel_sample_ids, file_name):
 
 
 if __name__ == "__main__":
+    from ..config import config
     from .config import sample_ids, \
         brute_force_testing_file_name, locs
+    # TODO change to config.yaml
+
     # TODO: timeing
     # single sample test
     # p_sample, x_opt_sample, cluster_x_opt, \
@@ -496,6 +495,7 @@ if __name__ == "__main__":
     #    sample_ids = [0,1,2,3,4,5,6,7,8,9], loc = [(48.75,-12.25)])
     # Mult location, mult sample test
     los = locs[:2]
-    res = multiple_locations(locs,
+    res = multiple_locations(config,
+                             locs,
                              sample_ids,
                              brute_force_testing_file_name)

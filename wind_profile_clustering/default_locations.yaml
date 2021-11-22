@@ -1,0 +1,48 @@
+# --------------------------- LOCATION ----------------------------------
+n_locs = -1  # -1: all, -2: manual
+if n_locs == -1:
+    locations = []
+    location_type = 'all_locs'
+elif n_locs == 5000:
+    from .location_selection import locations_europe_5000 as locations
+    location_type = '5000_locs'
+elif n_locs == 1000:
+    from .location_selection import locations_europe_1000 as locations
+    location_type = '1000_locs'
+elif n_locs == 100:
+    from .location_selection import locations_europe_5000 as locations
+    locations = locations[4900:]
+    location_type = '100_locs_predict'
+elif n_locs == 22:
+    # TODO include import of single locations here?
+    locations = [(55.5, 3.25), (50, 13.5)]
+    location_type = 'test_2_locations_22'
+elif n_locs == 12:
+    # TODO include import of single locations here?
+    locations = [(55.5, 3.25)]
+    location_type = 'test_2_locations_12'
+elif n_locs == 21:
+    # TODO include import of single locations here?
+    locations = [(50, 13.5)]
+    location_type = 'test_2_locations_21'
+    # plus alpes -> south of bodensee
+    # cabauw netherlands and north denmark
+    # mmc
+# TODO automatize from region
+all_lats = list(np.arange(65, 29.75, -.25))  # 65 to 30
+all_lons = list(np.arange(-20, 20.25, .25))  # -20 to 20
+if len(locations) == 0:
+# Use all locations
+locations = [(lat, lon) for lat in all_lats for lon in all_lons]
+i_locations = [(all_lats.index(lat), all_lons.index(lon))
+           for lat, lon in locations]
+
+import numpy as np
+# TODO automatize from region
+all_lats = list(np.arange(65, 29.75, -.25))  # 65 to 30
+all_lons = list(np.arange(-20, 20.25, .25))  # -20 to 20
+if len(locations) == 0:
+    # Use all locations
+    locations = [(lat, lon) for lat in all_lats for lon in all_lons]
+i_locations = [(all_lats.index(lat), all_lons.index(lon))
+               for lat, lon in locations]

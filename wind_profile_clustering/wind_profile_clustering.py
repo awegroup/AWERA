@@ -1,5 +1,5 @@
 from sklearn.cluster import KMeans
-# TODO use incremental clustering
+# TODO use incremental clustering? or mmap
 # Alternative online implementation that does incremental updates of the
 # centers positions using mini-batches. For large scale learning
 #  (say n_samples > 10k) MiniBatchKMeans is probably much faster than the
@@ -8,20 +8,14 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 # TODO use incremental PCA
 # https://scikit-learn.org/stable/auto_examples/decomposition/plot_incremental_pca.html
+
 from sklearn.pipeline import make_pipeline
 import numpy as np
 
 import copy
 import matplotlib as mpl
 
-from .config import n_pcs, n_clusters, plots_interactive, \
-    result_dir, data_info
 from .read_requested_data import get_wind_data
-
-if not plots_interactive:
-    mpl.use('Pdf')
-import matplotlib.pyplot as plt
-
 
 xlim_pc12 = [-1.1, 1.1]
 ylim_pc12 = [-1.1, 1.1]
@@ -85,7 +79,8 @@ def cluster_normalized_wind_profiles_pca(training_data, n_clusters, n_pcs=5,
     return res
 
 
-def plot_wind_profile_shapes(altitudes, wind_prl, wind_prp, wind_mag=None,
+def plot_wind_profile_shapes(config,
+                             altitudes, wind_prl, wind_prp, wind_mag=None,
                              n_rows=2, plot_info=""):
     n_profiles = len(wind_prl)
     x_label0 = r"$\tilde{v}$ [-]"
@@ -147,9 +142,11 @@ def plot_wind_profile_shapes(altitudes, wind_prl, wind_prp, wind_mag=None,
     ax[0, 0].legend(bbox_to_anchor=(-1.5+n_cols*.5, 1.05, 3.+wspace*(n_cols-1),
                                     0.2), loc="lower left", mode="expand",
                     borderaxespad=0, ncol=4)
-    if not plots_interactive: plt.savefig(result_dir +
-                                          'cluster_wind_profile_shapes'
-                                          + plot_info + '.pdf')
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.result_dir
+                    + 'cluster_wind_profile_shapes'
+                    + plot_info
+                    + '.pdf')
 
 
 def plot_bars(array2d, bars_labels=None, ax=None, legend_title="",
@@ -184,8 +181,9 @@ def plot_bars(array2d, bars_labels=None, ax=None, legend_title="",
         ax.set_xticklabels(xticklabels)
 
 
-def visualise_patterns(n_clusters, wind_data, sample_labels,
+def visualise_patterns(config, wind_data, sample_labels,
                        frequency_clusters, plot_info=""):
+    n_clusters = config.Clustering.n_clusters
     wind_speed_100m = wind_data['reference_vector_speed']
     n_samples = len(wind_speed_100m)
 
@@ -296,12 +294,12 @@ def visualise_patterns(n_clusters, wind_data, sample_labels,
         labels_in_v_bin = sample_labels[mask_wind_speed_bin]
 
         for i_c in range(n_clusters):
-            freq2d_vbin[i_v_bin, i_c] = (np.sum(labels_in_v_bin == i_c)/
+            freq2d_vbin[i_v_bin, i_c] = (np.sum(labels_in_v_bin == i_c) /
                                          n_samples * 100.)
             # TODO n(cluster1, v_bin)/n_samples- within sample frequency this!!
             freq2d_vbin[i_v_bin, i_c] = (freq2d_vbin[i_v_bin, i_c] /
                                          frequency_clusters[i_c] * 100.)
-            #TODO n(cluster1, v_bin)/n(cluster1)?? - wihtin cluster frequency
+            # TODO n(cluster1, v_bin)/n(cluster1)?? - wihtin cluster frequency
     v_bin_labels[0] = "$v_{100m}$ <= " + "{:.1f}".format(v_bin_limits[1])
     v_bin_labels[-1] = "$v_{100m}$ > " + "{:.1f}".format(v_bin_limits[-2])
 
@@ -321,7 +319,7 @@ def visualise_patterns(n_clusters, wind_data, sample_labels,
     freq2d_wind_dir_bin = np.zeros((len(wind_dir_bin_lims), n_clusters))
     for i_b, (lbl, dir0, dir1) in enumerate(zip(wind_dir_bin_lbls,
                                                 wind_dir_bin_lims,
-                                                wind_dir_bin_lims[1:]+
+                                                wind_dir_bin_lims[1:] +
                                                 [wind_dir_bin_lims[0]])):
         if dir0 < dir1:
             mask_wind_dir_bin = (wind_dir > dir0) & (wind_dir <= dir1)
@@ -348,12 +346,17 @@ def visualise_patterns(n_clusters, wind_data, sample_labels,
               legend_title="Upwind direction 100 m bins")
     ax_bars[4].set_ylabel("Within-cluster\nfrequency [%]")
 
-    if not plots_interactive: plt.savefig(result_dir +
-                                          'cluster_visualised_patterns'
-                                          + plot_info + '.pdf')
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.result_dir
+                    + 'cluster_visualised_patterns'
+                    + plot_info
+                    + '.pdf')
 
 
-def projection_plot_of_clusters(training_data_reduced, labels, clusters_pc,
+def projection_plot_of_clusters(config,
+                                training_data_reduced,
+                                labels,
+                                clusters_pc,
                                 plot_info=""):
     plt.figure(figsize=(4.2, 2.5))
     plt.subplots_adjust(top=0.975, bottom=0.178, left=0.18, right=0.94)
@@ -384,9 +387,11 @@ def projection_plot_of_clusters(training_data_reduced, labels, clusters_pc,
 
     plt.xlabel('PC1')
     plt.ylabel('PC2')
-    if not plots_interactive: plt.savefig(result_dir +
-                                          'cluster_projection_plot_of_clusters'
-                                          + plot_info + '.pdf')
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.result_dir
+                    + 'cluster_projection_plot_of_clusters'
+                    + plot_info
+                    + '.pdf')
 
 
 def predict_cluster(training_data, n_clusters, predict_fun, cluster_mapping):
@@ -405,25 +410,36 @@ def predict_cluster(training_data, n_clusters, predict_fun, cluster_mapping):
 
 
 if __name__ == '__main__':
-    wind_data = get_wind_data()
+    from ..config import config
+    if not config.Plotting.plots_interactive:
+        mpl.use('Pdf')
+    import matplotlib.pyplot as plt
+
+    wind_data = get_wind_data(config)
     from .preprocess_data import preprocess_data
-    processed_data = preprocess_data(wind_data)
+    processed_data = preprocess_data(config, wind_data)
 
     res = cluster_normalized_wind_profiles_pca(processed_data['training_data'],
-                                               n_clusters, n_pcs)
+                                               config.Clustering.n_clusters,
+                                               config.Clustering.n_pcs)
     prl, prp = (res['clusters_feature']['parallel'],
                 res['clusters_feature']['perpendicular'])
-    plot_wind_profile_shapes(processed_data['altitude'], prl, prp,
-                             (prl ** 2 + prp ** 2) ** .5, plot_info=data_info)
-    # visualise_patterns(n_clusters, processed_data, res['sample_labels'],
-    #   res['frequency_clusters'], plot_info=data_info)
-    projection_plot_of_clusters(res['training_data_pc'], res['sample_labels'],
-                                res['clusters_pc'], plot_info=data_info)
+    plot_wind_profile_shapes(config, processed_data['altitude'], prl, prp,
+                             (prl ** 2 + prp ** 2) ** .5,
+                             plot_info=config.Data.data_info)
+    # TODO make visualise patterns optional for eval
+    # visualise_patterns(config,
+    #     processed_data, res['sample_labels'],
+    #     res['frequency_clusters'], plot_info=config.Data.data_info)
+    projection_plot_of_clusters(config, res['training_data_pc'],
+                                res['sample_labels'],
+                                res['clusters_pc'],
+                                plot_info=config.Data.data_info)
 
-    processed_data_full = preprocess_data(wind_data,
+    processed_data_full = preprocess_data(config, wind_data,
                                           remove_low_wind_samples=False)
     labels, frequency_clusters = predict_cluster(
-        processed_data_full['training_data'], n_clusters,
+        processed_data_full['training_data'], config.Clustering.n_clusters,
         res['data_processing_pipeline'].predict, res['cluster_mapping'])
 
     # plot cluster frequency for filtered and dull datasets
@@ -431,17 +447,19 @@ if __name__ == '__main__':
     plt.subplots_adjust(top=.9, hspace=.3)
     ax[0].set_title('Filtered dataset')
     plot_bars(res['frequency_clusters'].reshape((1, -1)), ax=ax[0],
-              xticklabels=range(1, n_clusters+1))
+              xticklabels=range(1, config.Clustering.n_clusters+1))
     ax[1].set_title('Full dataset')
     plot_bars(frequency_clusters.reshape((1, -1)), ax=ax[1],
-              xticklabels=range(1, n_clusters+1))
+              xticklabels=range(1, config.Clustering.n_clusters+1))
     for a in ax:
         a.set_ylabel('Cluster frequency [%]')
-    if not plots_interactive:
-        plt.savefig(result_dir +
-                    'cluster_compare_filtered_and_full_data'
-                    + data_info + '.pdf')
-    # visualise_patterns(n_clusters, processed_data_full,
-    #                   labels, plot_info=data_info)
-    if plots_interactive:
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.result_dir
+                    + 'cluster_compare_filtered_and_full_data'
+                    + config.Data.data_info
+                    + '.pdf')
+    # visualise_patterns(config,
+    #     processed_data_full,
+    #     labels, plot_info=config.Data.data_info)
+    if config.Plotting.plots_interactive:
         plt.show()

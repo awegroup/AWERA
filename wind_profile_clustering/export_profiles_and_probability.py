@@ -1,17 +1,11 @@
 import pandas as pd
 import pickle
+import copy
 import numpy as np
 
 import sys
 import getopt
 
-from .config import n_clusters, n_pcs, file_name_cluster_profiles, \
-    file_name_freq_distr, file_name_cluster_labels, \
-    file_name_cluster_pipeline, data_info, training_cluster_labels, \
-    training_cluster_pipeline, training_cluster_profiles,\
-    training_refined_cut_wind_speeds_file
-from ..power_production.config import \
-    refined_cut_wind_speeds_file as cut_wind_speeds_file
 from .read_requested_data import get_wind_data
 
 from .preprocess_data import preprocess_data
@@ -19,7 +13,11 @@ from .wind_profile_clustering import \
     cluster_normalized_wind_profiles_pca, predict_cluster
 
 from ..power_production.utils import write_timing_info
-n_wind_speed_bins = 100
+
+import time
+since = time.time()
+# --------------------------- Cluster Profiles
+# TODO cluster naming also with 1 to n_clusters not 0...
 
 
 def export_wind_profile_shapes(heights, prl, prp,
@@ -47,21 +45,196 @@ def export_wind_profile_shapes(heights, prl, prp,
 
         scale_factors.append(sf)
     df.to_csv(output_file, index=False, sep=";")
-    return scale_factors
 
 
-def export_frequency_distribution(cut_wind_speeds_file, output_file,
-                                  labels_full, normalisation_wind_speeds,
-                                  n_samples, normalisation_wind_speed_scaling,
-                                  n_wind_speed_bins=100, write_output=True):
-    # TODO make optional training or full.
-    cut_wind_speeds = pd.read_csv(training_refined_cut_wind_speeds_file)
-    freq_2d = np.zeros((n_clusters, n_wind_speed_bins))
-    v_bin_limits = np.zeros((n_clusters, n_wind_speed_bins+1))
-    for i_c in range(n_clusters):
+def get_cluster_profiles(config):
+    print('Perform full clustering algorithm')
+    # Set Data to read to training data
+    config_training_data = copy.deepcopy(config)
+    config_training_data.update({'Data': config.Clustering.training.__dict__})
+    data = get_wind_data(config_training_data)
+    del config_training_data
+
+    write_timing_info('Input read.', time.time() - since)
+
+    processed_data = preprocess_data(config, data)
+    write_timing_info('Training data preprocessed.', time.time() - since)
+
+    res = cluster_normalized_wind_profiles_pca(
+        processed_data['training_data'],
+        config.Clustering.n_clusters,
+        n_pcs=config.Clustering.n_pcs)
+    prl, prp = res['clusters_feature']['parallel'], \
+        res['clusters_feature']['perpendicular']
+    write_timing_info('Clustering trained.', time.time() - since)
+    # Free up some memory
+    del processed_data
+    # TODO keep this? or only if predict data? or change in config: only predict data if data and training are different?
+    processed_data_full = preprocess_data(config,
+                                          data,
+                                          remove_low_wind_samples=False)
+    write_timing_info('Preprocessed full data.', time.time() - since)
+
+    labels, frequency_clusters = predict_cluster(
+        processed_data_full['training_data'],
+        config.Clustering.n_clusters,
+        res['data_processing_pipeline'].predict,
+        res['cluster_mapping'])
+    write_timing_info('Predicted full data', time.time() - since)
+
+    # Write cluster labels to file
+    cluster_info_dict = {
+        'n clusters': config.Clustering.n_clusters,
+        'n samples': len(labels),
+        'n pcs': config.Clustering.n_pcs,
+        'labels [-]': labels,
+        'cluster_mapping': res['cluster_mapping'],
+        'normalisation value [-]':
+            processed_data_full['normalisation_value'],
+        'training_data_info': config.Clustering.training.data_info,
+        'locations': processed_data_full['locations'],
+        'n_samples_per_loc': processed_data_full['n_samples_per_loc']
+        }
+    pickle.dump(cluster_info_dict,
+                open(config.IO.training_cluster_labels, 'wb'))
+
+    # Write mapping pipeline to file
+    pipeline = res['data_processing_pipeline']
+    pickle.dump(pipeline, open(config.IO.cluster_pipeline, 'wb'))
+
+    export_wind_profile_shapes(
+        data['altitude'],
+        prl, prp,
+        config.IO.cluster_profiles)
+    write_timing_info('Output written. Finished.', time.time() - since)
+
+# --------------------------- Matching Cluster Prediction
+
+
+def single_location_prediction(config, pipeline, cluster_mapping, loc):
+    data = get_wind_data(config, locs=[loc])
+    # write_timing_info('Input read.', time.time() - since)
+
+    processed_data_full = preprocess_data(
+        config,
+        data,
+        remove_low_wind_samples=False)
+    # TODO no make copy here -> need less RAM
+    # write_timing_info('Preprocessed full data.', time.time() - since)
+    labels, frequency_clusters = predict_cluster(
+        processed_data_full['training_data'],
+        config.Clustering.n_clusters,
+        pipeline.predict,
+        cluster_mapping)
+    # labels_unsorted = predict_funct(
+    #    processed_data_full['training_data'])
+    # n_samples = len(labels_unsorted)
+    # labels = np.zeros(n_samples).astype(int)
+    # print('labels predefined')
+    # for i_new, i_old in enumerate(cluster_mapping):
+    #    labels[labels_unsorted == i_old] = i_new
+    # write_timing_info('Predicted full data', time.time() - since)
+    # TODO remove?
+    return labels, processed_data_full['normalisation_value']
+
+
+def predict_cluster_labels(config):
+    print('Predict cluster labels with existing clustering pipeline')
+    # TODO this can also be done step by step for the data
+    # or in parallel - fill labels incrementally
+    with open(config.IO.cluster_pipeline, 'rb') as f:
+        pipeline = pickle.load(f)
+    # Sort cluster labels same as mapping from training
+    # (largest to smallest cluster):
+    with open(config.IO.training_cluster_labels, 'rb') as f:
+        training_labels_file = pickle.load(f)
+    cluster_mapping = training_labels_file['cluster_mapping']
+    locations = config.Data.locations
+    do_parallel = config.Processing.parallel
+    # Unset parallel processing: reading input in single process
+    # cannot start new processes for reading input in parallel
+    setattr(config.Processing, 'parallel', False)
+    n_samples_per_loc = get_wind_data(
+        config,
+        locs=[locations[0]])['n_samples_per_loc']
+    res_labels = np.zeros(len(locations)*n_samples_per_loc)
+    res_norm = np.zeros(len(locations)*n_samples_per_loc)
+    write_timing_info('Setup completed. Start prediction...',
+                      time.time() - since)
+    if do_parallel:
+        # TODO no import here
+        # TODO check if parallel ->
+        from multiprocessing import get_context
+        from tqdm import tqdm
+        import functools
+        funct = functools.partial(single_location_prediction,
+                                  config,
+                                  pipeline,
+                                  cluster_mapping)
+        if config.Processing.progress_out == 'stdout':
+            file = sys.stdout
+        else:
+            file = sys.stderr
+        # Start multiprocessing Pool
+        # use spawn instead of fork: pipeline can be used by child processes
+        # otherwise same key/lock on pipeline object - leading to infinite loop
+        with get_context("spawn").Pool(config.Processing.n_cores) as p:
+            results = list(tqdm(p.imap(funct, locations),
+                                total=len(locations), file=file))
+            # TODO is this more RAM intensive?
+            for i, val in enumerate(results):
+                res_labels[i*n_samples_per_loc:(i+1)*n_samples_per_loc] = \
+                    val[0]
+                res_norm[i*n_samples_per_loc:(i+1)*n_samples_per_loc] = val[1]
+        setattr(config.Processing, 'parallel', True)
+    else:
+        import functools
+        funct = functools.partial(single_location_prediction,
+                                  config,
+                                  pipeline,
+                                  cluster_mapping)
+        # TODO add progress bar
+        for i, loc in enumerate(locations):
+            res_labels[i*n_samples_per_loc:(i+1)*n_samples_per_loc], \
+                res_norm[i*n_samples_per_loc:(i+1)*n_samples_per_loc] = \
+                funct(loc)
+    write_timing_info('Predicted full data.', time.time() - since)
+    # Write cluster labels to file
+    cluster_info_dict = {
+        'n clusters': config.Clustering.n_clusters,
+        'n samples': len(locations)*n_samples_per_loc,
+        'n pcs': config.Clustering.n_pcs,
+        'labels [-]': res_labels,
+        'cluster_mapping': cluster_mapping,
+        'normalisation value [-]': res_norm,
+        'training_data_info': training_labels_file['training_data_info'],
+        'locations': locations,
+        'n_samples_per_loc': n_samples_per_loc,
+        }
+    pickle.dump(cluster_info_dict, open(config.IO.cluster_labels, 'wb'))
+    write_timing_info('Predicted labels written. Done.',
+                      time.time() - since)
+
+# --------------------------- Cluster Frequency
+
+
+def export_single_loc_frequency_distribution(config,
+                                             labels_full,
+                                             normalisation_wind_speeds,
+                                             n_samples,
+                                             normalisation_wind_speed_scaling,
+                                             write_output=True):
+    cut_wind_speeds = pd.read_csv(
+        config.IO.refined_cut_wind_speeds)
+    freq_2d = np.zeros((config.Clustering.n_clusters,
+                        config.Clustering.n_wind_speed_bins))
+    v_bin_limits = np.zeros((config.Clustering.n_clusters,
+                             config.Clustering.n_wind_speed_bins+1))
+    for i_c in range(config.Clustering.n_clusters):
+        print(i_c, config.Clustering.n_clusters)
         v = np.linspace(cut_wind_speeds['vw_100m_cut_in'][i_c],
                         cut_wind_speeds['vw_100m_cut_out'][i_c],
-                        n_wind_speed_bins+1)
+                        config.Clustering.n_wind_speed_bins+1)
         v_bin_limits[i_c, :] = v
         # Re-scaling to make the normalisation winds used in the clustering
         sf = normalisation_wind_speed_scaling[i_c]
@@ -79,64 +252,95 @@ def export_frequency_distribution(cut_wind_speeds_file, output_file,
                          }
 
     if write_output:
-        with open(output_file, 'wb') as f:
+        with open(config.IO.freq_distr, 'wb') as f:
             pickle.dump(distribution_data, f, protocol=2)
 
     return freq_2d, v_bin_limits
 
 
-def location_wise_frequency_distribution(locations, n_wind_speed_bins,
+def location_wise_frequency_distribution(config,
+                                         locations,
                                          labels, n_samples, n_samples_per_loc,
                                          scale_factors, normalisation_values):
     if len(locations) > 1:
-        distribution_data = {'frequency': np.zeros((len(locations),
-                                                    n_clusters,
-                                                    n_wind_speed_bins)),
-                             'wind_speed_bin_limits': np.zeros(
-                                 (len(locations),
-                                  n_clusters,
-                                  n_wind_speed_bins+1)),
-                             'locations': locations
-                             }
+        distribution_data = {
+            'frequency': np.zeros((len(locations),
+                                   config.Clustering.n_clusters,
+                                   config.Clustering.n_wind_speed_bins)),
+            'wind_speed_bin_limits': np.zeros((
+                len(locations),
+                config.Clustering.n_clusters,
+                config.Clustering.n_wind_speed_bins+1)),
+            'locations': locations
+            }
         for i, loc in enumerate(locations):
             distribution_data['frequency'][i, :, :], \
                 distribution_data['wind_speed_bin_limits'][i, :, :] = \
-                export_frequency_distribution(
-                    cut_wind_speeds_file,
-                    file_name_freq_distr,
+                export_single_loc_frequency_distribution(
+                    config,
                     labels[n_samples_per_loc*i: n_samples_per_loc*(i+1)],
                     normalisation_values[n_samples_per_loc*i:
                                          n_samples_per_loc*(i+1)],
                     n_samples_per_loc,
                     scale_factors,
-                    n_wind_speed_bins=n_wind_speed_bins,
+                    n_wind_speed_bins=config.Clustering.n_wind_speed_bins,
                     write_output=False)
 
-        with open(file_name_freq_distr, 'wb') as f:
+        with open(config.IO.freq_distr, 'wb') as f:
             pickle.dump(distribution_data, f, protocol=2)
     else:
-        freq_2d, v_bin_limits = export_frequency_distribution(
-            cut_wind_speeds_file, file_name_freq_distr, labels,
-            normalisation_values, n_samples, scale_factors)
+        freq_2d, v_bin_limits = \
+            export_single_loc_frequency_distribution(config,
+                                                     labels,
+                                                     normalisation_values,
+                                                     n_samples,
+                                                     scale_factors)
 
 
-def single_location_prediction(pipeline, cluster_mapping, loc):
-    data = get_wind_data(locs=[loc], parallel=False)
-    # write_timing_info('Input read.', time.time() - since)
+def export_frequency_distr(config):
+    # TODO make this also parallel/serial, not all input at same time
+    print('Exporting frequency distribution only')
+    profiles_file = pd.read_csv(
+        config.IO.cluster_profiles, sep=";")
+    scale_factors = []
+    for i in range(config.Clustering.n_clusters):
+        scale_factors.append(profiles_file['scale factor{} [-]'
+                                           .format(i+1)][0])
+    with open(config.IO.cluster_labels, 'rb') as f:
+        labels_file = pickle.load(f)
+    labels = labels_file['labels [-]']
+    n_samples = len(labels)
+    normalisation_values = labels_file['normalisation value [-]']
+    locations = labels_file['locations']
+    n_samples_per_loc = labels_file['n_samples_per_loc']
+    write_timing_info('Input read.', time.time() - since)
 
-    processed_data_full = preprocess_data(
-        data, remove_low_wind_samples=False)
-    # TODO no make copy here -> need less RAM
-    # write_timing_info('Preprocessed full data.', time.time() - since)
+    location_wise_frequency_distribution(config,
+                                         locations,
+                                         labels,
+                                         n_samples,
+                                         n_samples_per_loc,
+                                         scale_factors,
+                                         normalisation_values)
+    write_timing_info('Output written. Finished.', time.time() - since)
 
-    labels_unsorted = pipeline.predict(
-        processed_data_full['training_data'])
-    n_samples = len(labels_unsorted)
-    labels = np.zeros(n_samples).astype(int)
-    for i_new, i_old in enumerate(cluster_mapping):
-        labels[labels_unsorted == i_old] = i_new
-    # write_timing_info('Predicted full data', time.time() - since)
-    return labels, processed_data_full['normalisation_value']
+# --------------------------- Full Clustering Procedure
+
+
+def export_profiles_and_probability(config):
+    if config.Clustering.make_profiles:
+        get_cluster_profiles(config)
+        print('Make profiles done.')
+
+    if config.Clustering.predict_labels:
+        predict_cluster_labels(config)
+        print('Predict labels done.')
+
+    if config.Clustering.make_freq_distr:
+        export_frequency_distr(config)
+        print('Frequency distribution done.')
+
+# --------------------------- Standalone Functionality
 
 
 def interpret_input_args():
@@ -176,139 +380,10 @@ def interpret_input_args():
 
 
 if __name__ == '__main__':
+    from ..config import config
     # Read program parameters
     make_profiles, make_freq_distr, predict_labels = interpret_input_args()
-
-    import time
-    since = time.time()
-    if predict_labels:
-        print('Predict cluster labels with existing clustering pipeline')
-        from config_clustering import locations
-        # TODO this can also be done step by step for the data
-        # or in parallel - fill labels incrementally
-        with open(training_cluster_pipeline, 'rb') as f:
-            pipeline = pickle.load(f)
-        # Sort cluster labels same as mapping from training
-        # (largest to smallest cluster):
-        with open(training_cluster_labels, 'rb') as f:
-            training_labels_file = pickle.load(f)
-        cluster_mapping = training_labels_file['cluster_mapping']
-        n_samples_per_loc = get_wind_data(locs=[locations[0]],
-                                          parallel=False)['n_samples_per_loc']
-        res_labels = np.zeros(len(locations)*n_samples_per_loc)
-        res_norm = np.zeros(len(locations)*n_samples_per_loc)
-        write_timing_info('Setup completed. Start prediction...',
-                          time.time() - since)
-        from multiprocessing import Pool
-        from tqdm import tqdm
-        n_cores = 40  # TODO in config
-        import functools
-        funct = functools.partial(single_location_prediction, pipeline,
-                                  cluster_mapping)
-        with Pool(n_cores) as p:
-            results = list(tqdm(p.imap(funct, locations),
-                                total=len(locations), file=sys.stdout))
-            # TODO make optional output to sys.stdout if run on Condor
-            # also in read-in
-            # TODO is this more RAM intensive?
-            for i, val in enumerate(results):
-                res_labels[i*n_samples_per_loc:(i+1)*n_samples_per_loc] = \
-                    val[0]
-                res_norm[i*n_samples_per_loc:(i+1)*n_samples_per_loc] = val[1]
-        write_timing_info('Predicted full data.', time.time() - since)
-        # Write cluster labels to file
-        cluster_info_dict = {
-            'n clusters': n_clusters,
-            'n samples': len(locations)*n_samples_per_loc,
-            'n pcs': n_pcs,
-            'labels [-]': res_labels,
-            'cluster_mapping': cluster_mapping,
-            'normalisation value [-]': res_norm,
-            'training_data_info': training_labels_file['training_data_info'],
-            'locations': locations,
-            'n_samples_per_loc': n_samples_per_loc,
-            }
-        pickle.dump(cluster_info_dict, open(file_name_cluster_labels, 'wb'))
-        write_timing_info('Predicted labels written. Done.',
-                          time.time() - since)
-
-    if not make_profiles and make_freq_distr:
-        # TODO make this also parallel/serial, not all input at same time
-        print('Exporting frequency distribution only')
-        profiles_file = pd.read_csv(training_cluster_profiles, sep=";")
-        scale_factors = []
-        for i in range(n_clusters):
-            scale_factors.append(profiles_file['scale factor{} [-]'
-                                               .format(i+1)][0])
-        with open(file_name_cluster_labels, 'rb') as f:
-            labels_file = pickle.load(f)
-        labels = labels_file['labels [-]']
-        n_samples = len(labels)
-        normalisation_values = labels_file['normalisation value [-]']
-        locations = labels_file['locations']
-        n_samples_per_loc = labels_file['n_samples_per_loc']
-        write_timing_info('Input read.', time.time() - since)
-
-        location_wise_frequency_distribution(locations, n_wind_speed_bins,
-                                             labels, n_samples,
-                                             n_samples_per_loc, scale_factors,
-                                             normalisation_values)
-        write_timing_info('Output written. Finished.', time.time() - since)
-
-    elif make_profiles:
-        print('Perform full clustering algorithm')
-
-        data = get_wind_data(parallel=True)
-        # TODO parallel from config in read data funct definition?
-        write_timing_info('Input read.', time.time() - since)
-
-        processed_data = preprocess_data(data)
-        write_timing_info('Training data preprocessed.', time.time() - since)
-
-        res = cluster_normalized_wind_profiles_pca(
-            processed_data['training_data'], n_clusters, n_pcs=n_pcs)
-        prl, prp = res['clusters_feature']['parallel'], \
-            res['clusters_feature']['perpendicular']
-        write_timing_info('Clustering trained.', time.time() - since)
-        print('preprocessing refs:', sys.getrefcount(processed_data))
-        # Free up some memory
-        del processed_data
-        # TODO can we remove stuff from memory here?
-        processed_data_full = preprocess_data(data,
-                                              remove_low_wind_samples=False)
-        write_timing_info('Preprocessed full data.', time.time() - since)
-
-        labels, frequency_clusters = predict_cluster(
-            processed_data_full['training_data'], n_clusters,
-            res['data_processing_pipeline'].predict, res['cluster_mapping'])
-        write_timing_info('Predicted full data', time.time() - since)
-
-        # Write cluster labels to file
-        cluster_info_dict = {
-            'n clusters': n_clusters,
-            'n samples': len(labels),
-            'n pcs': n_pcs,
-            'labels [-]': labels,
-            'cluster_mapping': res['cluster_mapping'],
-            'normalisation value [-]':
-                processed_data_full['normalisation_value'],
-            'training_data_info': data_info,
-            'locations': processed_data_full['locations'],
-            'n_samples_per_loc': processed_data_full['n_samples_per_loc']
-            }
-        pickle.dump(cluster_info_dict, open(file_name_cluster_labels, 'wb'))
-
-        # Write mapping pipeline to file
-        pipeline = res['data_processing_pipeline']
-        pickle.dump(pipeline, open(file_name_cluster_pipeline, 'wb'))
-
-        scale_factors = export_wind_profile_shapes(data['altitude'],
-                                                   prl, prp,
-                                                   file_name_cluster_profiles)
-        if make_freq_distr:
-            location_wise_frequency_distribution(
-                processed_data_full['locations'], n_wind_speed_bins, labels,
-                processed_data_full['n_samples'],
-                processed_data_full['n_samples_per_loc'], scale_factors,
-                processed_data_full['normalisation_value'])
-        write_timing_info('Output written. Finished.', time.time() - since)
+    setattr(config.Clustering, 'make_profiles', make_profiles)
+    setattr(config.Clustering, 'make_freq_distr', make_freq_distr)
+    setattr(config.Clustering, 'predict_labels', predict_labels)
+    export_profiles_and_probability(config)

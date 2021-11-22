@@ -3,23 +3,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import pickle
-from .config import power_curve_output_file_name, n_clusters
-from ..wind_profile_clustering.config import locations, file_name_freq_distr
 
 
-def plot_power_and_frequency(n_profiles=n_clusters):
+def plot_power_and_frequency(config):
+    n_profiles = config.Clustering.n_clusters
     fig, ax_pcs = plt.subplots(2, 1)
     for a in ax_pcs:
         a.grid()
 
-    with open(file_name_freq_distr, 'rb') as f:
+    with open(config.IO.freq_distr, 'rb') as f:
         freq_distr = pickle.load(f)
     frequency = freq_distr['frequency']
+    locations = config.Data.locations
     freq_sum = 0
     wind_speed_bin_limits = freq_distr['wind_speed_bin_limits']
 
     for i_profile in range(n_profiles):
-        df_profile = pd.read_csv(power_curve_output_file_name.format(
+        df_profile = pd.read_csv(config.IO.power_curve.format(
             i_profile=i_profile+1, suffix='csv'), sep=";")
         wind_speeds = df_profile['v_100m [m/s]']
         power = df_profile['P [W]']
@@ -75,8 +75,8 @@ def plot_power_and_frequency(n_profiles=n_clusters):
     # plt.show()
 
 
-def plot_optimization_parameter_scatter(param_ids=[1,2,3],
-                                        n_profiles=n_clusters):
+def plot_optimization_parameter_scatter(config, param_ids=[1, 2, 3]):
+    n_profiles = config.Clustering.n_clusters
     optimizer_var_names = [
         'F_out [N]', 'F_in [N]',
         'theta_out [rad]', 'dl_tether [m]', 'l0_tether [m]']
@@ -89,7 +89,7 @@ def plot_optimization_parameter_scatter(param_ids=[1,2,3],
     ax = fig.add_subplot(111, projection='3d')
     for i_profile in range(n_profiles):
         # Read optimization results
-        df_profile = pd.read_csv(power_curve_output_file_name.format(
+        df_profile = pd.read_csv(config.IO.power_curve.format(
             i_profile=i_profile+1, suffix='csv'), sep=";")
         x_profile = df_profile[optimizer_var_names[param_ids[0]]]
         y_profile = df_profile[optimizer_var_names[param_ids[1]]]
@@ -101,6 +101,9 @@ def plot_optimization_parameter_scatter(param_ids=[1,2,3],
 
 
 if __name__ == '__main__':
-    plot_power_and_frequency()
-    #plot_optimization_parameter_scatter()
-    plt.show()
+    from ..config import config
+    plot_power_and_frequency(config)
+    # plot_optimization_parameter_scatter(config)
+    # TODO include savefig
+    if config.Plotting.plots_interactive:
+        plt.show()

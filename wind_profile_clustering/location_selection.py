@@ -1,4 +1,9 @@
 import numpy as np
+import pickle
+import os.path
+
+# TODO Docstrings
+
 
 def grid_round(x, prec=2, base=0.25):     return (base * (np.array(x) / base).round()).round(prec)
 
@@ -31,14 +36,25 @@ def abs_of_neg_zero(a):
     return a
 
 
-def generate_training_locations(n=10,
-                                lat_range=[65.0, 29.9],
-                                lon_range=[-20, 20.1],
-                                base=0.25,
-                                initial_locs=[]):
+def random_locations(n=10,
+                     lat_range=[65.0, 29.9],
+                     lon_range=[-20, 20.1],
+                     base=0.25,
+                     initial_locs=[]):
+    # Randomly select n locations
     xy_min = [lat_range[0], lon_range[0]]
-    xy_max = [lat_range[1], lon_range[1]]
-    locations = np.random.uniform(low=xy_min, high=xy_max, size=(n,2))
+    # Uniform draws from [min, max) -> slightly extend max
+    epsilon = 0.0000001
+    if lat_range[0] > lat_range[1]:
+        lat_max = lat_range[1] - epsilon*base
+    else:
+        lat_max = lat_range[1] + epsilon*base
+    if lon_range[0] > lon_range[1]:
+        lon_max = lon_range[1] - epsilon*base
+    else:
+        lon_max = lon_range[1] + epsilon*base
+    xy_max = [lat_max, lon_max]
+    locations = np.random.default_rng().uniform(low=xy_min, high=xy_max, size=(n,2))
     locations = grid_round(locations, base=base)
     locations = [(lat,lon) for lat,lon in locations]
     locations = abs_of_neg_zero(locations)
@@ -47,13 +63,68 @@ def generate_training_locations(n=10,
     locations = remove_doubles(locations)
     n_diff = n - (len(locations) - len(initial_locs))
     if n_diff != 0:
-        locations = generate_training_locations(n=n_diff,
-                                                initial_locs=locations)
+        locations = random_locations(n=n_diff,
+                                     lat_range=lat_range,
+                                     lon_range=lon_range,
+                                     base=base,
+                                     initial_locs=locations)
     if len(initial_locs) == 0:
         #Print output to copy here in case new random locations are to be defined - maybe later write out as csv?
         print_location_list(locations)
         print('Test n:', n, len(locations), len(remove_doubles(locations)))
     return(locations)
+
+
+def get_locations(file_name, location_type, n_locs, lat_range, lon_range, grid_size):
+    locations_file = file_name.format(
+            location_type=location_type,
+            n_locs=n_locs)
+    if os.path.isfile(locations_file):
+        # Locations already generated
+        with open(locations_file, 'rb') as f:
+                res = pickle.load(f)
+        locations = res['locations']
+    else:
+        if n_locs != -1:
+            # Random uniform selection of n_locs locations
+            locations = random_locations(n=n_locs,
+                                         lat_range=lat_range,
+                                         lon_range=lon_range,
+                                         base=grid_size)
+        else:
+            # Select all locations
+            if lat_range[0] > lat_range[1]:
+                all_lats = list(np.arange(lat_range[0], lat_range[1]-grid_size, -grid_size))
+            else:
+                all_lats = list(np.arange(lat_range[0], lat_range[1]+grid_size, grid_size))
+            if lon_range[0] > lon_range[1]:
+                all_lons = list(np.arange(lon_range[0], lon_range[1]-grid_size, -grid_size))
+            else:
+                all_lons = list(np.arange(lon_range[0], lon_range[1]+grid_size, grid_size))
+            locations = [(lat, lon) for lat in all_lats for lon in all_lons]
+        res = {'n_locs': n_locs,
+              'location_type': location_type,
+              'lat_range': lat_range,
+              'lon_range': lon_range,
+              'grid_size': grid_size,
+              'locations': locations,
+              }
+        # Pickle results
+        with open(locations_file, 'wb') as f:
+            pickle.dump(res, f)
+    return locations
+
+
+
+
+
+
+
+
+
+
+
+
 
 #training_locations = generate_training_locations(n=1000)
 # n = 5000

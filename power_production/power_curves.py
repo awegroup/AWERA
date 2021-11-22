@@ -13,14 +13,7 @@ from .kitepower_kites import sys_props_v3
 from .cycle_optimizer import OptimizerCycle
 from .power_curve_constructor import PowerCurveConstructor
 from .utils import write_timing_info
-from .config import file_name_cluster_profiles, \
-    cut_wind_speeds_file, \
-    refined_cut_wind_speeds_file, power_curve_output_file_name, \
-    plots_interactive, plot_output_file, n_clusters
 
-if not plots_interactive:
-    import matplotlib as mpl
-    mpl.use('Pdf')
 import matplotlib.pyplot as plt
 
 # Assumptions representative reel-out state at cut-in wind speed.
@@ -131,12 +124,11 @@ def get_max_wind_speed_at_elevation(env=LogProfile(),
     fail_counter = 0
     while True:
         env.set_reference_wind_speed(v)
-        print('velocity: ', v, 'rescan: ', rescan_finer_steps,
-              'fail_couter: ', fail_counter)
+        # TODO output? print('velocity: ', v, 'rescan: ', rescan_finer_steps,
+        #       'fail_couter: ', fail_counter)
         try:
             n_cw_patterns = calc_n_cw_patterns(env, theta)
             fail_counter = 0  # Simulation worked -> reset fail counter
-            print('n-cw-patterns', n_cw_patterns)
             if n_cw_patterns < 1.:  # No full crosswind pattern flown - cut out
                 if rescan_finer_steps:
                     return v
@@ -185,7 +177,7 @@ def get_cut_out_wind_speed(env=LogProfile()):
         beta -= dbeta
 
 
-def export_to_csv(v, v_cut_out, p, x_opts, n_cwp, i_profile):
+def export_to_csv(config, v, v_cut_out, p, x_opts, n_cwp, i_profile):
     df = {
         'v_100m [m/s]': v,
         'v/v_cut-out [-]': v/v_cut_out,
@@ -198,8 +190,8 @@ def export_to_csv(v, v_cut_out, p, x_opts, n_cwp, i_profile):
         'n_crosswind_patterns [-]': n_cwp,
     }
     df = pd.DataFrame(df)
-    df.to_csv(power_curve_output_file_name.format(i_profile=i_profile,
-                                                  suffix='csv'),
+    df.to_csv(config.IO.power_curve.format(i_profile=i_profile,
+                                           suffix='csv'),
               index=False, sep=";")
 
 
@@ -215,11 +207,11 @@ def create_environment(df, i_profile):
     return env
 
 
-def estimate_wind_speed_operational_limits(n_clusters=8,
+def estimate_wind_speed_operational_limits(config,
                                            export_operational_limits=True):
     """Estimate the cut-in and cut-out wind speeds for each wind profile shape.
     These wind speeds are refined when determining the power curves."""
-
+    n_clusters = config.Clustering.n_clusters
     fig, ax = plt.subplots(1, 2, figsize=(5.5, 3), sharey=True)
     plt.subplots_adjust(top=0.92, bottom=0.164, left=0.11,
                         right=0.788, wspace=0.13)
@@ -228,9 +220,9 @@ def estimate_wind_speed_operational_limits(n_clusters=8,
            'vw_100m_cut_out': [],
            'tether_force_cut_in': [],
            }
-    input_profiles = pd.read_csv(file_name_cluster_profiles, sep=";")
+    input_profiles = pd.read_csv(config.IO.cluster_profiles, sep=";")
     for i_profile in range(1, n_clusters+1):
-        print('Profile {}'.format(i_profile))
+        # TODO include in logging? / timing info print('Profile {}'.format(i_profile))
         env = create_environment(input_profiles, i_profile)
 
         # Get cut-in wind speed.
@@ -260,10 +252,10 @@ def estimate_wind_speed_operational_limits(n_clusters=8,
         plt.ylabel('')
 
     df = pd.DataFrame(res)
-    print(df)
+    # TODO log? print(df)
 
     if export_operational_limits:
-        df.to_csv(cut_wind_speeds_file)
+        df.to_csv(config.IO.cut_wind_speeds)
 
     ax[0].set_title("Cut-in")
     ax[0].set_xlim([0, None])
@@ -271,15 +263,16 @@ def estimate_wind_speed_operational_limits(n_clusters=8,
     ax[1].set_title("Cut-out")
     ax[1].set_xlim([0, None])
     ax[1].set_ylim([0, 400])
-    if not plots_interactive:
-        plt.savefig(plot_output_file.format(
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.training_plot_output.format(
             title='estimate_wind_speed_operational_limits'))
 
 
-def generate_power_curves(n_clusters=8, run_single_profile=-1):
+def generate_power_curves(config, run_profiles):
     """Determine power curves - requires estimates of the cut-in
         and cut-out wind speed to be available."""
-    limit_estimates = pd.read_csv(cut_wind_speeds_file)
+    n_clusters = config.Clustering.n_clusters
+    limit_estimates = pd.read_csv(config.IO.cut_wind_speeds)
 
     # Cycle simulation settings for different phases of the power curves.
     cycle_sim_settings_pc_phase1 = {
@@ -308,11 +301,9 @@ def generate_power_curves(n_clusters=8, run_single_profile=-1):
                       'vw_100m_cut_in': [],
                       'vw_100m_cut_out': []}
     res_pcs = []
-    input_profiles = pd.read_csv(file_name_cluster_profiles, sep=";")
-    for i_profile in range(1, n_clusters+1):
-        if run_single_profile != -1 and i_profile != run_single_profile:
-            continue
-        print("Power curve generation for profile number {}".format(i_profile))
+    input_profiles = pd.read_csv(config.IO.cluster_profiles, sep=";")
+    for i_profile in run_profiles:
+        # TODO log? print("Power curve generation for profile number {}".format(i_profile))
         # Pre-configure environment object for optimizations by setting
         # normalized wind profile.
         env = create_environment(input_profiles, i_profile)
@@ -383,10 +374,12 @@ def generate_power_curves(n_clusters=8, run_single_profile=-1):
 
         # Start optimizations.
         pc = PowerCurveConstructor(wind_speeds)
+        setattr(pc, 'plots_interactive', config.Plotting.plots_interactive)
+        setattr(pc, 'plot_output_file', config.IO.training_plot_output)
         pc.run_predefined_sequence(op_seq, x0)
         # export all results, including failed simulations, tagged in
         # kip and other performance flags
-        pc.export_results(power_curve_output_file_name.format(
+        pc.export_results(config.IO.power_curve.format(
             i_profile=i_profile, suffix='pickle'))
         res_pcs.append(pc)
 
@@ -397,7 +390,7 @@ def generate_power_curves(n_clusters=8, run_single_profile=-1):
         # Plot power curve together with that of the other wind profile shapes.
         p_cycle = np.array([kpis['average_power']['cycle']
                             for kpis in pc.performance_indicators])[sel_succ]
-        print('p_cycle: ', p_cycle)
+        # Log? print('p_cycle: ', p_cycle)
         # Mask negative jumps in power
         sel_succ_power = p_cycle > 0
         # TODO  - check reason for negative power/ strong jumps
@@ -406,7 +399,7 @@ def generate_power_curves(n_clusters=8, run_single_profile=-1):
                   'masked negative powers')
         p_cycle_masked = p_cycle[sel_succ_power]
 
-        # TODO resolve source of problems
+        # TODO resolve source of problems - done right? leave in as check
         while True:
             sel_succ_power_disc = [True] + list(np.diff(p_cycle_masked)
                                                 > -1000)
@@ -438,47 +431,51 @@ def generate_power_curves(n_clusters=8, run_single_profile=-1):
                          )[sel_succ][sel_succ_power]
         x_opts = np.array(pc.x_opts)[sel_succ][sel_succ_power]
 
-        export_to_csv(wind, vw_cut_out, p_cycle, x_opts, n_cwp, i_profile)
+        export_to_csv(config, wind, vw_cut_out, p_cycle,
+                      x_opts, n_cwp, i_profile)
         # Refine the wind speed operational limits to wind speeds for
         # which optimal solutions are found.
         limits_refined['i_profile'].append(i_profile)
         limits_refined['vw_100m_cut_in'].append(wind[0])
         limits_refined['vw_100m_cut_out'].append(wind[-1])
 
-        print("Cut-in and -out speeds changed from [{:.3f}, {:.3f}] to "
-              "[{:.3f}, {:.3f}].".format(vw_cut_in, vw_cut_out,
-                                         wind[0],
-                                         wind[-1]))
-    # into funtion: combine single power curve results starting here
+        # TODO in log print("Cut-in and -out speeds changed from [{:.3f}, {:.3f}] to "
+        #      "[{:.3f}, {:.3f}].".format(vw_cut_in, vw_cut_out,
+        #                                 wind[0],
+        #                                 wind[-1]))
+        if len(run_profiles) != config.Clustering.n_clusters:
+            df = pd.DataFrame(limits_refined)
+            # TODO log? print(df)
+            df.to_csv(config.IO.refined_cut_wind_speeds.replace(
+                '.csv', '_profile_{}.csv'.format(i_profile)))
+            # TODO include this change in config?
+            # TODO recombine file after all power curves are finished
+            # TODO log? print("Exporting single profile operational limits.")
     ax_pcs[1].legend()
     ax_pcs[0].set_xlabel('$v_{w,100m}$ [m/s]')
     ax_pcs[1].set_xlabel('$v_{w,100m}/v_{cut-out}$ [-]')
     ax_pcs[0].set_ylabel('Mean cycle Power P [kW]')
     ax_pcs[1].set_ylabel('Mean cycle Power P [kW]')
 
-    if not plots_interactive:
-        fig.savefig(plot_output_file.format(
+    if not config.Plotting.plots_interactive:
+        fig.savefig(config.IO.training_plot_output.format(
             title='generated_power_vs_wind_speeds'))
 
-    df = pd.DataFrame(limits_refined)
-    print(df)
-    if run_single_profile != -1:
-        df.to_csv(refined_cut_wind_speeds_file.replace(
-            '.csv', '_profile_{}.csv'.format(run_single_profile)))
-        # TODO include this change in config?
-        # TODO recombine file after all power curves are finished
-        print("Exporting single location operational limits.")
-    else:
-        df.to_csv(refined_cut_wind_speeds_file)
-        print("Exporting operational limits.")
+    if len(run_profiles) == config.Clustering.n_clusters:
+        df = pd.DataFrame(limits_refined)
+        # TODO log? print(df)
+        df.to_csv(config.IO.refined_cut_wind_speeds)
+        # TODO log? print("Exporting operational limits.")
 
     return res_pcs
 
 
-def load_power_curve_results_and_plot_trajectories(n_clusters=8, i_profile=1):
+def load_power_curve_results_and_plot_trajectories(config, i_profile=1):
     """Plot trajectories from previously generated power curve."""
     pc = PowerCurveConstructor(None)
-    pc.import_results(power_curve_output_file_name.format(i_profile, 'pickle'))
+    setattr(pc, 'plots_interactive', config.Plotting.plots_interactive)
+    setattr(pc, 'plot_output_file', config.IO.training_plot_output)
+    pc.import_results(config.power_curve.format(i_profile, 'pickle'))
     pc.plot_optimal_trajectories(wind_speed_ids=[0, 9, 18, 33, 48, 64],
                                  plot_info='_profile_{}'.format(i_profile))
     plt.gcf().set_size_inches(5.5, 3.5)
@@ -486,7 +483,7 @@ def load_power_curve_results_and_plot_trajectories(n_clusters=8, i_profile=1):
     pc.plot_optimization_results(plot_info='_profile_{}'.format(i_profile))
 
 
-def compare_kpis(power_curves):
+def compare_kpis(config, power_curves):
     """Plot how performance indicators change with wind speed for all
         generated power curves."""
     fig_nums = [plt.figure().number for _ in range(5)]
@@ -513,8 +510,8 @@ def compare_kpis(power_curves):
         plt.grid(True)
         plt.xlabel('$v_{w,100m}$ [m/s]')
         plt.ylabel('Reel-out force [N]')
-        if not plots_interactive:
-            plt.savefig(plot_output_file.format(
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_force_vs_wind_'
                        'speeds_profile_{}'.format(idx+1))))
 
@@ -533,8 +530,8 @@ def compare_kpis(power_curves):
         plt.grid(True)
         plt.xlabel('$v_{w,100m}$ [m/s]')
         plt.ylabel('Reel-in force [N]')
-        if not plots_interactive:
-            plt.savefig(plot_output_file.format(
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_in_force_vs_wind_'
                        'speeds_profile_{}'.format(idx+1))))
 
@@ -550,8 +547,8 @@ def compare_kpis(power_curves):
         plt.grid(True)
         plt.xlabel('$v_{w,100m}$ [m/s]')
         plt.ylabel('Reel-out speed [m/s]')
-        if not plots_interactive:
-            plt.savefig(plot_output_file.format(
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_speed_vs_'
                        'wind_speeds_profile_{}'.format(idx+1))))
 
@@ -562,8 +559,8 @@ def compare_kpis(power_curves):
         plt.grid(True)
         plt.xlabel('$v_{w,100m}$ [m/s]')
         plt.ylabel('Number of cross-wind patterns [-]')
-        if not plots_interactive:
-            plt.savefig(plot_output_file.format(
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_cw_patterns_vs_'
                        'wind_speeds_profile_{}'.format(idx+1))))
 
@@ -573,28 +570,73 @@ def compare_kpis(power_curves):
         plt.grid(True)
         plt.xlabel('$v_{w,100m}$ [m/s]')
         plt.ylabel('Reel-out elevation angle [deg]')
-        if not plots_interactive:
-            plt.savefig(plot_output_file.format(
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_elev_angle_vs_'
                        'wind_speeds_profile_{}'.format(idx+1))))
 
 
-def combine_separate_profile_files(n_profiles=n_clusters,
-                                   file_name=refined_cut_wind_speeds_file):
-    single_profile_file_name = file_name.replace(
-        '.csv', '_profile_{}.csv')
-    for i_profile in range(n_profiles):
+def combine_separate_profile_files(config, io_file='cut_wind_speeds'):
+    # TODO include as chain functionality
+    single_profile_file_name = getattr(config.IO, io_file.replace(
+        '.csv', '_profile_{}.csv'))
+    for i_profile in range(config.Clustering.n_clusters):
         if i_profile == 0:
-            df = pd.read_csv(single_profile_file_name.format(i_profile+1))
+            df = pd.read_csv(single_profile_file_name.format(i_profile))
         else:
-            df_n = pd.read_csv(single_profile_file_name.format(i_profile+1))
+            df_n = pd.read_csv(single_profile_file_name.format(i_profile))
             df = df.append(df_n, ignore_index=True)
-    df.to_csv(refined_cut_wind_speeds_file)
+    df.to_csv(getattr(config.IO, io_file))
 
+
+def get_power_curves(config):
+    # TODO include multiprocessing option here
+    import time
+    since = time.time()
+    if config.Power.estimate_cut_in_out:
+        # TODO this is estimated every time for all profiles, but
+        # also if only one profile is run at a time
+        estimate_wind_speed_operational_limits(config)
+        write_timing_info('Cut-in/out estimation finished.',
+                          time.time() - since)
+
+    if config.Power.make_power_curves:
+        if config.Processing.parallel:
+            # TODO import not here
+            from multiprocessing import Pool
+            from tqdm import tqdm
+            i_profile = [[i+1] for i in range(config.Clustering.n_clusters)]
+            import functools
+            funct = functools.partial(generate_power_curves,
+                                      config)
+            with Pool(config.Processing.n_cores) as p:
+                if config.Processing.progress_out == 'stdout':
+                    file = sys.stdout
+                else:
+                    file = sys.stderr
+                res = list(tqdm(p.imap(funct, i_profile),
+                                total=len(i_profile),
+                                file=file))
+            # Interpret res: funct returns a list of the result for each
+            # process
+            #pcs = [res_n[0] for res_n in res]
+            pcs = res
+            print(pcs)
+            combine_separate_profile_files(
+                config,
+                io_file='training_refined_cut_wind_speeds')
+            # TODO remove combined (old) fiiles
+        else:
+            run_profiles = list(range(config.Clustering.n_clusters))
+            pcs = generate_power_curves(
+                config,
+                run_profiles)
+        compare_kpis(config, pcs)
+        write_timing_info('Power curves finished.',
+                          time.time() - since)
 
 def interpret_input_args():
     estimate_cut_in_out, make_power_curves = (False, False)
-    run_single_profile = -1
     if len(sys.argv) > 1:  # User input was given
         help = """
         python power_curves.py                  : run qsm to estimate the
@@ -610,8 +652,8 @@ def interpret_input_args():
         python power_curves.py -h               : display this help
         """
         try:
-            opts, args = getopt.getopt(sys.argv[1:], "hpcs:",
-                                       ["help", "power", "cut", "single="])
+            opts, args = getopt.getopt(sys.argv[1:], "hpc",
+                                       ["help", "power", "cut"])
         except getopt.GetoptError:
             # User input not given correctly, display help and end
             print(help)
@@ -625,32 +667,25 @@ def interpret_input_args():
                 make_power_curves = True
             elif opt in ("-c", "--cut"):
                 estimate_cut_in_out = True
-            elif opt in ("-s", "--single"):
-                run_single_profile = int(arg)
     else:
         estimate_cut_in_out, make_power_curves = (True, True)
 
-    return estimate_cut_in_out, make_power_curves, run_single_profile
+    return estimate_cut_in_out, make_power_curves
 
 
 if __name__ == '__main__':
+    from ..config import config
+    # TODO is this necessary here?
+    if not config.Plotting.plots_interactive:
+        import matplotlib as mpl
+        mpl.use('Pdf')
+    import matplotlib.pyplot as plt
+
     # Read program parameters
     estimate_cut_in_out, make_power_curves, run_single_profile = \
         interpret_input_args()
-
-    import time
-    since = time.time()
-    if estimate_cut_in_out:
-        # TODO this is estimated every time for all profiles, but
-        # also if only one profile is run at a time
-        estimate_wind_speed_operational_limits(n_clusters=n_clusters)
-        write_timing_info('Cut-in/out estimation finished.',
-                          time.time() - since)
-    if make_power_curves:
-        pcs = generate_power_curves(n_clusters=n_clusters,
-                                    run_single_profile=run_single_profile)
-        compare_kpis(pcs)
-        write_timing_info('Power curves finished.',
-                          time.time() - since)
-    if plots_interactive:
+    setattr(config.Power, 'estimate_cut_in_out', estimate_cut_in_out)
+    setattr(config.Power, 'make_power_curves', make_power_curves)
+    get_power_curves(config)
+    if config.Plotting.plots_interactive:
         plt.show()

@@ -2,12 +2,9 @@ import numpy as np
 from copy import copy
 
 from .read_requested_data import get_wind_data
-from .config_clustering import locations
-
-ref_vector_height = 100.
 
 
-def express_profiles_wrt_ref_vector(data):
+def express_profiles_wrt_ref_vector(data, ref_vector_height):
     # CCW w.r.t. East
     data['wind_direction'] = np.arctan2(data['wind_speed_north'],
                                         data['wind_speed_east'])
@@ -55,12 +52,12 @@ def reduce_wind_data(data, mask_keep, return_copy=False):
         n_samples_after_filter))
     skip_filter = ['altitude', 'n_samples', 'n_locs',
                    'years', 'n_samples_per_loc', 'locations']
-    if len(locations) > 1:
+    if len(data['locations']) > 1:
         skip_filter += ['datetime']
         # TODO datetime for all locations the same
         # -> masking for all locations at the same time cannot
         # be applied this way - fix: save datetime*len(locations)
-        # the same datetime for all locations TODO?
+        # the same datetime for all locations?
     for k, val in data.items():
         if k in skip_filter:
             continue
@@ -92,7 +89,8 @@ def normalize_data(data):
     return data
 
 
-def preprocess_data(data,
+def preprocess_data(config,
+                    data,
                     remove_low_wind_samples=True,
                     return_copy=True,
                     normalize=True):
@@ -102,7 +100,9 @@ def preprocess_data(data,
                           + data['wind_speed_north']**2)**.5
     if remove_low_wind_samples:
         data = remove_lt_mean_wind_speed_value(data, 5.)
-    data = express_profiles_wrt_ref_vector(data)
+    data = express_profiles_wrt_ref_vector(
+        data,
+        config.Clustering.preprocessing.ref_vector_height)
     if normalize:
         data = normalize_data(data)
 
@@ -110,6 +110,7 @@ def preprocess_data(data,
 
 
 if __name__ == '__main__':
+    from ..config import config
     # Read data
-    wind_data = get_wind_data()
+    wind_data = get_wind_data(config)
     preprocess_data(wind_data)

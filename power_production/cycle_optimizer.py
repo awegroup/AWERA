@@ -9,11 +9,14 @@ import matplotlib.pyplot as plt
 from .qsm import Cycle
 from .utils import flatten_dict
 
-from .config import optimizer_history_file_name
+# TODO use optimizer history?
+# from .config import optimizer_history_file_name
+
 
 class OptimizerError(Exception):
     """Exception raised for optimizations not finishing successfully with 0."""
     pass
+
 
 def read_slsqp_output_file(print_details=True):
     """Read relevant information from pyOpt's output file for the SLSQP algorithm."""
@@ -229,7 +232,8 @@ class Optimizer:
             starting_point = self.x0[self.reduce_x]
             bounds = bounds[self.reduce_x]
 
-        print_details = True
+        print_details = False
+        # TODO add in options
         ftol, eps = 1e-6, 1e-6
         self.precision = ftol
         if self.use_library == 'scipy':
@@ -247,7 +251,7 @@ class Optimizer:
                 'maxiter': maxiter,
                 'ftol': ftol,
                 'eps': eps,
-                'iprint': iprint, # 1: show final summary
+                'iprint': iprint,  # 1: Show final summary
             }
             self.op_res = dict(op.minimize(self.obj_fun, starting_point, args=args, bounds=bounds, method='SLSQP',
                                            options=options, callback=self.callback_fun_scipy, constraints=cons))
@@ -266,7 +270,7 @@ class Optimizer:
                 op_problem.addCon('g{}'.format(i_c), lower=0)
                 # force_out_setpoint_min, force_in_setpoint_max, ineq_cons_traction_max_force, ineq_cons_cw_patterns
             if self.use_parallel_processing:
-                sens_mode = 'pgc' #TODO pyOptSparse implementation?
+                sens_mode = 'pgc'  # TODO pyOptSparse implementation?
             else:
                 sens_mode = ''
             # TODO update for pyoptsparse
@@ -285,8 +289,7 @@ class Optimizer:
             self.op_eval_func_calls = 0
             op_sol = optimizer(op_problem, sens='FD', sensMode=sens_mode, sensStep=eps, *args)  # TODO , storeHistory=optimizer_history_file_name)
             # print(op_sol)  # TODO make optional
-            nit, nfev, njev = op_sol.userObjCalls , self.op_eval_func_calls, op_sol.userSensCalls    #TODO old: read_slsqp_output_file(print_details) from iprint = 1
-
+            nit, nfev, njev = op_sol.userObjCalls, self.op_eval_func_calls, op_sol.userSensCalls    # TODO old: read_slsqp_output_file(print_details) from iprint = 1
 
             self.op_res = convert_optimization_result(op_sol, nit, nfev, njev, print_details, iprint)
         else:
