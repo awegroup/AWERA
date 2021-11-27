@@ -82,9 +82,10 @@ class Config:
         else:
             month_tag = ''
 
-        data_info = '{}_clusters_{}{}_{}_{}_{}'.format(
+        data_info = '{}_clusters_{}_n_locs_{}{}_{}_{}_{}'.format(
             self.Clustering.n_clusters,
             self.Data.location_type,
+            self.Data.n_locs,
             month_tag, self.Data.use_data,
             self.Data.start_year,
             self.Data.final_year
@@ -92,9 +93,10 @@ class Config:
         setattr(self.Data, 'data_info', data_info)
 
         data_info_training = \
-            '{}_clusters_{}{}_{}_{}_{}'.format(
+            '{}_clusters_{}_n_locs_{}{}_{}_{}_{}'.format(
                 self.Clustering.n_clusters,
-                self.Clustering.training.location_type, month_tag,
+                self.Clustering.training.location_type,
+                self.Clustering.training.n_locs, month_tag,
                 self.Data.use_data,
                 self.Clustering.training.start_year,
                 self.Clustering.training.final_year
@@ -183,6 +185,7 @@ class Config:
                     self.Data.locations)
         else:
             if self.Clustering.training.n_locs == self.Data.n_locs:
+                # TODO only log? predefined, no problem?
                 print('WARNING: Same location type but different n given for '
                       'training - training locations are also uniformly '
                       'selected, overlapping possible')

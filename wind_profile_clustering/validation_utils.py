@@ -579,11 +579,11 @@ def evaluate_pc_analysis(wind_data_training, wind_data, data_info, eval_pcs=[5, 
                 plt.xlabel('# pcs')
                 if diff_type == 'absolute':
                     plt.ylabel('{} diff for v {} in m/s'.format(diff_type, wind_orientation))
-                    plt.ylim((-1.5,1.5))
+                    plt.ylim((-1.5, 1.5))
                 else:
                     plt.ylabel('{} diff for v {}'.format(diff_type, wind_orientation))
                     # plt.ylim((-0.6,0.6))
-                    plt.ylim((-1.5,1.5))
+                    plt.ylim((-1.5, 1.5))
                 plt.title('{} diff of v {} at {} m'.format(diff_type, wind_orientation, height))
 
                 if len(eval_clusters) == 0:

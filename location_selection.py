@@ -3,13 +3,14 @@ import pickle
 import os.path
 
 # TODO Docstrings
-special_locs = [
+reference_locs = [
     (52.0, 5.0),  # Cabauw (Netherlands)
     (52.5, 3.25),  # Ijmuiden (North Sea Close to Netherlands)
     (47.5, 9.5),  # Bodensee (Southern Germany, North of Alpes)
     (57.5, 8.25),  # Northern Denmark Sea
     (60.0, -5.0)  # Faroe (Sea South of Island)
     ]
+# TODO automate inclusion in loc selection?
 
 # for i in range(5):
 #     get_locations(loc_file, 'n_loc_test_{}'.format(i), 1, [65, 30], [-20, 20], 0.25, init_locs=[special_locs[i]])
@@ -51,7 +52,7 @@ def random_locations(n=10,
                      base=0.25,
                      initial_locs=[]):
     # Randomly select n locations
-    xy_min = [lat_range[0], lon_range[0]]
+    xy_min = (lat_range[0], lon_range[0])
     # Uniform draws from [min, max) -> slightly extend max
     epsilon = 0.0000001
     if lat_range[0] > lat_range[1]:
@@ -62,10 +63,12 @@ def random_locations(n=10,
         lon_max = lon_range[1] - epsilon*base
     else:
         lon_max = lon_range[1] + epsilon*base
-    xy_max = [lat_max, lon_max]
-    locations = np.random.default_rng().uniform(low=xy_min, high=xy_max, size=(n,2))
+    xy_max = (lat_max, lon_max)
+    locations = np.random.default_rng().uniform(low=xy_min,
+                                                high=xy_max,
+                                                size=(n, 2))
     locations = grid_round(locations, base=base)
-    locations = [(lat,lon) for lat,lon in locations]
+    locations = [(lat, lon) for lat, lon in locations]
     locations = abs_of_neg_zero(locations)
     if len(initial_locs) > 0:
         locations += initial_locs
@@ -86,6 +89,7 @@ def random_locations(n=10,
 
 def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
                   grid_size, init_locs=[]):
+    # TODO fix BAF error random generation xmax < xmin?
     locations_file = file_name.format(
             location_type=location_type,
             n_locs=n_locs)

@@ -2,9 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # !!! from config_production import plots_interactive
-plots_interactive = True
-
-
 def get_velocity_bin_mask(wind_speed,
                           split_velocities=[0, 1.5, 3, 5, 10, 20, 0]):
     """Find masks for the samples matching each velocity bin.
@@ -50,6 +47,11 @@ def get_velocity_bin_mask(wind_speed,
                 vel, split_velocities[vel_idx+1])
     return masks, tags
 
+
+def get_abs_rel_diff(reference, test):
+    abs_diff = np.ma.array(test) - reference
+    rel_diff = abs_diff/reference
+    return abs_diff, rel_diff
 
 #############################################
 # ---------------- PLOTTING -----------------
@@ -242,15 +244,27 @@ def plot_abs_rel_step_wise(x_vals, abs_res, rel_res, **plot_config):
     if 'x_label' in plot_config.keys():
         ax1.set_xlabel(plot_config['x_label'])
     ax1.set_ylabel('abs diff [m/s]', color=color)
-    ax1.errorbar(x, abs_res[:, 0], yerr=abs_res[:, 1], fmt='+', color=color)
+    if len(abs_res.shape) == 2:
+        # Data and error given
+        ax1.errorbar(x, abs_res[:, 0],
+                     yerr=abs_res[:, 1], fmt='+', color=color)
+    else:
+        # Only data
+        ax1.plot(x, abs_res, '+', color=color)
     ax1.tick_params(axis='y', labelcolor=color)
 
     # Adding Twin Axes to plot relative difference in same plot
     ax2 = ax1.twinx()
-    x = x + 0.2
+    x = np.array(x) + 0.2
     color = 'tab:orange'
     ax2.set_ylabel('rel diff [-]', color=color)
-    ax2.errorbar(x, rel_res[:, 0], yerr=rel_res[:, 1], fmt='+', color=color)
+    if len(rel_res.shape) == 2:
+        # Data and error given
+        ax2.errorbar(x, rel_res[:, 0],
+                     yerr=rel_res[:, 1], fmt='+', color=color)
+    else:
+        # Only data
+        ax2.plot(x, rel_res, '+', color=color)
     ax2.tick_params(axis='y', labelcolor=color)
     if 'x_ticks' in plot_config.keys():
         ax1.set_xticks(x)
@@ -268,5 +282,5 @@ def plot_abs_rel_step_wise(x_vals, abs_res, rel_res, **plot_config):
         ax2.set_ylim((-y2[1], y2[1]))
     ax1.axhline(0, linewidth=0.5, color='grey')
 
-    if not plots_interactive:
+    if not plot_config['plots_interactive']:
         plt.savefig(plot_config['output_file_name'])

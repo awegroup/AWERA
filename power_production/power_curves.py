@@ -390,6 +390,7 @@ def generate_power_curves(config, run_profiles):
         # Plot power curve together with that of the other wind profile shapes.
         p_cycle = np.array([kpis['average_power']['cycle']
                             for kpis in pc.performance_indicators])[sel_succ]
+
         # Log? print('p_cycle: ', p_cycle)
         # Mask negative jumps in power
         sel_succ_power = p_cycle > 0
@@ -443,7 +444,7 @@ def generate_power_curves(config, run_profiles):
         #      "[{:.3f}, {:.3f}].".format(vw_cut_in, vw_cut_out,
         #                                 wind[0],
         #                                 wind[-1]))
-        if len(run_profiles) != config.Clustering.n_clusters:
+        if len(run_profiles) == 1:
             df = pd.DataFrame(limits_refined)
             # TODO log? print(df)
             df.to_csv(config.IO.refined_cut_wind_speeds.replace(
@@ -576,16 +577,21 @@ def compare_kpis(config, power_curves):
                        'wind_speeds_profile_{}'.format(idx+1))))
 
 
-def combine_separate_profile_files(config, io_file='cut_wind_speeds'):
+def combine_separate_profile_files(config,
+                                   io_file='refined_cut_wind_speeds',
+                                   delete_component_files=True):
     # TODO include as chain functionality
-    single_profile_file_name = getattr(config.IO, io_file.replace(
-        '.csv', '_profile_{}.csv'))
-    for i_profile in range(config.Clustering.n_clusters):
-        if i_profile == 0:
+    single_profile_file_name = getattr(config.IO, io_file).replace(
+        '.csv', '_profile_{}.csv')
+    for i_profile in range(1, config.Clustering.n_clusters+1):
+        if i_profile == 1:
             df = pd.read_csv(single_profile_file_name.format(i_profile))
         else:
             df_n = pd.read_csv(single_profile_file_name.format(i_profile))
             df = df.append(df_n, ignore_index=True)
+    if delete_component_files:
+        for i_profile in range(1, config.Clustering.n_clusters+1):
+            os.remove(single_profile_file_name.format(i_profile))
     df.to_csv(getattr(config.IO, io_file))
 
 
@@ -605,6 +611,8 @@ def get_power_curves(config):
             # TODO import not here
             from multiprocessing import Pool
             from tqdm import tqdm
+            # TODO tqdm is not useful here - all 8 profile run, no updates
+            # until opt is finished
             i_profile = [[i+1] for i in range(config.Clustering.n_clusters)]
             import functools
             funct = functools.partial(generate_power_curves,
@@ -619,12 +627,10 @@ def get_power_curves(config):
                                 file=file))
             # Interpret res: funct returns a list of the result for each
             # process
-            #pcs = [res_n[0] for res_n in res]
-            pcs = res
-            print(pcs)
+            pcs = [res_n[0] for res_n in res]
             combine_separate_profile_files(
                 config,
-                io_file='training_refined_cut_wind_speeds')
+                io_file='refined_cut_wind_speeds')
             # TODO remove combined (old) fiiles
         else:
             run_profiles = list(range(config.Clustering.n_clusters))

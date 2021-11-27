@@ -9,7 +9,7 @@ Data:
     read_model_level_up_to: 112
     n_locs: 5  # Randomly select this many locations | -1 for all locations
     # TODO if no n_locs given: set to len(locations) ?
-    location_type: 'special_locs'  # choose locations via location_selection
+    location_type: 'europe_ref'  # choose locations via location_selection
     lat_range: [65, 30]
     lon_range: [-20, 20]
     grid_size: 0.25

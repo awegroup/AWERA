@@ -217,7 +217,7 @@ class Optimizer:
             raise OptimizerError("Optimization vector contains nan's.")
         self.x_progress.append(x.copy())
 
-    def optimize(self, *args, maxiter=30, iprint=-1): # 0):
+    def optimize(self, *args, maxiter=30, iprint=-1):  # 0):
         """Perform optimization."""
         self.clear_result_attributes()
         # Construct scaled starting point and bounds
@@ -547,6 +547,8 @@ class OptimizerCycle(Optimizer):
             print("Overruled cycle setting: " + ", ".join(overruled_keys) + ".")
         self.cycle_settings = cycle_settings
 
+        self.set_max_traction_power = 20000.  # TODO make optional in config
+
     def eval_fun(self, x, scale_x=True, **kwargs):
         """Method calculating the objective and constraint functions from the eval_performance_indicators method output.
         """
@@ -586,8 +588,15 @@ class OptimizerCycle(Optimizer):
         else:
             ineq_cons_cw_patterns = 0.  # Constraint set to 0 does not affect the optimization.
 
+        # TODO add ineq constraint: less maximum power
+        # TODO default max reel out force * max reel out speed
+        # TODO set explicitly: check agains maximum traction power
+        #max_power_cons = res['average_power']['out'] - self.set_max_traction_power
+        #print('Average traction (out) power per cycle: ', max_power_cons)
         ineq_cons = np.array([force_out_setpoint_min, force_in_setpoint_max, ineq_cons_traction_max_force,
                               ineq_cons_cw_patterns])
+
+
         return obj, ineq_cons
 
     def eval_performance_indicators(self, x_real_scale, plot_result=False, relax_errors=True):
@@ -645,6 +654,7 @@ class OptimizerCycle(Optimizer):
                 'out': cycle.traction_phase.max_reeling_speed,
             },
             'n_crosswind_patterns': getattr(cycle.traction_phase, 'n_crosswind_patterns', None),
+            # TODO add max height / average heigt? optimal harvesting height
             'min_height': min([cycle.traction_phase.kinematics[0].z, cycle.traction_phase.kinematics[-1].z]),
             'max_elevation_angle': cycle.transition_phase.kinematics[0].elevation_angle,
             'duration': {

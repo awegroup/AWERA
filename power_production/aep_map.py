@@ -66,20 +66,16 @@ def evaluate_aep(config):
     with open(config.IO.freq_distr, 'rb') as f:
         freq_distr = pickle.load(f)
     freq_full = freq_distr['frequency']
-    wind_speed_bin_limits_full = freq_distr['wind_speed_bin_limits']
+    wind_speed_bin_limits = freq_distr['wind_speed_bin_limits']
 
     loc_aep = []
     p_n = []
     for i_loc, loc in enumerate(config.Data.locations):
         # Select location data
-        if config.Data.n_locs == 1:
-            freq = freq_full
-            wind_speed_bin_limits = wind_speed_bin_limits_full
-        else:
-            freq = freq_full[i_loc, :, :]
-            wind_speed_bin_limits = wind_speed_bin_limits_full[i_loc, :, :]
+        freq = freq_full[i_loc, :, :]
 
         p_bins = np.zeros(freq.shape)
+
         for i in range(n_clusters):
             i_profile = i + 1
             # Read power curve file

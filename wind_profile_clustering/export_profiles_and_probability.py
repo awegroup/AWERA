@@ -262,39 +262,36 @@ def location_wise_frequency_distribution(config,
                                          locations,
                                          labels, n_samples, n_samples_per_loc,
                                          scale_factors, normalisation_values):
-    if len(locations) > 1:
-        distribution_data = {
-            'frequency': np.zeros((len(locations),
-                                   config.Clustering.n_clusters,
-                                   config.Clustering.n_wind_speed_bins)),
-            'wind_speed_bin_limits': np.zeros((
-                len(locations),
-                config.Clustering.n_clusters,
-                config.Clustering.n_wind_speed_bins+1)),
-            'locations': locations
-            }
-        for i, loc in enumerate(locations):
-            distribution_data['frequency'][i, :, :], \
-                distribution_data['wind_speed_bin_limits'][i, :, :] = \
-                export_single_loc_frequency_distribution(
-                    config,
-                    labels[n_samples_per_loc*i: n_samples_per_loc*(i+1)],
-                    normalisation_values[n_samples_per_loc*i:
-                                         n_samples_per_loc*(i+1)],
-                    n_samples_per_loc,
-                    scale_factors,
-                    n_wind_speed_bins=config.Clustering.n_wind_speed_bins,
-                    write_output=False)
+    #if len(locations) > 1:
+    distribution_data = {
+        'frequency': np.zeros((len(locations),
+                               config.Clustering.n_clusters,
+                               config.Clustering.n_wind_speed_bins)),
+        'locations': locations
+        }
+    for i, loc in enumerate(locations):
+        distribution_data['frequency'][i, :, :], \
+            wind_speed_bin_limits = \
+            export_single_loc_frequency_distribution(
+                config,
+                labels[n_samples_per_loc*i: n_samples_per_loc*(i+1)],
+                normalisation_values[n_samples_per_loc*i:
+                                     n_samples_per_loc*(i+1)],
+                n_samples_per_loc,
+                scale_factors,
+                write_output=False)
+    distribution_data['wind_speed_bin_limits'] = wind_speed_bin_limits
 
-        with open(config.IO.freq_distr, 'wb') as f:
-            pickle.dump(distribution_data, f, protocol=2)
-    else:
-        freq_2d, v_bin_limits = \
-            export_single_loc_frequency_distribution(config,
-                                                     labels,
-                                                     normalisation_values,
-                                                     n_samples,
-                                                     scale_factors)
+    with open(config.IO.freq_distr, 'wb') as f:
+        pickle.dump(distribution_data, f, protocol=2)
+    # TODO ??? different np.zeros for single location? inconsistent
+    # else:
+    #     freq_2d, v_bin_limits = \
+    #         export_single_loc_frequency_distribution(config,
+    #                                                  labels,
+    #                                                  normalisation_values,
+    #                                                  n_samples,
+    #                                                  scale_factors)
 
 
 def export_frequency_distr(config):
