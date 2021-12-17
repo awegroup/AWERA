@@ -246,6 +246,7 @@ def single_profile_power(config, processed_data, single_sample_id, i_loc):
     heights = processed_data['altitude']
     wind_profile_norm_v = processed_data['training_data'][:, len(heights):][0]
     wind_profile_norm_u = processed_data['training_data'][:, :len(heights)][0]
+    # TODO why [0]???
     w = (wind_profile_norm_u**2 + wind_profile_norm_v**2)**.5
     # Interpolate normalised wind speed at reference height 100m
     w_ref = np.interp(100, heights, w)
@@ -254,6 +255,7 @@ def single_profile_power(config, processed_data, single_sample_id, i_loc):
     # wind_profile_norm_v = wind_profile_norm_v*sf
     # wind_profile_norm_u = wind_profile_norm_u*sf
     # Scale back to original profile
+    # TODO this is not working anymore, backscaling already saved from clustering
     backscaling = processed_data['normalisation_value'][0]/sf
     # Simulation/Optimization not using normalised wind profiles
     # backscaling used for cluster matching

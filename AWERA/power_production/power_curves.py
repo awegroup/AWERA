@@ -476,7 +476,8 @@ def load_power_curve_results_and_plot_trajectories(config, i_profile=1):
     pc = PowerCurveConstructor(None)
     setattr(pc, 'plots_interactive', config.Plotting.plots_interactive)
     setattr(pc, 'plot_output_file', config.IO.training_plot_output)
-    pc.import_results(config.power_curve.format(i_profile, 'pickle'))
+    pc.import_results(config.IO.power_curve.format(i_profile=i_profile,
+                                                   suffix='pickle'))
     pc.plot_optimal_trajectories(wind_speed_ids=[0, 9, 18, 33, 48, 64],
                                  plot_info='_profile_{}'.format(i_profile))
     plt.gcf().set_size_inches(5.5, 3.5)

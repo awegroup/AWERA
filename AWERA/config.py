@@ -75,28 +75,106 @@ class Config:
     # Handle file naming, location selection, .. depending on config
 
     def interpret(self):
+        # All locations and seletect number of locations
+        # Range of all locations
+        for key in ['lat', 'lon']:
+            if (getattr(self.Data, key + '_range')[0] >
+                    getattr(self.Data, key + '_range')[1]):
+                setattr(self.Data, 'all_{}s'.format(key), list(np.arange(
+                    getattr(self.Data, key + '_range')[0],
+                    getattr(self.Data, key + '_range')[1]-self.Data.grid_size,
+                    -self.Data.grid_size)))
+            else:
+                setattr(self.Data, 'all_{}s'.format(key), list(np.arange(
+                    getattr(self.Data, key + '_range')[0],
+                    getattr(self.Data, key + '_range')[1]+self.Data.grid_size,
+                    self.Data.grid_size)))
+
+        # --------------------------- SELECT LOCATIONS
+        # Set locations file dir
+        setattr(self.IO, 'locations',
+                self.IO.result_dir + getattr(self.IO.format, 'locations'))
+
+        # Uniformly draw locations
+        setattr(self.Data, 'locations', get_locations(
+            self.IO.locations,
+            self.Data.location_type,
+            self.Data.n_locs,
+            self.Data.lat_range,
+            self.Data.lon_range,
+            self.Data.grid_size
+            ))
+        # Get loction indices w.r.t. to full dataset
+        setattr(self.Data, 'i_locations', [(self.Data.all_lats.index(lat),
+                                            self.Data.all_lons.index(lon))
+                                           for lat, lon in self.Data.locations]
+                )
+        # Check for individual training data selection, otherwise set to Data
+        for key in self.Clustering.training.__dict__:
+            if getattr(self.Clustering.training, key) is None:
+                # Fill None Values in training with Data values
+                setattr(self.Clustering.training, key, getattr(self.Data, key))
+        # Evaluate which locations to use for the clustering training
+        if self.Clustering.training.n_locs == self.Data.n_locs \
+                and self.Clustering.training.location_type == \
+                self.Data.location_type:
+            # Same locations as Data
+            setattr(self.Clustering.training, 'locations',
+                    self.Data.locations)
+        else:
+            if self.Clustering.training.n_locs != self.Data.n_locs \
+                    and self.Clustering.training.location_type == \
+                    self.Data.location_type:
+                # TODO only log? predefined, no problem?
+                print('WARNING: Same location type but different n given for '
+                      'training - training locations are also uniformly '
+                      'selected, overlapping possible')
+            setattr(self.Clustering.training, 'locations',
+                    get_locations(self.IO.locations,
+                                  self.Clustering.training.location_type,
+                                  self.Clustering.training.n_locs,
+                                  self.Data.lat_range,
+                                  self.Data.lon_range,
+                                  self.Data.grid_size
+                                  ))
+        # Set correct n_locs
+        setattr(self.Data, 'n_locs', len(self.Data.locations))
+        setattr(self.Clustering.training,
+                'n_locs',
+                len(self.Clustering.training.locations))
+
         # --------------------------- FILE SUFFIX
         if self.Data.year_final_month < 12:
             month_tag = '_up_to_month_{}'.format(
                 self.Data.year_final_month)
         else:
             month_tag = ''
-
+        n_max_locs = len(self.Data.all_lats)*len(self.Data.all_lons)
+        # TODO better then this?
+        if self.Data.n_locs in [-1, n_max_locs]:
+            n_locs_tag = 'all'
+        else:
+            n_locs_tag = self.Data.n_locs
         data_info = '{}_clusters_{}_n_locs_{}{}_{}_{}_{}'.format(
             self.Clustering.n_clusters,
             self.Data.location_type,
-            self.Data.n_locs,
+            n_locs_tag,
             month_tag, self.Data.use_data,
             self.Data.start_year,
             self.Data.final_year
             )
         setattr(self.Data, 'data_info', data_info)
-
+        # TODO remove!
+        n_max_locs = 525
+        if self.Clustering.training.n_locs in [-1, n_max_locs]:
+            n_locs_tag = 'all'
+        else:
+            n_locs_tag = self.Clustering.training.n_locs
         data_info_training = \
             '{}_clusters_{}_n_locs_{}{}_{}_{}_{}'.format(
                 self.Clustering.n_clusters,
                 self.Clustering.training.location_type,
-                self.Clustering.training.n_locs, month_tag,
+                n_locs_tag, month_tag,
                 self.Data.use_data,
                 self.Clustering.training.start_year,
                 self.Clustering.training.final_year
@@ -104,8 +182,9 @@ class Config:
         setattr(self.Clustering.training, 'data_info', data_info)
         # --------------------------- DIR + FILE and SUFFIX FORMATTING
         for key in self.IO.format.__dict__:
-            setattr(self.IO, key,
-                    self.IO.result_dir + getattr(self.IO.format, key))
+            if key not in ['locations']:
+                setattr(self.IO, key,
+                        self.IO.result_dir + getattr(self.IO.format, key))
             if key in ['freq_distr', 'cluster_labels']:
                 setattr(self.IO, key,
                         self.IO.result_dir +
@@ -141,62 +220,6 @@ class Config:
                     'surface_file_name_format']:
             setattr(self.Data, key,
                     self.Data.era5_data_dir + getattr(self.Data.format, key))
-
-        # --------------------------- SELECT LOCATIONS
-        # Range of all locations
-        for key in ['lat', 'lon']:
-            if (getattr(self.Data, key + '_range')[0] >
-                    getattr(self.Data, key + '_range')[1]):
-                setattr(self.Data, 'all_{}s'.format(key), list(np.arange(
-                    getattr(self.Data, key + '_range')[0],
-                    getattr(self.Data, key + '_range')[1]-self.Data.grid_size,
-                    -self.Data.grid_size)))
-            else:
-                setattr(self.Data, 'all_{}s'.format(key), list(np.arange(
-                    getattr(self.Data, key + '_range')[0],
-                    getattr(self.Data, key + '_range')[1]+self.Data.grid_size,
-                    self.Data.grid_size)))
-
-        # Uniformly draw locations
-        setattr(self.Data, 'locations', get_locations(
-            self.IO.locations,
-            self.Data.location_type,
-            self.Data.n_locs,
-            self.Data.lat_range,
-            self.Data.lon_range,
-            self.Data.grid_size
-            ))
-        # Get loction indices w.r.t. to full dataset
-        setattr(self.Data, 'i_locations', [(self.Data.all_lats.index(lat),
-                                            self.Data.all_lons.index(lon))
-                                           for lat, lon in self.Data.locations]
-                )
-        # Check for individual training data selection, otherwise set to Data
-        for key in self.Clustering.training.__dict__:
-            if getattr(self.Clustering.training, key) is None:
-                # Fill None Values in training with Data values
-                setattr(self.Clustering.training, key, getattr(self.Data, key))
-        # Evaluate which locations to use for the clustering training
-        if self.Clustering.training.n_locs == self.Data.n_locs \
-                and self.Clustering.training.location_type == \
-                self.Data.location_type:
-            # Same locations as Data
-            setattr(self.Clustering.training, 'locations',
-                    self.Data.locations)
-        else:
-            if self.Clustering.training.n_locs == self.Data.n_locs:
-                # TODO only log? predefined, no problem?
-                print('WARNING: Same location type but different n given for '
-                      'training - training locations are also uniformly '
-                      'selected, overlapping possible')
-            setattr(self.Clustering.training, 'locations',
-                    get_locations(self.IO.locations,
-                                  self.Clustering.training.location_type,
-                                  self.Clustering.training.n_locs,
-                                  self.Data.lat_range,
-                                  self.Data.lon_range,
-                                  self.Data.grid_size
-                                  ))
 
     # Output Configuration
 

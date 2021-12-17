@@ -35,7 +35,12 @@ color_cycle_default = plt.rcParams['axes.prop_cycle'].by_key()['color']
 marker_cycle = ('s', 'x', 'o', '+', 'v', '^', '<', '>', 'D')
 
 
-def plot_figure_5a(hours, v_ceiling, optimal_heights, heights_of_interest, ceiling_id, floor_id):
+def plot_timeline(hours, data,
+                  ylabel='Power [W]',
+                  #heights_of_interest, ceiling_id, floor_id,
+                  #data_bounds=[50, 500],
+                  show_n_hours=24*7):
+    # TODO rename
     """Plot optimal height and wind speed time series for the first week of data.
 
     Args:
@@ -47,47 +52,135 @@ def plot_figure_5a(hours, v_ceiling, optimal_heights, heights_of_interest, ceili
         floor_id (int): Id of the floor height in `heights_of_interest`, as used in the variable-height analysis.
 
     """
-    # Only keep the first week of data from the time series.
-    show_n_hours = 24*7
-    optimal_heights = optimal_heights[:show_n_hours]
-    dates = [hour_to_date(h) for h in hours[:show_n_hours]]
-    v_ceiling = v_ceiling[:show_n_hours]
+    shift = int(1e4)
+    # TODO update docstring
+    # TODO optional time range, not only from beginning
+    # TODO heights_of_interest use cases fix -> height_bounds
+    data = data[shift:shift+show_n_hours]
+    dates = [hour_to_date(h) for h in hours[shift:shift+show_n_hours]]
+
+    fig, ax = plt.subplots(1, 1)
+    plt.subplots_adjust(bottom=.2)
+
+    # Plot the height limits.
+    dates_limits = [dates[0], dates[-1]]
+    # ceiling_height = height_bounds[1]  # heights_of_interest[ceiling_id]
+    # floor_height = height_bounds[0]  # heights_of_interest[floor_id]
+    # ax[0].plot(dates_limits, [ceiling_height]*2, 'k--', label='height bounds')
+    # ax[0].plot(dates_limits, [floor_height]*2, 'k--')
+
+    # Plot the optimal height time series.
+    ax.plot(dates, data, color='darkcyan')
+
+    # Plot the markers at the points for which the wind profiles are plotted
+    # in figure 5b.
+    # TODO make optional
+    # marker_ids = [list(hours).index(h) for h in hours_wind_profile_plots]
+    # for i, h_id in enumerate(marker_ids):
+    #    ax[0].plot(dates[h_id], optimal_heights[h_id], marker_cycle[i], color=color_cycle_default[i], markersize=8,
+    #               markeredgewidth=2, markerfacecolor='None')
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel('Time')
+    # ax.set_ylim([0, 800])
+    ax.grid()
+    # ax.legend()
+
+    ax.set_xlim(dates_limits)
+
+    # plt.axes(ax[1])
+    plt.xticks(rotation=70)
+    #plt.savefig('/home/s6lathim/physik/AWE/meeting/ireland/power_timeline.pdf')
+
+
+def plot_figure_5a(hours, v_ceiling, optimal_heights,
+                   #heights_of_interest, ceiling_id, floor_id,
+                   height_range=None,
+                   ref_velocity=None,
+                   height_bounds=[200, 500],
+                   v_bounds=[None, None],
+                   show_n_hours=24*7):
+    # TODO rename
+    """Plot optimal height and wind speed time series for the first week of data.
+
+    Args:
+        hours (list): Hour timestamps.
+        v_ceiling (list): Optimal wind speed time series resulting from variable-height analysis.
+        optimal_heights (list): Time series of optimal heights corresponding to `v_ceiling`.
+        heights_of_interest (list): Heights above the ground at which the wind speeds are evaluated.
+        ceiling_id (int): Id of the ceiling height in `heights_of_interest`, as used in the variable-height analysis.
+        floor_id (int): Id of the floor height in `heights_of_interest`, as used in the variable-height analysis.
+
+    """
+    shift = int(1e4)
+    # TODO optional time range, not only from beginning
+    # TODO heights_of_interest use cases fix -> height_bounds
+    optimal_heights = optimal_heights[shift:shift+show_n_hours]
+    dates = [hour_to_date(h) for h in hours[shift:shift+show_n_hours]]
+    v_ceiling = v_ceiling[shift:shift+show_n_hours]
 
     fig, ax = plt.subplots(2, 1, sharex=True)
     plt.subplots_adjust(bottom=.2)
 
     # Plot the height limits.
     dates_limits = [dates[0], dates[-1]]
-    ceiling_height = heights_of_interest[ceiling_id]
-    floor_height = heights_of_interest[floor_id]
-    ax[0].plot(dates_limits, [ceiling_height]*2, 'k--', label='height bounds')
-    ax[0].plot(dates_limits, [floor_height]*2, 'k--')
+    ceiling_height = height_bounds[1]  # heights_of_interest[ceiling_id]
+    floor_height = height_bounds[0]  # heights_of_interest[floor_id]
+    if ceiling_height > 0:
+        ax[0].plot(dates_limits,
+                   [ceiling_height]*2, 'k--',
+                   label='height bounds')
+    if floor_height > 0:
+        ax[0].plot(dates_limits, [floor_height]*2, 'k--')
 
     # Plot the optimal height time series.
-    ax[0].plot(dates, optimal_heights, color='darkcyan', label='optimal height')
-
-    # Plot the markers at the points for which the wind profiles are plotted in figure 5b.
-    marker_ids = [list(hours).index(h) for h in hours_wind_profile_plots]
-    for i, h_id in enumerate(marker_ids):
-        ax[0].plot(dates[h_id], optimal_heights[h_id], marker_cycle[i], color=color_cycle_default[i], markersize=8,
-                   markeredgewidth=2, markerfacecolor='None')
+    ax[0].plot(dates, optimal_heights, color='darkcyan', label='avg. cycle height')
+    if height_range is not None:
+        ax[0].plot(dates, height_range['min'][shift:shift+show_n_hours],
+                   color='darkcyan', alpha=0.25)
+        ax[0].plot(dates, height_range['max'][shift:shift+show_n_hours],
+                   color='darkcyan', alpha=0.25, label='max/min cycle height')
+    print('heights plotted...')
+    # Plot the markers at the points for which the wind profiles are plotted
+    # in figure 5b.
+    # TODO make optional
+    #marker_ids = [list(hours).index(h) for h in hours_wind_profile_plots]
+    #for i, h_id in enumerate(marker_ids):
+    #    ax[0].plot(dates[h_id], optimal_heights[h_id], marker_cycle[i], color=color_cycle_default[i], markersize=8,
+    #               markeredgewidth=2, markerfacecolor='None')
 
     ax[0].set_ylabel('Height [m]')
-    ax[0].set_ylim([0, 800])
+    # TODO automatize ylim
+    ax[0].set_ylim([0, 600])
     ax[0].grid()
     ax[0].legend()
 
+    if ref_velocity is not None:
+        print(ref_velocity.shape)
+        ref_velocity = ref_velocity[shift:shift+show_n_hours]
+        ax[1].plot(dates, ref_velocity, alpha=0.5, label='@ ref. height')
+        print('ref velocity plotted')
+    if v_bounds[0] is not None:
+        ax[1].plot(dates_limits,
+                   [v_bounds[0]]*2, 'k--',
+                   label='wind speed bounds')
+    if v_bounds[1] is not None:
+        ax[1].plot(dates_limits,
+                   [v_bounds[1]]*2, 'k--')
     # Plot the optimal wind speed time series.
-    ax[1].plot(dates, v_ceiling)
-    for i, h_id in enumerate(marker_ids):
-        ax[1].plot(dates[h_id], v_ceiling[h_id], marker_cycle[i], color=color_cycle_default[i], markersize=8,
-                   markeredgewidth=2, markerfacecolor='None')
+    ax[1].plot(dates, v_ceiling, label='@ avg. cycle height')
+
+    ax[1].legend()
+    #for i, h_id in enumerate(marker_ids):
+    #    ax[1].plot(dates[h_id], v_ceiling[h_id], marker_cycle[i], color=color_cycle_default[i], markersize=8,
+    #               markeredgewidth=2, markerfacecolor='None')
     ax[1].set_ylabel('Wind speed [m/s]')
     ax[1].grid()
     ax[1].set_xlim(dates_limits)
-
+    print('wind speeds plotted...')
     plt.axes(ax[1])
     plt.xticks(rotation=70)
+    #fig.savefig('/home/s6lathim/physik/AWE/meeting/ireland/harvesting_height_wind_speed_timeline.pdf')
 
 
 def plot_figure_5b(hours, v_req_alt, v_ceiling, optimal_heights, heights_of_interest, ceiling_id, floor_id):

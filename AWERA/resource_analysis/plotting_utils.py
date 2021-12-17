@@ -45,5 +45,12 @@ def read_dataset_user_input():
     else:
         file_name = output_file_name.format(**{'start_year': start_year, 'final_year': final_year})
         nc = xr.open_dataset(file_name)
+    import numpy as np
+    # TODO change this --> config
+    lons = list(np.arange(-12, -5.0, .25))  # config.Data.all_lons
+    lats = list(np.arange(51, 56.25, .25))
+    nc = nc.sel(latitude=lats)
+    nc = nc.sel(longitude=lons)
+
 
     return nc

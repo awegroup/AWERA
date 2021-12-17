@@ -29,7 +29,7 @@ n_fill_levels_default = 14
 n_line_levels_default = 6
 color_map = plt.get_cmap('YlOrRd')
 
-if __name__ == "__main__":
+if True:  # __name__ == "__main__":
     from .utils import hour_to_date_str
     from .plotting_utils import read_dataset_user_input
 
@@ -48,11 +48,19 @@ if __name__ == "__main__":
     hours = nc['time'].values
     print("Analyzing " + hour_to_date_str(hours[0]) + " till "
           + hour_to_date_str(hours[-1]))
+
+    lons = list(np.arange(-12, -5.0, .25))  # config.Data.all_lons
+    lats = list(np.arange(51, 56.25, .25))  # config.Data.all_lats
 else:
     # TODO make more understandable
     # TODO make into utils -> use for map plots in production
-    lons = list(np.arange(-20, 20.25, .25))
-    lats = list(np.arange(65, 29.75, -.25))
+    # TODO fix from config
+
+    lons = list(np.arange(-12, -5.0, .25))  # -5.75, .25))
+    lats = list(np.arange(51, 56.25, .25))
+
+    # lons = list(np.arange(-20, 20.25, .25))
+    # lats = list(np.arange(65, 29.75, -.25))
 # Prepare the general map plot.
 lons_grid, lats_grid = np.meshgrid(lons, lats)
 
@@ -181,6 +189,74 @@ def individual_plot(z, cf_lvls, cl_lvls,
                      fontsize=6)
 
     return contour_fills
+
+
+def plot_single_panel(plot_item, plot_title=''):
+    """"Plot panel with 3 columns of individual plots using solely seperate
+        plot properties.
+
+    Args:
+        plot_items (list of dict): Individual properties of the plots.
+        column_titles (list): Plot titles per column.
+
+    """
+    # Set up figure, calculate figure height corresponding to desired width.
+    plot_frame_top, plot_frame_bottom, plot_frame_left, \
+        plot_frame_right = .92, 0.17, 0., 1.
+
+    bottom_pos_colorbar = .12
+    fig_width = 9.*(0.88-.035)/2.9
+    if plot_title == '':
+        plot_frame_top = 1.
+
+    plot_frame_width = plot_frame_right - plot_frame_left
+    width_colorbar = plot_frame_width*0.9
+    fig_height = calc_fig_height(fig_width, (1, 1), plot_frame_top,
+                                 plot_frame_bottom, plot_frame_left,
+                                 plot_frame_right)
+
+    fig, axs = plt.subplots(1, 1, figsize=(fig_width, fig_height), dpi=150)
+    fig.subplots_adjust(top=plot_frame_top, bottom=plot_frame_bottom,
+                        left=plot_frame_left, right=plot_frame_right,
+                        hspace=0.0, wspace=0.0)
+
+    # Plot the data.
+    ax = axs
+
+    i = 0
+
+    # Mapping individual properties of the plots.
+    z = plot_item['data']
+    cf_lvls = plot_item['contour_fill_levels']
+    cl_lvls = plot_item['contour_line_levels']
+    cb_ticks = plot_item['colorbar_ticks']
+    cb_tick_fmt = plot_item['colorbar_tick_fmt']
+    apply_log_scale = plot_item.get('log_scale', False)
+    extend = plot_item.get('extend', "neither")
+    cl_label_fmt = plot_item.get('contour_line_label_fmt', None)
+    if cl_label_fmt is None:
+        cl_label_fmt = cb_tick_fmt.replace("{:", "%").replace("}", "")
+
+    plt.axes(ax)
+    plt.title(plot_title)
+    contour_fills = individual_plot(z, cf_lvls, cl_lvls,
+                                    cline_label_format=cl_label_fmt,
+                                    log_scale=apply_log_scale,
+                                    extend=extend)
+
+    # Add axis for colorbar.
+    left_pos_colorbar = plot_frame_width*i + \
+        (plot_frame_width-width_colorbar)/2 + plot_frame_left
+    cbar_ax = fig.add_axes([left_pos_colorbar, bottom_pos_colorbar,
+                            width_colorbar, 0.035])
+    if apply_log_scale:
+        formatter = LogFormatter(10, labelOnlyBase=False)
+    else:
+        formatter = None
+    cbar = plt.colorbar(contour_fills, orientation="horizontal",
+                        cax=cbar_ax, ticks=cb_ticks, format=formatter)
+    cbar.ax.set_xticklabels([cb_tick_fmt.format(t) for t in cb_ticks])
+    cbar.set_label(plot_item['colorbar_label'])
 
 
 def plot_panel_1x3(plot_items, column_titles, row_item):
@@ -570,7 +646,7 @@ def plot_figure4():
     fixed_height_ref = 100.
     fixed_height_id = list(fixed_heights).index(fixed_height_ref)
 
-    linspace0 = np.linspace(0, .033, 21)
+    linspace0 = np.linspace(0, 0.025, 21)  # np.linspace(0, .033, 21)
     plot_item0 = {
         'data': nc["p_fixed_perc5"].values[fixed_height_id, :, :]*1e-3,
         'contour_fill_levels': linspace0,
@@ -580,7 +656,7 @@ def plot_figure4():
         'colorbar_tick_fmt': '{:.3f}',
         'colorbar_label': 'Power density [$kW/m^2$]',
     }
-    linspace1 = np.linspace(0, .45, 21)
+    linspace1 = np.linspace(0, 0.35, 21)  # np.linspace(0, .45, 21)
     plot_item1 = {
         'data': nc["p_fixed_perc32"].values[fixed_height_id, :, :]*1e-3,
         'contour_fill_levels': linspace1,
@@ -590,7 +666,7 @@ def plot_figure4():
         'colorbar_tick_fmt': '{:.2f}',
         'colorbar_label': 'Power density [$kW/m^2$]',
     }
-    linspace2 = np.linspace(0, 1, 21)
+    linspace2 = np.linspace(0, 0.8, 21)  # np.linspace(0, 1, 21)
     plot_item2 = {
         'data': nc["p_fixed_perc50"].values[fixed_height_id, :, :]*1e-3,
         'contour_fill_levels': linspace2,
@@ -609,7 +685,7 @@ def plot_figure4():
 
 def plot_figure8():
     """" Generate baseline comparison wind speed plot. """
-    linspace_absolute = np.arange(0, 15.1, 1)
+    linspace_absolute = np.linspace(0, 12, 21)  # np.arange(0, 15.1, 1)
     plot_settings_absolute_row = {
         "color_label": 'Wind speed [m/s]',
         "plot_handling": {
@@ -623,7 +699,7 @@ def plot_figure8():
             "colorbar_tick_fmt": "{:.0f}",
         },
     }
-    linspace_relative = np.linspace(1., 2.2, 21)
+    linspace_relative = np.linspace(0, 2, 21)  # np.linspace(1., 2.2, 21)
     plot_settings_relative_row = {
         "contour_fill_levels": linspace_relative,
         "colorbar_ticks": linspace_relative[::4],
@@ -646,7 +722,7 @@ def plot_figure9_upper():
     height_ceiling = 500.
     height_ceiling_id = list(height_range_ceilings).index(height_ceiling)
 
-    linspace0 = np.linspace(0, .04, 21)
+    linspace0 = np.linspace(0, .03, 21)  # np.linspace(0, .04, 21)
     plot_item0 = {
         'data': nc["p_ceiling_perc5"].values[height_ceiling_id, :, :]*1e-3,
         'contour_fill_levels': linspace0,
@@ -656,7 +732,7 @@ def plot_figure9_upper():
         'colorbar_tick_fmt': '{:.2f}',
         'colorbar_label': 'Power density [$kW/m^2$]',
     }
-    linspace1 = np.linspace(0, .6, 21)
+    linspace1 = np.linspace(0, .45, 21)  # np.linspace(0, .6, 21)
     plot_item1 = {
         'data': nc["p_ceiling_perc32"].values[height_ceiling_id, :, :]*1e-3,
         'contour_fill_levels': linspace1,
@@ -666,7 +742,7 @@ def plot_figure9_upper():
         'colorbar_tick_fmt': '{:.2f}',
         'colorbar_label': 'Power density [$kW/m^2$]',
     }
-    linspace2 = np.linspace(0, 1.3, 21)
+    linspace2 = np.linspace(0, 1.1, 21)  # np.linspace(0, 1.3, 21)
     plot_item2 = {
         'data': nc["p_ceiling_perc50"].values[height_ceiling_id, :, :]*1e-3,
         'contour_fill_levels': linspace2,
@@ -693,7 +769,7 @@ def plot_figure9_lower():
     fixed_height_ref = 100.
     fixed_height_id = list(fixed_heights).index(fixed_height_ref)
 
-    linspace0 = np.linspace(1, 28., 21)
+    linspace0 = np.linspace(0, 6, 21)  # np.linspace(1, 28., 21)
     plot_item0 = {
         'data': nc["p_ceiling_perc5"].values[height_ceiling_id, :, :]
                 / nc["p_fixed_perc5"].values[fixed_height_id, :, :],
@@ -705,7 +781,7 @@ def plot_figure9_lower():
         'colorbar_label': 'Increase factor [-]',
         'extend': 'max',
     }
-    linspace1 = np.linspace(1, 12.0, 21)
+    linspace1 = np.linspace(0, 6, 21)  # np.linspace(1, 12.0, 21)
     plot_item1 = {
         'data': nc["p_ceiling_perc32"].values[height_ceiling_id, :, :]
                 / nc["p_fixed_perc32"].values[fixed_height_id, :, :],
@@ -717,7 +793,7 @@ def plot_figure9_lower():
         'colorbar_label': 'Increase factor [-]',
         'extend': 'max',
     }
-    linspace2 = np.linspace(1, 12.5, 21)
+    linspace2 = np.linspace(0, 6, 21)  # np.linspace(1, 12.5, 21)
     plot_item2 = {
         'data': nc["p_ceiling_perc50"].values[height_ceiling_id, :, :]
                 / nc["p_fixed_perc50"].values[fixed_height_id, :, :],
@@ -908,13 +984,93 @@ def plot_figure11():
     plot_panel_1x3_seperate_colorbar(plot_items, column_titles)
 
 
-if __name__ == "__main__":
+def plot_mean_and_ratio(data_type='v',
+                        fill_range=[0, 20],
+                        line_levels=[2, 5, 15, 20],
+                        n_decimals=0,
+                        max_ratio=2):
+    if data_type == 'v':
+        label = r'v [m/s]'
+        scale = 1
+        ratio_levels = [1.1, 1.3, 1.6]
+    elif data_type == 'p':
+        label = r'Power density [$kW/m^2$]'
+        scale = 10**(-3)
+        ratio_levels = [1, 3, 4.5]
+
+    height_ceiling = 500.
+    height_ceiling_id = list(height_range_ceilings).index(height_ceiling)
+
+    fixed_height_ref = 100.
+    fixed_height_id = list(fixed_heights).index(fixed_height_ref)
+
+    # TODO automatize with data?
+    plot_title = '500m ceiling'
+    linspace00 = np.linspace(fill_range[0], fill_range[1], 21)
+    plot_item = {
+        'data': nc['{}_ceiling_mean'.format(data_type)].values[height_ceiling_id, :, :]*scale,
+        'contour_fill_levels': linspace00,
+        'contour_line_levels': line_levels,
+        'contour_line_label_fmt': '%.{}f'.format(n_decimals),
+        'colorbar_ticks': linspace00[::4],
+        'colorbar_tick_fmt': '{:.1f}',
+        'colorbar_label': label,
+        'extend': 'max',
+    }
+    eval_contour_fill_levels([plot_item])
+    plot_single_panel(plot_item, plot_title=plot_title)
+
+    plot_title = '100m fixed'
+    linspace00 = np.linspace(fill_range[0], fill_range[1], 21)
+    plot_item = {
+        'data': nc['{}_fixed_mean'.format(data_type)].values[fixed_height_id, :, :]*scale,
+        'contour_fill_levels': linspace00,
+        'contour_line_levels': line_levels,
+        'contour_line_label_fmt': '%.{}f'.format(n_decimals),
+        'colorbar_ticks': linspace00[::4],
+        'colorbar_tick_fmt': '{:.1f}',
+        'colorbar_label': label,
+        'extend': 'max',
+    }
+    eval_contour_fill_levels([plot_item])
+    plot_single_panel(plot_item, plot_title=plot_title)
+
+    plot_title = 'Ratio using 100m'
+    linspace00 = np.linspace(1, max_ratio, 21)
+    plot_item = {
+        'data': nc['{}_ceiling_mean'.format(data_type)].values[height_ceiling_id, :, :]/nc[
+            '{}_fixed_mean'.format(data_type)].values[fixed_height_id, :, :],
+        'contour_fill_levels': linspace00,
+        'contour_line_levels': ratio_levels,
+        'contour_line_label_fmt': '%.{}f'.format(1),
+        'colorbar_ticks': linspace00[::4],
+        'colorbar_tick_fmt': '{:.1f}',
+        'colorbar_label': '{}/{}_ref [-]'.format(data_type, data_type),
+        'extend': 'max',
+    }
+    eval_contour_fill_levels([plot_item])
+    plot_single_panel(plot_item, plot_title=plot_title)
+
+
+def plot_all():
+    plot_mean_and_ratio(data_type='v',
+                        fill_range=[6, 13],
+                        line_levels=[7, 9, 11],
+                        n_decimals=0)
+    plot_mean_and_ratio(data_type='p',
+                        fill_range=[0, 2.5],
+                        line_levels=[0.3, 1.1, 1.5, 2],
+                        n_decimals=1,
+                        max_ratio=5.5)
     plot_figure3()
-    #plot_figure4()
+    plot_figure4()
     #plot_figure5()
-    #plot_figure8()
-    #plot_figure9_upper()
-    #plot_figure9_lower()
+    plot_figure8()
+    plot_figure9_upper()
+    plot_figure9_lower()
     #plot_figure10()
     #plot_figure11()
     plt.show()
+
+if __name__ == "__main__":
+    plot_all()

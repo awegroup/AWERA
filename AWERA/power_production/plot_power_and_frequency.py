@@ -37,14 +37,14 @@ def plot_power_and_frequency(config):
         ax_pcs[0].plot(wind_speeds, power/1000, label=i_profile+1)
 
         # Frequency Plot for profile
-        sel_loc_id = 685  # TODO make optional
+        sel_loc_id = 343  # TODO make optional
         if sel_loc_id != -1:
             freq = frequency[sel_loc_id, i_profile, :]
-            wind_speed_bins = wind_speed_bin_limits[sel_loc_id, i_profile, :]
+            wind_speed_bins = wind_speed_bin_limits[i_profile, :]
         elif len(locations) > 1:
             # Mult locations
             freq = np.sum(frequency[:, i_profile, :], axis=0)/len(locations)
-            wind_speed_bins = wind_speed_bin_limits[0, i_profile, :]
+            wind_speed_bins = wind_speed_bin_limits[i_profile, :]
         else:
             freq = frequency[i_profile, :]
             wind_speed_bins = wind_speed_bin_limits[i_profile, :]

@@ -5,7 +5,7 @@ import pickle
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.cbook import MatplotlibDeprecationWarning
-#from mpl_toolkits.basemap import Basemap
+from mpl_toolkits.basemap import Basemap
 
 import warnings
 warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
@@ -140,7 +140,7 @@ def evaluate_aep(config):
 
 
 def plot_aep_map(p_loc, aep_loc, c_f_loc):
-    from awe_era5.plot_maps import eval_contour_fill_levels, \
+    from ..resource_analysis.plot_maps import eval_contour_fill_levels, \
         plot_panel_1x3_seperate_colorbar
     column_titles = ['Power', 'AEP', 'capacity factor']
     linspace00 = np.linspace(0, 6, 21)
@@ -168,6 +168,51 @@ def plot_aep_map(p_loc, aep_loc, c_f_loc):
     linspace02 = np.linspace(0, 60, 21)
     plot_item02 = {
         'data': c_f_loc*100,
+        'contour_fill_levels': linspace02,
+        'contour_line_levels': [20., 40., 60.],
+        'contour_line_label_fmt': '%.0f',
+        'colorbar_ticks': linspace02[::4],
+        'colorbar_tick_fmt': '{:.0f}',
+        'colorbar_label': r'c$_f$ [%]',
+        # 'extend': 'max',
+    }
+
+    plot_items = [plot_item00, plot_item01, plot_item02]
+
+    eval_contour_fill_levels(plot_items)
+    plot_panel_1x3_seperate_colorbar(plot_items, column_titles)
+
+
+def plot_cf_map(cf_1, cf_2):
+    from ..resource_analysis.plot_maps import eval_contour_fill_levels, \
+        plot_panel_1x3_seperate_colorbar
+    column_titles = [r'c$_f$ Turbine', r'c$_f$ AWE', r'c$_f$ Turbine']
+    linspace00 = np.linspace(0, 65, 21)
+    plot_item00 = {
+        'data': cf_1*100,
+        'contour_fill_levels': linspace00,
+        'contour_line_levels': [20., 40., 60.],
+        'contour_line_label_fmt': '%.0f',
+        'colorbar_ticks': linspace00[::4],
+        'colorbar_tick_fmt': '{:.0f}',
+        'colorbar_label': r'c$_f$ [%]',
+        # 'extend': 'max',
+    }
+    linspace01 = np.linspace(0, 65, 21)
+    plot_item01 = {
+        'data': cf_2*100,
+        'contour_fill_levels': linspace01,
+        'contour_line_levels': [20., 40., 60.],
+        'contour_line_label_fmt': '%.0f',
+        'colorbar_ticks': linspace01[::4],
+        'colorbar_tick_fmt': '{:.0f}',
+        'colorbar_label': r'c$_f$ [%]',
+        # 'extend': 'max',
+    }
+    # TODO plot only 2
+    linspace02 = np.linspace(0, 65, 21)
+    plot_item02 = {
+        'data': cf_1*100,
         'contour_fill_levels': linspace02,
         'contour_line_levels': [20., 40., 60.],
         'contour_line_label_fmt': '%.0f',
@@ -221,7 +266,6 @@ def aep_map(config):
     # TODO cleanup - what is needed in the end?
     aep, aep_n = evaluate_aep(config)
     # TODO reinclude map plotting
-    return 0
     # Match locations with values - rest NaN
     n_lats = len(config.Data.all_lats)
     n_lons = len(config.Data.all_lons)
@@ -248,6 +292,60 @@ def aep_map(config):
                           title="Capacity factor for {} clusters".format(
                               config.Clustering.n_clusters),
                           label=r'c$_f$ [-]')
+    return aep_loc, c_f_loc
+
+
+def cf_turbine(config):
+    p_max = 2.04e6  # W
+    # get sample wind speeds at 60m
+    turb_height = 60  # m
+    from ..eval.optimal_harvesting_height import get_wind_speed_at_height, \
+        barometric_height_formula, match_loc_data_map_data
+    v_turb, _ = get_wind_speed_at_height(config, set_height=turb_height)
+    # Get Rho at turb height
+    rho = barometric_height_formula(turb_height)
+
+    def calc_turbine_power(v, rho):
+        # REpower MM82
+        # https://www.thewindpower.net/store_manufacturer_turbine_en.php?id_type=7
+        power_coeff = np.array([23070., -111500., 134600.])
+        #    p = np.zeros((len(v[:,0]), len(v[0,:])))
+        p = np.zeros(v.shape)
+        p[v < 2.5] = 0
+        p[v > 11.7] = rho/1.01325*2000000.
+        p[v > 22.] = 0
+        p[np.logical_and(v >= 2.5, v <= 11.7)] = rho/1.01325*np.polyval(
+            power_coeff, v[np.logical_and(v >= 2.5, v <= 11.7)])
+        p[p > 2000000.] = 2000000.
+        # for i_t in range(len(v)):
+        #     if v[i_t] < 2.5:
+        #         p[i_t] = 0.
+        #     elif v[i_t] > 11.7:
+        #         p[i_t] = rho/1.01325*2000000.
+        #         if p[i_t] > 2000000.:
+        #             p[i_t] = 2000000.
+        #     elif v[i_t] > 22.:
+        #         p[i_t] = 0.
+        #     else:
+        #         p[i_t] = rho/1.01325*np.polyval(power_coeff, v[i_t])
+        #         if p[i_t] > 2000000.:
+        #             p[i_t] = 2000000.
+
+        # print(rho)
+        return p
+    p = calc_turbine_power(v_turb, rho)
+    # aep = np.mean(p, axis=1)*365*24
+    cf = np.mean(p, axis=1) / p_max
+
+    return match_loc_data_map_data(config, cf)
+
+
+def compare_cf_AWE_turbine(config):
+    cf_turb = cf_turbine(config)
+    aep_AWE, cf_AWE = aep_map(config)
+    plot_cf_map(cf_turb, cf_AWE)
+    plt.show()
+
 
 if __name__ == "__main__":
     from ..config import config

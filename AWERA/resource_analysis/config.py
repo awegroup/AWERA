@@ -25,8 +25,8 @@ Attributes:
 
 """
 # General settings.
-start_year = 2011
-final_year = 2017
+start_year = 2010
+final_year = 2020
 era5_data_dir = '/cephfs/user/s6lathim/ERA5Data/'  #-fixed-height/' # -redownload/' #-#redownload/'#-112-redownload
 model_level_file_name_format = "{:d}_europe_{:d}_130_131_132_133_135.nc"  # 'ml_{:d}_{:02d}.netcdf'
 surface_file_name_format = "{:d}_europe_{:d}_152.nc" # 'sfc_{:d}_{:02d}.netcdf'
