@@ -4,12 +4,8 @@ import pickle
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.cbook import MatplotlibDeprecationWarning
-from mpl_toolkits.basemap import Basemap
-
-import warnings
-warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
-
+import cartopy
+import cartopy.crs as ccrs
 
 def get_mask_discontinuities(df):
     """Identify discontinuities in the power curves. The provided approach is
@@ -230,36 +226,34 @@ def plot_cf_map(cf_1, cf_2):
 
 def plot_discrete_map(config, values, title='', label=''):
     # Map range
-    map_lons = config.Data.lon_range
-    map_lats = config.Data.lat_range
-
     cm = 1/2.54
     # Plot Value
     fig = plt.figure(figsize=(13*cm, 14.5*cm))
-    ax = fig.add_subplot(111)
+    mrc = ccrs.Mercator()
+    ax = plt.axes(projection=mrc)
 
+    ax.coastlines()  # TODO resolution='50m', color='black', linewidth=1)
+    ax.set_extent([config.Data.lon_range[0],
+                   config.Data.lon_range[1],
+                   config.Data.lat_range[0],
+                   config.Data.lat_range[1]])
     plt.title(title)
-
-    map_plot = Basemap(projection='merc', llcrnrlon=np.min(map_lons),
-                       llcrnrlat=np.min(map_lats), urcrnrlon=np.max(map_lons),
-                       urcrnrlat=np.max(map_lats),
-                       resolution=config.Plotting.map.map_resolution,
-                       ax=ax)
 
     color_map = plt.get_cmap('YlOrRd')
 
-    normalize = mpl.colors.Normalize(vmin=min(values), vmax=max(values))
+    normalize = mpl.colors.Normalize(vmin=min(values.flat),
+                                     vmax=max(values.flat))
 
     lons_grid, lats_grid = np.meshgrid(config.Data.all_lons,
                                        config.Data.all_lats)
     # Compute map projection coordinates.
-    x_grid, y_grid = map_plot(lons_grid, lats_grid)
-    ax.pcolormesh(x_grid, y_grid, values, cmap=color_map, norm=normalize)
-    map_plot.drawcoastlines(linewidth=.4)
+    ax.pcolormesh(lons_grid, lats_grid, values, cmap=color_map, norm=normalize,
+                  transform=cartopy.crs.PlateCarree(),
+                  zorder=0.5)
 
     cbar_ax, _ = mpl.colorbar.make_axes(ax)
-    cbar = mpl.colorbar.ColorbarBase(cbar_ax, cmap=color_map, norm=normalize,
-                                     label=label)
+    mpl.colorbar.ColorbarBase(cbar_ax, cmap=color_map, norm=normalize,
+                              label=label)
 
 
 def aep_map(config):
@@ -277,7 +271,7 @@ def aep_map(config):
         p_loc[i_loc[0], i_loc[1]] = aep[i]/365/24*1000  # p [kW]
         aep_loc[i_loc[0], i_loc[1]] = aep[i]  # aep [MWh]
         c_f_loc[i_loc[0], i_loc[1]] = aep[i]/aep_n  # c_f [-]
-    if np.sum(p_loc.mask) == 0:
+    if np.sum(p_loc.mask) == 0 and False:
         # Plot continuous aep map
         print('Location wise AEP determined. Plot map:')
         plot_aep_map(p_loc, aep_loc, c_f_loc)

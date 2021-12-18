@@ -14,22 +14,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.ticker import LogFormatter
-from matplotlib.cbook import MatplotlibDeprecationWarning
-from mpl_toolkits.basemap import Basemap
-import warnings
 
-warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
+import cartopy
+import cartopy.crs as ccrs
 
 # General plot settings.
-# Options for resolution are c (crude), l (low),
-# i (intermediate), h (high), f (full) or None
-map_resolution = 'h'
 cline_label_format_default = '%.1f'
 n_fill_levels_default = 14
 n_line_levels_default = 6
 color_map = plt.get_cmap('YlOrRd')
 
-if True:  # __name__ == "__main__":
+if __name__ == "__main__":
     from .utils import hour_to_date_str
     from .plotting_utils import read_dataset_user_input
 
@@ -49,8 +44,8 @@ if True:  # __name__ == "__main__":
     print("Analyzing " + hour_to_date_str(hours[0]) + " till "
           + hour_to_date_str(hours[-1]))
 
-    lons = list(np.arange(-12, -5.0, .25))  # config.Data.all_lons
-    lats = list(np.arange(51, 56.25, .25))  # config.Data.all_lats
+    lons = np.arange(-12, -5.0, .25)  # config.Data.all_lons
+    lats = np.arange(51, 56.25, .25)  # config.Data.all_lats
 else:
     # TODO make more understandable
     # TODO make into utils -> use for map plots in production
@@ -61,24 +56,15 @@ else:
 
     # lons = list(np.arange(-20, 20.25, .25))
     # lats = list(np.arange(65, 29.75, -.25))
-# Prepare the general map plot.
-lons_grid, lats_grid = np.meshgrid(lons, lats)
 
-# Plotting map - region selection
+# Plotting map - region selection # TODO rework -> config
 plot_northern_germany = False
-if plot_northern_germany:
-    label_cities = True
-    map_plot = Basemap(projection='merc', llcrnrlon=7.25, llcrnrlat=51.4,
-                       urcrnrlon=10.5, urcrnrlat=54.25,
-                       resolution=map_resolution)
-else:
-    label_cities = False
-    map_plot = Basemap(projection='merc', llcrnrlon=np.min(lons),
-                       llcrnrlat=np.min(lats), urcrnrlon=np.max(lons),
-                       urcrnrlat=np.max(lats), resolution=map_resolution)
-# Compute map projection coordinates.
-x_grid, y_grid = map_plot(lons_grid, lats_grid)
-map_plot_aspect_ratio = 9. / 12.3  # Aspect ratio of Europe map.
+label_cities = False
+
+
+map_plot_aspect_ratio = 9 / 12.5  # len(lons)/len(lats) # TODO this makes sense - adapt fixed number later on -> adaptable
+
+mrc = ccrs.Mercator()
 
 
 def calc_fig_height(fig_width, subplot_shape, plot_frame_top,
@@ -152,7 +138,6 @@ def individual_plot(z, cf_lvls, cl_lvls,
         QuadContourSet: Contour fills object.
 
     """
-    map_plot.drawcoastlines(linewidth=.4)
 
     if log_scale:
         norm = colors.LogNorm(vmin=cf_lvls[0], vmax=cf_lvls[-1])
@@ -160,13 +145,22 @@ def individual_plot(z, cf_lvls, cl_lvls,
         norm = None
 
     if extend == 'neither':
-        contour_fills = map_plot.contourf(x_grid, y_grid, z, cf_lvls,
-                                          cmap=color_map, norm=norm)
+        # plot with appropriate parameters
+        # zorder: put the filled-contour below coastlines
+        contour_fills = plt.contourf(lons, lats, z, cf_lvls,
+                                     transform=cartopy.crs.PlateCarree(),
+                                     zorder=0.5,
+                                     cmap=color_map,
+                                     norm=norm)
     else:
-        contour_fills = map_plot.contourf(x_grid, y_grid, z, cf_lvls,
-                                          cmap=color_map,
-                                          norm=norm, extend=extend)
-    contour_lines = plt.contour(x_grid, y_grid, z, cl_lvls, colors='0.1',
+        contour_fills = plt.contourf(lons, lats, z, cf_lvls,
+                                     transform=cartopy.crs.PlateCarree(),
+                                     zorder=0.5,
+                                     cmap=color_map,
+                                     norm=norm,
+                                     extend=extend)
+    contour_lines = plt.contour(lons, lats, z, cl_lvls, colors='0.1',
+                                transform=cartopy.crs.PlateCarree(),
                                 linewidths=1)
 
     # Label levels with specially formatted floats
@@ -175,15 +169,15 @@ def individual_plot(z, cf_lvls, cl_lvls,
                colors='k')
     plt.rcParams['font.weight'] = 'normal'
 
-    if label_cities:
+    if label_cities:  # TODO remove/ better: test locations
         HH = (53.551086, 9.993682)
         Hannover = (52.373954, 9.741647)
         Bremen = (53.075176, 8.801850)
         city_labels = ['Hamburg', 'Hannover', 'Bremen']
-        x_cities, y_cities = map_plot([HH[1], Hannover[1], Bremen[1]],
-                                      [HH[0], Hannover[0], Bremen[0]])
-        map_plot.plot(x_cities, y_cities, 'o', color='darkslategrey',
-                      markersize=4)
+        x_cities, y_cities = plt([HH[1], Hannover[1], Bremen[1]],
+                                 [HH[0], Hannover[0], Bremen[0]])
+        plt.plot(x_cities, y_cities, 'o', color='darkslategrey',
+                 markersize=4)
         for label, xpt, ypt in zip(city_labels, x_cities, y_cities):
             plt.text(xpt+0.5, ypt+0.01, label, color='darkslategrey',
                      fontsize=6)
@@ -202,10 +196,10 @@ def plot_single_panel(plot_item, plot_title=''):
     """
     # Set up figure, calculate figure height corresponding to desired width.
     plot_frame_top, plot_frame_bottom, plot_frame_left, \
-        plot_frame_right = .92, 0.17, 0., 1.
+        plot_frame_right = .95, 0.15, 0., 1.
 
-    bottom_pos_colorbar = .12
-    fig_width = 9.*(0.88-.035)/2.9
+    bottom_pos_colorbar = .09
+    fig_width = 3
     if plot_title == '':
         plot_frame_top = 1.
 
@@ -214,16 +208,15 @@ def plot_single_panel(plot_item, plot_title=''):
     fig_height = calc_fig_height(fig_width, (1, 1), plot_frame_top,
                                  plot_frame_bottom, plot_frame_left,
                                  plot_frame_right)
-
-    fig, axs = plt.subplots(1, 1, figsize=(fig_width, fig_height), dpi=150)
+    fig, ax = plt.subplots(1, 1, figsize=(fig_width, fig_height), dpi=150,
+                           subplot_kw={'projection': mrc})
     fig.subplots_adjust(top=plot_frame_top, bottom=plot_frame_bottom,
                         left=plot_frame_left, right=plot_frame_right,
                         hspace=0.0, wspace=0.0)
 
-    # Plot the data.
-    ax = axs
+    ax.coastlines()  # TODO resolution='50m', color='black', linewidth=1)
 
-    i = 0
+    # Plot the data.
 
     # Mapping individual properties of the plots.
     z = plot_item['data']
@@ -237,7 +230,6 @@ def plot_single_panel(plot_item, plot_title=''):
     if cl_label_fmt is None:
         cl_label_fmt = cb_tick_fmt.replace("{:", "%").replace("}", "")
 
-    plt.axes(ax)
     plt.title(plot_title)
     contour_fills = individual_plot(z, cf_lvls, cl_lvls,
                                     cline_label_format=cl_label_fmt,
@@ -245,6 +237,7 @@ def plot_single_panel(plot_item, plot_title=''):
                                     extend=extend)
 
     # Add axis for colorbar.
+    i = 0
     left_pos_colorbar = plot_frame_width*i + \
         (plot_frame_width-width_colorbar)/2 + plot_frame_left
     cbar_ax = fig.add_axes([left_pos_colorbar, bottom_pos_colorbar,
@@ -269,14 +262,16 @@ def plot_panel_1x3(plot_items, column_titles, row_item):
 
     """
     # Set up figure, calculate figure height corresponding to desired width.
-    plot_frame_top, plot_frame_bottom, plot_frame_left, \
-        plot_frame_right = .92, 0, .035, 0.88
+    bottom_pos_colorbar = .09
     fig_width = 9.
+    plot_frame_top, plot_frame_bottom, plot_frame_left, \
+        plot_frame_right = .95, 0, .035, 0.88
     fig_height = calc_fig_height(fig_width, (1, 3), plot_frame_top,
                                  plot_frame_bottom, plot_frame_left,
                                  plot_frame_right)
 
-    fig, axs = plt.subplots(1, 3, figsize=(fig_width, fig_height), dpi=150)
+    fig, axs = plt.subplots(1, 3, figsize=(fig_width, fig_height), dpi=150,
+                            subplot_kw={'projection': mrc})
     fig.subplots_adjust(top=plot_frame_top, bottom=plot_frame_bottom,
                         left=plot_frame_left, right=plot_frame_right,
                         hspace=0.0, wspace=0.0)
@@ -295,6 +290,7 @@ def plot_panel_1x3(plot_items, column_titles, row_item):
         cl_lvls = plot_item['contour_line_levels']
 
         plt.axes(ax)
+        ax.coastlines()  # TODO resolution='50m', color='black', linewidth=1)
         plt.title(title)
         contour_fills = individual_plot(z, cf_lvls, cl_lvls,
                                         cline_label_format=cl_label_fmt)
@@ -321,7 +317,7 @@ def plot_panel_1x3_seperate_colorbar(plot_items, column_titles):
     """
     # Set up figure, calculate figure height corresponding to desired width.
     plot_frame_top, plot_frame_bottom, plot_frame_left, \
-        plot_frame_right = .92, 0.17, 0., 1.
+        plot_frame_right = .95, 0.17, 0., 1.
     width_colorbar = .27
     bottom_pos_colorbar = .1
     fig_width = 9.*(0.88-.035)
@@ -334,7 +330,8 @@ def plot_panel_1x3_seperate_colorbar(plot_items, column_titles):
                                  plot_frame_bottom, plot_frame_left,
                                  plot_frame_right)
 
-    fig, axs = plt.subplots(1, 3, figsize=(fig_width, fig_height), dpi=150)
+    fig, axs = plt.subplots(1, 3, figsize=(fig_width, fig_height), dpi=150,
+                            subplot_kw={'projection': mrc})
     fig.subplots_adjust(top=plot_frame_top, bottom=plot_frame_bottom,
                         left=plot_frame_left, right=plot_frame_right,
                         hspace=0.0, wspace=0.0)
@@ -355,6 +352,7 @@ def plot_panel_1x3_seperate_colorbar(plot_items, column_titles):
             cl_label_fmt = cb_tick_fmt.replace("{:", "%").replace("}", "")
 
         plt.axes(ax)
+        ax.coastlines()  # TODO resolution='50m', color='black', linewidth=1)
         plt.title(title)
         contour_fills = individual_plot(z, cf_lvls, cl_lvls,
                                         cline_label_format=cl_label_fmt,
@@ -394,7 +392,8 @@ def plot_panel_2x3(plot_items, column_titles, row_items):
                                  plot_frame_bottom, plot_frame_left,
                                  plot_frame_right)
 
-    fig, axs = plt.subplots(2, 3, figsize=(fig_width, fig_height), dpi=150)
+    fig, axs = plt.subplots(2, 3, figsize=(fig_width, fig_height), dpi=150,
+                            subplot_kw={'projection': mrc})
     fig.subplots_adjust(top=plot_frame_top, bottom=plot_frame_bottom,
                         left=plot_frame_left, right=plot_frame_right,
                         hspace=0.0, wspace=0.0)
@@ -419,6 +418,7 @@ def plot_panel_2x3(plot_items, column_titles, row_items):
             cl_lvls = plot_item['contour_line_levels']
 
             plt.axes(ax)
+            ax.coastlines()  # TODO resolution='50m', color='black', linewidth=1)
             contour_fills = individual_plot(z, cf_lvls, cl_lvls,
                                             cline_label_format=cl_label_fmt,
                                             extend=extend)

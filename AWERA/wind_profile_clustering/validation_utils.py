@@ -12,7 +12,7 @@ from .config import plots_interactive, result_dir_validation, data_info
 
 from .config import validation_type, do_normalize_data, make_result_subdirs
 
-if not plots_interactive:
+if False:  # not plots_interactive:
     mpl.use('Pdf')
 import matplotlib.pyplot as plt
 

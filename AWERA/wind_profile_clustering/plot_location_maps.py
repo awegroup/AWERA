@@ -3,21 +3,13 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
-from matplotlib.cbook import MatplotlibDeprecationWarning
-#from mpl_toolkits.basemap import Basemap
-
 import pickle
-
-import warnings
-warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
-# TODO check this deprecation warning
-
+import cartopy
+import cartopy.crs as ccrs
 #TODO put in utils/eval...? function necessary for what? -> eval?
 
 
 def plot_location_map(config):
-    map_lons = config.Data.lon_range
-    map_lats = config.Data.lat_range
     locations = config.Data.locations
     # Prepare the general map plot.
     with open(config.IO.cluster_labels, 'rb') as f:
@@ -49,19 +41,14 @@ def plot_location_map(config):
 
     cm = 1/2.54
     fig = plt.figure(figsize=(13*cm, 14.5*cm))
-    ax = fig.add_subplot(111)
 
+
+    mrc = ccrs.Mercator()
+    ax = plt.axes(projection=mrc)
+    ax.coastlines()  # TODO resolution='50m', color='black', linewidth=1)
     plt.title("Cluster mapping")
-
-    map_plot = Basemap(projection='merc',
-                       llcrnrlon=np.min(map_lons),
-                       llcrnrlat=np.min(map_lats),
-                       urcrnrlon=np.max(map_lons),
-                       urcrnrlat=np.max(map_lats),
-                       resolution=config.Plotting.map.map_resolution,
-                       ax=ax)
     # Compute map projection coordinates.
-    grid_x, grid_y = map_plot(lons, lats)
+
     # TODO what do I use this for, improve plotting/labelling
     if sum(max_cluster_found) <= 8:
         color_map = plt.get_cmap('Dark2')
@@ -79,9 +66,9 @@ def plot_location_map(config):
 
     normalize = mpl.colors.Normalize(vmin=1, vmax=len(max_cluster))
 
-    map_plot.scatter(grid_x, grid_y, c=color_map(normalize(loc_data)))
-
-    map_plot.drawcoastlines(linewidth=.4)
+    plt.scatter(lons, lats, c=color_map(normalize(loc_data)),
+                transform=cartopy.crs.PlateCarree(),
+                zorder=0.5)
 
     cax, _ = mpl.colorbar.make_axes(ax)
     cbar = mpl.colorbar.ColorbarBase(cax,

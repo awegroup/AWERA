@@ -3,7 +3,8 @@ from pyoptsparse import History
 from scipy import optimize as op
 import numpy as np
 import matplotlib as mpl
-mpl.use('Pdf')
+#mpl.use('Pdf')
+#TODO include config
 import matplotlib.pyplot as plt
 
 from .cycle_optimizer import OptimizerCycle

@@ -13,13 +13,12 @@ pandas
 matplotlib
 tqdm
 # power production
-# used by pyoptsparse:
-mpi4py
+pyoptsparse
 # clustering
 dask
 netcdf4
 xarray
 scikit-learn
 # evaluation
-basemap=1.2.2=py39h523bb60_3
+cartopy=0.18
 # TODO deprecated, use cartopy instead!
