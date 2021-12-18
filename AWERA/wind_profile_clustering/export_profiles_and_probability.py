@@ -10,8 +10,8 @@ from .read_requested_data import get_wind_data
 
 from .preprocess_data import preprocess_data
 from .wind_profile_clustering import \
-    cluster_normalized_wind_profiles_pca, predict_cluster
-
+    cluster_normalized_wind_profiles_pca, predict_cluster, \
+    single_location_prediction
 from ..power_production.utils import write_timing_info
 
 import time
@@ -45,6 +45,7 @@ def export_wind_profile_shapes(heights, prl, prp,
 
         scale_factors.append(sf)
     df.to_csv(output_file, index=False, sep=";")
+    return df
 
 
 def get_cluster_profiles(config):
@@ -104,39 +105,15 @@ def get_cluster_profiles(config):
     pipeline = res['data_processing_pipeline']
     pickle.dump(pipeline, open(config.IO.cluster_pipeline, 'wb'))
 
-    export_wind_profile_shapes(
-        data['altitude'],
-        prl, prp,
-        config.IO.cluster_profiles)
+    wind_profile_shapes = export_wind_profile_shapes(
+            data['altitude'],
+            prl, prp,
+            config.IO.cluster_profiles,
+            ref_height=config.Clustering.preprocessing.ref_vector_height)
     write_timing_info('Output written. Finished.', time.time() - since)
-
+    return wind_profile_shapes, cluster_info_dict, pipeline
 # --------------------------- Matching Cluster Prediction
 
-
-def single_location_prediction(config, pipeline, cluster_mapping, loc):
-    data = get_wind_data(config, locs=[loc])
-    # write_timing_info('Input read.', time.time() - since)
-
-    processed_data_full = preprocess_data(
-        config,
-        data,
-        remove_low_wind_samples=False)
-    # TODO no make copy here -> need less RAM
-    # write_timing_info('Preprocessed full data.', time.time() - since)
-    labels, frequency_clusters = predict_cluster(
-        processed_data_full['training_data'],
-        config.Clustering.n_clusters,
-        pipeline.predict,
-        cluster_mapping)
-    # Interpolate normalised wind speed at reference height 100m
-    # Backscaling for cluster profile to sample profile is given by the sample
-    # wind speed at reference height - v_cluster(reference_height) = 1
-    print(processed_data_full['wind_speed'].shape)
-    # TODO improve this!!
-    backscaling = np.array([np.interp(config.Clustering.preprocessing.ref_vector_height,
-                            processed_data_full['altitude'],
-                            processed_data_full['wind_speed'][i_sample, :]) for i_sample in range(processed_data_full['wind_speed'].shape[0])])
-    return labels, backscaling
 
 
 def predict_cluster_labels(config):
@@ -317,9 +294,8 @@ def export_frequency_distr(config):
                                          backscaling)
     write_timing_info('Output written. Finished.', time.time() - since)
 
-# --------------------------- Full Clustering Procedure
 
-
+# --------------------------- Standalone Functionality
 def export_profiles_and_probability(config):
     if config.Clustering.make_profiles:
         get_cluster_profiles(config)
@@ -332,8 +308,6 @@ def export_profiles_and_probability(config):
     if config.Clustering.make_freq_distr:
         export_frequency_distr(config)
         print('Frequency distribution done.')
-
-# --------------------------- Standalone Functionality
 
 
 def interpret_input_args():

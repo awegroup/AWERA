@@ -11,6 +11,7 @@ from sklearn.decomposition import PCA
 
 from sklearn.pipeline import make_pipeline
 import numpy as np
+import pandas as pd
 
 import copy
 import matplotlib as mpl
@@ -407,6 +408,62 @@ def predict_cluster(training_data, n_clusters, predict_fun, cluster_mapping):
         frequency_clusters[l] += 100. / n_samples
 
     return labels, frequency_clusters
+
+
+def single_location_prediction(config, pipeline, cluster_mapping, loc):
+    data = get_wind_data(config, locs=[loc])
+    # write_timing_info('Input read.', time.time() - since)
+
+    processed_data_full = preprocess_data(
+        config,
+        data,
+        remove_low_wind_samples=False)
+    # TODO no make copy here -> need less RAM
+    # write_timing_info('Preprocessed full data.', time.time() - since)
+    labels, frequency_clusters = predict_cluster(
+        processed_data_full['training_data'],
+        config.Clustering.n_clusters,
+        pipeline.predict,
+        cluster_mapping)
+    # Interpolate normalised wind speed at reference height 100m
+    # Backscaling for cluster profile to sample profile is given by the sample
+    # wind speed at reference height - v_cluster(reference_height) = 1
+    # TODO improve this!!
+    backscaling = np.array([
+        np.interp(
+            config.Clustering.preprocessing.ref_vector_height,
+            processed_data_full['altitude'],
+            processed_data_full['wind_speed'][i_sample, :])
+        for i_sample in range(processed_data_full['wind_speed'].shape[0])])
+    return labels, backscaling
+
+
+def export_wind_profile_shapes(heights, prl, prp,
+                               output_file, ref_height=100.):
+    assert output_file[-4:] == ".csv"
+    df = pd.DataFrame({
+        'height [m]': heights,
+    })
+    scale_factors = []
+    for i, (u, v) in enumerate(zip(prl, prp)):
+        w = (u**2 + v**2)**.5
+
+        # Get normalised wind speed at reference height via linear
+        # interpolation
+        w_ref = np.interp(ref_height, heights, w)
+        # Scaling factor such that the normalised absolute wind speed
+        # at the reference height is 1
+        sf = 1/w_ref
+        dfi = pd.DataFrame({
+            'u{} [-]'.format(i+1): u*sf,
+            'v{} [-]'.format(i+1): v*sf,
+            'scale factor{} [-]'.format(i+1): sf,
+        })
+        df = pd.concat((df, dfi), axis=1)
+
+        scale_factors.append(sf)
+    df.to_csv(output_file, index=False, sep=";")
+    return df
 
 
 if __name__ == '__main__':

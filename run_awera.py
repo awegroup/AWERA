@@ -1,5 +1,5 @@
 import os
-from AWERA import config#, run_full
+from AWERA import config
 import AWERA
 
 training_settings = []
@@ -134,10 +134,10 @@ if __name__ == '__main__':
     # 4 big jobs
     settings_id = int(os.environ['SETTINGS_ID'])
 
-    settings = training_settings[settings_id]
-    #print(settings)
+    settings = training_settings[(-1 - settings_id)]
+    print(settings)
     # Update settings to config
-    #config.update(settings)
+    config.update(settings)
 
     # Code Profiling
     # TODO include in config -> optional
@@ -153,11 +153,16 @@ if __name__ == '__main__':
     # TODO check if clustering etc has to be done?
     #AWERA.eval.optimal_harvesting_height.eval_wind_speed_at_harvesting_height(config)
     #AWERA.power_production.aep_map.compare_cf_AWE_turbine()
-    AWERA.resource_analysis.plot_maps.plot_all()
+    #AWERA.resource_analysis.plot_maps.plot_all()
+    import matplotlib.pyplot as plt
+    #AWERA.power_production.aep_map.aep_map(config)
+    #AWERA.wind_profile_clustering.plot_location_maps.plot_location_map(config)
+    #plt.show()
+    AWERA.chain.awera_chain.run_full()
     profiler.disable()
     stats = pstats.Stats(profiler).sort_stats('tottime')
     stats.strip_dirs()
-    #stats.print_stats().sort_stats('tottime')
+    stats.sort_stats('tottime').print_stats()
     # TODO only print/dump first 20 or so
     #stats.dump_stats(config.IO.result_dir + config.IO.format.plot_output.format(data_info=(config.Data.data_info + '_' + config.Clustering.training.data_info)).replace('.pdf', '.profile').format(title='run_profile', ))
 
