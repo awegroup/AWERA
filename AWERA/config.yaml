@@ -49,6 +49,7 @@ Clustering:
     preprocessing:
         # Height of the wind speed w.r.t. which the wind profiles are split
         # to parallel and perpendicular components
+        #TODO remove this from clustering
         ref_vector_height: 100.  # in m.
     training:
         # if is Null -> same as Data | training and prediction on same data

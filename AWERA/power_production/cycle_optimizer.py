@@ -7,7 +7,10 @@ import matplotlib as mpl
 #TODO inlclude config
 import matplotlib.pyplot as plt
 
-from .qsm import Cycle
+from .qsm import Cycle, \
+    SteadyStateError, OperationalLimitViolation, PhaseError
+from scipy.stats import truncnorm
+
 from .utils import flatten_dict
 
 # TODO use optimizer history?
@@ -550,6 +553,15 @@ class OptimizerCycle(Optimizer):
 
         self.set_max_traction_power = 20000.  # TODO make optional in config
 
+        # TODO remove? reorganise?
+        self.optimization_rounds = {'total_opts': [],
+                                    'successful_opts': [],
+                                    'opt_and_sim_successful': [],
+                                    'unstable_results': [],
+                                    'second_wind_speed_test': [],
+                                    'optimizer_error_starting_vals': [],
+                                    'optimizer_error_wind_speed': []}
+
     def eval_fun(self, x, scale_x=True, **kwargs):
         """Method calculating the objective and constraint functions from the eval_performance_indicators method output.
         """
@@ -669,6 +681,244 @@ class OptimizerCycle(Optimizer):
             'kinematics': cycle.kinematics,
         }
         return res
+
+    def run_optimization(self,
+                         wind_speed,
+                         x0,
+                         second_attempt=False,
+                         save_initial_value_scan_output=True,
+                         n_x_test=2, test_until_n_succ=3):
+        # TODO set save scan output to False by default
+        self.environment_state.set_reference_wind_speed(wind_speed)
+
+        # TODO log? print("x0:", x0)
+        # Optimize around x0
+        # perturb x0:
+        x0_range = [x0]
+        # Optimization variables bounds defining the search space.
+        bounds = self.bounds_real_scale
+        reduce_x = self.reduce_x
+        for n_test in range(n_x_test):
+            # Gaussian random selection of x0 within bounds
+            # TODO or just use uniform distr, mostly at bounds anyways...?
+            x0_range.append([truncnorm(a=bounds[i][0]/bounds[i][1],
+                                       b=1, scale=bounds[i][1]).rvs()
+                             if i in reduce_x else x0[i]
+                             for i in range(len(x0))])
+
+            # Gaussian random smearing of x0 within bounds
+            smearing = 0.1  # 10% smearing of the respective values
+
+            def get_smeared_x0():
+                return [np.random.normal(x0[i], x0[i]*smearing)
+                        if i in reduce_x else x0[i] for i in range(len(x0))]
+
+            def test_smeared_x0(test_x0, precision=0):
+                return np.all([np.logical_and(
+                    test_x0[i] >= (bounds[i][0]-precision),
+                    test_x0[i] <= (bounds[i][1]+precision))
+                    for i in range(len(test_x0))])
+
+            def smearing_x0():
+                test_smearing = get_smeared_x0()
+                bounds_adhered = test_smeared_x0(test_smearing)
+                while not bounds_adhered:
+                    test_smearing = get_smeared_x0()
+                    bounds_adhered = test_smeared_x0(test_smearing)
+                return test_smearing
+            # Test on two smeared variations of x0
+            x0_range.append(smearing_x0())
+            x0_range.append(smearing_x0())
+
+        x0_range = np.array(x0_range)
+        # TODO log? print('Testing x0 range: ', x0_range)
+        n_x0 = x0_range.shape[0]
+        x_opts = []
+        op_ress = []
+        conss = []
+        kpiss = []
+        sim_successfuls = []
+        opt_successfuls = []
+
+        for i in range(n_x0):
+            x0_test = x0_range[i]
+            self.x0_real_scale = x0_test
+            try:
+                # TODO log? print("Testing the {}th starting values:
+                # {}".format(i,
+                #                                                    x0_test))
+                x_opts.append(self.optimize())
+                if test_smeared_x0(self.x_opt_real_scale,
+                                   precision=self.precision):
+                    # Safety check if variable bounds are adhered
+                    op_ress.append(self.op_res)
+                    opt_successfuls.append(True)
+                    try:
+                        cons, kpis = self.eval_point()
+                        conss.append(cons)
+                        kpiss.append(kpis)
+                        sim_successfuls.append(True)
+                        # TODO log? print('Simulation successful')
+                        if sum(sim_successfuls) == test_until_n_succ:
+                            x0_range = x0_range[:i+1]
+                            break
+                    except (SteadyStateError, OperationalLimitViolation,
+                            PhaseError) as e:
+                        # TODO log? print("Error occurred while evaluating the"
+                        #       "resulting optimal point: {}".format(e))
+                        # Evaluate results with relaxed errors
+                        # relaxed errors only relax OperationalLimitViolation
+                        cons, kpis = self.eval_point(
+                            relax_errors=True)
+                        conss.append(cons)
+                        kpiss.append(kpis)
+                        sim_err = e
+                        sim_successfuls.append(False)
+                        # TODO log?print('Simulation failed -> errors relaxed')
+                else:
+                    # TODO log? print("Optimization number "
+                    #       "{} finished with an error: {}".format(
+                    #           i, 'Optimization bounds violated'))
+                    opt_err = OptimizerError("Optimization bounds violated.")
+                    # Drop last x_opts, bonds are not adhered
+                    x_opts = x_opts[:-1]
+                    opt_successfuls.append(False)
+
+            except (OptimizerError) as e:
+                # TODO log? print("Optimization number "
+                #      "{} finished with an error: {}".format(i, e))
+                opt_err = e
+                opt_successfuls.append(False)
+                continue
+            except (SteadyStateError, PhaseError,
+                    OperationalLimitViolation) as e:
+                # TODO log? print("Optimization number "
+                #      "{} finished with a simulation error: {}".format(i, e))
+                opt_err = e
+                opt_successfuls.append(False)
+                continue
+            except (FloatingPointError) as e:
+                # TODO log? print("Optimization number "
+                #      "{} finished due to a mathematical simulation error: {}"
+                #      .format(i, e))
+                opt_err = e
+                opt_successfuls.append(False)
+
+        # TODO Include test for correct power?
+        # TODO Output handling different? own function?
+
+        self.optimization_rounds['total_opts'].append(
+            len(opt_successfuls))
+        self.optimization_rounds['successful_opts'].append(
+            sum(opt_successfuls))
+        self.optimization_rounds['opt_and_sim_successful'].append(
+            sum(sim_successfuls))  # good results
+        # TODO remoe second attempt parameter, useless?
+        self.optimization_rounds['second_wind_speed_test'].append(
+            second_attempt)
+
+        # if save_initial_value_scan_output:
+        #    # TODO log? print('Saving optimizer scan output')
+        #    # TODO scan optimizer output / sim results to file
+        #    # - dep on wind_speed
+
+        #    #TODO independent of this: optvis history output?
+
+        if sum(sim_successfuls) > 0:
+            # Optimization and Simulation successful at least once:
+            # append to results
+            # consistency check sim results - both optimization
+            # and simulation work
+            x0_success = x0_range[opt_successfuls][sim_successfuls]
+            # x0_failed = list(x0_range[np.logical_not(opt_successfuls)])
+            # + list(x0_range[opt_successfuls][np.logical_not(sim_successfuls)])
+            # print('Failed starting values: ', x0_failed)
+            # print('Successful starting values: ', x0_success)
+
+            # consistency check function values
+            # corresponding eval function values from the optimizer
+            flag_unstable_opt_result = False
+
+            # print('Optimizer x point results: ', x_opts)
+            # print(' Leading to a successful simulation:', sim_successfuls)
+            x_opts_succ = np.array(x_opts)[sim_successfuls]
+            (x_opt_mean, x_opt_std) = (np.mean(x_opts_succ, axis=0),
+                                       np.std(x_opts_succ, axis=0))
+            # print('  The resulting mean {} with a standard deviation of {}'
+            # .format(x_opt_mean, x_opt_std))
+            if (x_opt_std > np.abs(0.1*x_opt_mean)).any():
+                # TODO: lower/higher, different check? -
+                # make this as debug output?
+                # print('  More than 1% standard deviation - unstable result')
+                flag_unstable_opt_result = True
+
+            # corresponding eval function values from the optimizer
+            op_ress_succ = [op_ress[i] for i in range(len(op_ress))
+                            if sim_successfuls[i]]
+            f_opt = [op_res['fun'] for op_res in op_ress_succ]
+            # print('Successful optimizer eval function results: ', f_opt)
+            (f_opt_mean, f_opt_std) = (np.mean(f_opt), np.std(f_opt))
+            # print('  The resulting mean {} with a standard deviation of {}'
+            # .format(f_opt_mean, f_opt_std))
+            if f_opt_std > np.abs(0.1*f_opt_mean):
+                # print('  More than 1% standard deviation - unstable result')
+                flag_unstable_opt_result = True
+
+            self.optimization_rounds['unstable_results'].append(
+                flag_unstable_opt_result)
+
+            # Chose best optimization result:
+            # Matching index in sim_successfuls
+            minimal_f_opt = np.argmin(f_opt)
+
+            cons = [conss[i] for i in range(len(kpiss))
+                    if sim_successfuls[i]][minimal_f_opt]
+            kpis = [kpiss[i] for i in range(len(kpiss))
+                    if sim_successfuls[i]][minimal_f_opt]
+            # TODO log? print("cons:", cons)
+            # TODO remove / manage? Failed simulation results are later masked
+            kpis['sim_successful'] = True
+
+            res = (
+                x0_success[minimal_f_opt],
+                x_opts_succ[minimal_f_opt],
+                op_ress_succ[minimal_f_opt],
+                cons,
+                kpis)
+
+            return res  # x0, x_opt result, op_res, cons, kpis
+
+        # TODO fix handling of failed optimisation/simulations?
+        # return something?
+        # return via error?
+
+        elif sum(opt_successfuls) > 0:
+            # simulations failed (run again with loose errors) but
+            # optimization worked
+            # TODO log? print('All simulations failed, save flagged
+            # loose error simulation output')
+            # self.x0.append(x0_range[opt_successfuls][-1])
+            # self.x_opts.append(x_opts[-1])
+            # self.optimization_details.append(op_ress[-1])
+
+            # TODO log? print("cons:", conss[-1])
+            # self.constraints.append(conss[-1])
+            # Failed simulation results are later masked
+            # kpis = kpiss[-1]
+            # kpis['sim_successful'] = False
+            # self.performance_indicators.append(kpis)
+
+            # TODO log? print('Output appended, raise simulation error: ')
+            raise sim_err
+        else:
+            # optimizatons all failed
+            # TODO remove?
+            self.optimization_rounds['optimizer_error_starting_vals'].append(
+                x0_range)
+            self.optimization_rounds['optimizer_error_wind_speed'].append(
+                wind_speed)
+            print('All optimizations failed, raise optimizer Error: ')
+            raise opt_err
 
 
 def test():

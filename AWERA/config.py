@@ -179,7 +179,7 @@ class Config:
                 self.Clustering.training.start_year,
                 self.Clustering.training.final_year
                 )
-        setattr(self.Clustering.training, 'data_info', data_info)
+        setattr(self.Clustering.training, 'data_info', data_info_training)
         # --------------------------- DIR + FILE and SUFFIX FORMATTING
         for key in self.IO.format.__dict__:
             if key not in ['locations']:

@@ -307,6 +307,7 @@ def single_profile_power(config, processed_data, single_sample_id, i_loc):
         p_cc = -1
     # Optimise using the clustering control parameters (cc_opt)
     # [and gaussian smeared] as starting values
+    # use run_optimization from oc here
     x_opt_cc_opt, op_res, cons, kpis, \
         sim_successfuls = mult_x_trial_run_optimization(x_opt_cluster,
                                                         oc,

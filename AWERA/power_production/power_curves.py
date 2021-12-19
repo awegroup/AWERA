@@ -208,20 +208,26 @@ def create_environment(df, i_profile):
 
 
 def estimate_wind_speed_operational_limits(config,
-                                           export_operational_limits=True):
+                                           export_operational_limits=True,
+                                           input_profiles=None):
     """Estimate the cut-in and cut-out wind speeds for each wind profile shape.
     These wind speeds are refined when determining the power curves."""
-    n_clusters = config.Clustering.n_clusters
     fig, ax = plt.subplots(1, 2, figsize=(5.5, 3), sharey=True)
     plt.subplots_adjust(top=0.92, bottom=0.164, left=0.11,
                         right=0.788, wspace=0.13)
 
+    #TODO format with reference height everywhere
     res = {'vw_100m_cut_in': [],
            'vw_100m_cut_out': [],
            'tether_force_cut_in': [],
            }
-    input_profiles = pd.read_csv(config.IO.cluster_profiles, sep=";")
-    for i_profile in range(1, n_clusters+1):
+    if input_profiles is None:
+        input_profiles = pd.read_csv(config.IO.cluster_profiles, sep=";")
+    # 1 height column, 3 columns each profile (u,v,scale factor)
+    # TODO remove scale factor?
+    n_profiles = int((input_profiles.shape[1]-1)/3)
+    #TODO option to read arbitrary profile, n_prifles: len(profiles)
+    for i_profile in range(1, n_profiles+1):
         # TODO include in logging? / timing info print('Profile {}'.format(i_profile))
         env = create_environment(input_profiles, i_profile)
 
@@ -231,16 +237,16 @@ def estimate_wind_speed_operational_limits(config,
         res['tether_force_cut_in'].append(tether_force_cut_in)
 
         # Get cut-out wind speed, which proved to work better when using
-        # 250m reference height.
+        # 250m reference height. #TODO check this, change this?
         env.set_reference_height(250)
         vw_cut_out250m, elev = get_cut_out_wind_speed(env)
         env.set_reference_wind_speed(vw_cut_out250m)
-        vw_cut_out = env.calculate_wind(100.)
+        vw_cut_out = env.calculate_wind(config.Clusterin.preprocessing.ref_vector_height)
         res['vw_100m_cut_out'].append(vw_cut_out)
 
         # Plot the wind profiles corresponding to the wind speed operational
         # limits and the profile shapes.
-        env.set_reference_height(100.)
+        env.set_reference_height(config.Clusterin.preprocessing.ref_vector_height)
         env.set_reference_wind_speed(vw_cut_in)
         plt.sca(ax[0])
         env.plot_wind_profile()
@@ -266,13 +272,16 @@ def estimate_wind_speed_operational_limits(config,
     if not config.Plotting.plots_interactive:
         plt.savefig(config.IO.training_plot_output.format(
             title='estimate_wind_speed_operational_limits'))
+    return df
 
 
-def generate_power_curves(config, run_profiles):
+def generate_power_curves(config,
+                          run_profiles,
+                          limit_estimates=None):
     """Determine power curves - requires estimates of the cut-in
         and cut-out wind speed to be available."""
-    n_clusters = config.Clustering.n_clusters
-    limit_estimates = pd.read_csv(config.IO.cut_wind_speeds)
+    if limit_estimates is None:
+        limit_estimates = pd.read_csv(config.IO.cut_wind_speeds)
 
     # Cycle simulation settings for different phases of the power curves.
     cycle_sim_settings_pc_phase1 = {
@@ -303,7 +312,8 @@ def generate_power_curves(config, run_profiles):
     res_pcs = []
     input_profiles = pd.read_csv(config.IO.cluster_profiles, sep=";")
     for i_profile in run_profiles:
-        # TODO log? print("Power curve generation for profile number {}".format(i_profile))
+        # TODO log? print("Power curve generation for profile number {}"
+        # .format(i_profile))
         # Pre-configure environment object for optimizations by setting
         # normalized wind profile.
         env = create_environment(input_profiles, i_profile)
@@ -440,7 +450,8 @@ def generate_power_curves(config, run_profiles):
         limits_refined['vw_100m_cut_in'].append(wind[0])
         limits_refined['vw_100m_cut_out'].append(wind[-1])
 
-        # TODO in log print("Cut-in and -out speeds changed from [{:.3f}, {:.3f}] to "
+        # TODO in log print("Cut-in and -out speeds changed from [{:.3f},
+        # {:.3f}] to "
         #      "[{:.3f}, {:.3f}].".format(vw_cut_in, vw_cut_out,
         #                                 wind[0],
         #                                 wind[-1]))

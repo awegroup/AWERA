@@ -158,7 +158,7 @@ if __name__ == '__main__':
     #AWERA.power_production.aep_map.aep_map(config)
     #AWERA.wind_profile_clustering.plot_location_maps.plot_location_map(config)
     #plt.show()
-    AWERA.chain.awera_chain.run_full()
+    AWERA.chain.awera_chain.run_full(config)
     profiler.disable()
     stats = pstats.Stats(profiler).sort_stats('tottime')
     stats.strip_dirs()

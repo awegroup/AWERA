@@ -18,6 +18,9 @@ import matplotlib as mpl
 
 from .read_requested_data import get_wind_data
 
+from .preprocess_data import preprocess_data
+
+from ..power_production.utils import write_timing_info
 xlim_pc12 = [-1.1, 1.1]
 ylim_pc12 = [-1.1, 1.1]
 x_lim_profiles = [-0.8, 1.25]
