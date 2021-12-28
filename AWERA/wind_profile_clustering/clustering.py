@@ -32,11 +32,11 @@ class Clustering:
 
     def train_profiles(self, return_pipeline=False):
         # Set Data to read to training data
-        config_training_data = copy.deepcopy(self.config)
-        config_training_data.update(
+        config = copy.deepcopy(self.config)
+        self.config.update(
             {'Data': self.config.Clustering.training.__dict__})
-        data = get_wind_data(config_training_data)
-        processed_data = preprocess_data(config_training_data, data)
+        data = get_wind_data(self.config)
+        processed_data = preprocess_data(self.config, data)
 
         res = cluster_normalized_wind_profiles_pca(
             processed_data['training_data'],
@@ -50,8 +50,8 @@ class Clustering:
         profiles = export_wind_profile_shapes(
             data['altitude'],
             prl, prp,
-            self.config.IO.cluster_profiles,
-            ref_height=self.config.Clustering.preprocessing.ref_vector_height)
+            self.config.IO.profiles,
+            ref_height=self.config.General.ref_height)
         # setattr(self, 'profiles', profiles)
 
         # Write mapping pipeline to file
@@ -59,13 +59,14 @@ class Clustering:
         pickle.dump(pipeline, open(self.config.IO.cluster_pipeline, 'wb'))
         # setattr(self, 'pipeline', pipeline)
         # setattr(self, 'cluster_mapping', res['cluster_mapping'])
-        training_data_full = preprocess_data(config_training_data,
+        training_data_full = preprocess_data(self.config,
                                              data,
                                              remove_low_wind_samples=False)
         # TODO make wirting output optional?
         self.predict_labels(data=training_data_full,
                             pipeline=pipeline,
                             cluster_mapping=res['cluster_mapping'])
+        setattr(self, 'config', config)
         if return_pipeline:
             return profiles, pipeline, res['cluster_mapping']
         else:
@@ -95,7 +96,7 @@ class Clustering:
 
             res_scale = np.array([
                 np.interp(
-                    self.config.Clustering.preprocessing.ref_vector_height,
+                    self.config.General.ref_height,
                     data['altitude'],
                     data['wind_speed'][i_sample, :])
                 for i_sample in range(
@@ -167,7 +168,7 @@ class Clustering:
             'n_samples_per_loc': n_samples_per_loc,
             }
         pickle.dump(cluster_info_dict,
-                    open(self.config.IO.cluster_labels, 'wb'))
+                    open(self.config.IO.labels, 'wb'))
 
         return (cluster_info_dict['labels [-]'],
                 cluster_info_dict['backscaling [m/s]'],
@@ -224,7 +225,7 @@ class Clustering:
     # Read available output
     def read_profiles(self):
         profiles = pd.read_csv(
-            self.config.IO.cluster_profiles, sep=";")
+            self.config.IO.profiles, sep=";")
         return profiles
 
     def read_pipeline(self):
@@ -234,9 +235,9 @@ class Clustering:
 
     def read_labels(self, data_type='Data'):
         if data_type in ['Data', 'data']:
-            file_name = self.config.IO.cluster_labels
+            file_name = self.config.IO.labels
         elif data_type in ['Training', 'training']:
-            file_name = self.config.IO.training_cluster_labels
+            file_name = self.config.IO.training_labels
         with open(file_name, 'rb') as f:
             labels_file = pickle.load(f)
         return (
