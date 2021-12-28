@@ -134,7 +134,7 @@ if __name__ == '__main__':
     # 4 big jobs
     settings_id = int(os.environ['SETTINGS_ID'])
 
-    settings = training_settings[(-1 - settings_id)]
+    settings = training_settings[settings_id]  # (-1 - settings_id)]
     print(settings)
     # Update settings to config
     config.update(settings)
@@ -161,6 +161,7 @@ if __name__ == '__main__':
     AWERA.chain.awera_chain.run_full(config)
     profiler.disable()
     stats = pstats.Stats(profiler).sort_stats('tottime')
+    plt.show()
     stats.strip_dirs()
     stats.sort_stats('tottime').print_stats()
     # TODO only print/dump first 20 or so
