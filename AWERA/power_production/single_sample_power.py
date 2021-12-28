@@ -483,7 +483,8 @@ def multiple_locations(config, locs, sel_sample_ids, file_name):
 
 
 if __name__ == "__main__":
-    from ..config import config
+    from ..config import Config
+    config = Config()
     from .config import sample_ids, \
         brute_force_testing_file_name, locs
     # TODO change to config.yaml

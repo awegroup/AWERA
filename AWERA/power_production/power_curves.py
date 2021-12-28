@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import copy
 
 import pandas as pd
 from copy import deepcopy
@@ -211,24 +212,27 @@ def estimate_wind_speed_operational_limits(config,
                                            export_operational_limits=True,
                                            input_profiles=None):
     """Estimate the cut-in and cut-out wind speeds for each wind profile shape.
-    These wind speeds are refined when determining the power curves."""
+
+    These wind speeds are refined when determining the power curves.
+    """
+    # TODO include descrition of inpuf profiles
     fig, ax = plt.subplots(1, 2, figsize=(5.5, 3), sharey=True)
     plt.subplots_adjust(top=0.92, bottom=0.164, left=0.11,
                         right=0.788, wspace=0.13)
 
-    #TODO format with reference height everywhere
+    # TODO format with reference height everywhere
     res = {'vw_100m_cut_in': [],
            'vw_100m_cut_out': [],
            'tether_force_cut_in': [],
            }
     if input_profiles is None:
-        input_profiles = pd.read_csv(config.IO.cluster_profiles, sep=";")
+        input_profiles = pd.read_csv(config.IO.profiles, sep=";")
     # 1 height column, 3 columns each profile (u,v,scale factor)
     # TODO remove scale factor?
     n_profiles = int((input_profiles.shape[1]-1)/3)
-    #TODO option to read arbitrary profile, n_prifles: len(profiles)
+    # TODO option to read arbitrary profile, n_prifles: len(profiles)
     for i_profile in range(1, n_profiles+1):
-        # TODO include in logging? / timing info print('Profile {}'.format(i_profile))
+        # TODO logging? / timing info print('Profile {}'.format(i_profile))
         env = create_environment(input_profiles, i_profile)
 
         # Get cut-in wind speed.
@@ -241,12 +245,14 @@ def estimate_wind_speed_operational_limits(config,
         env.set_reference_height(250)
         vw_cut_out250m, elev = get_cut_out_wind_speed(env)
         env.set_reference_wind_speed(vw_cut_out250m)
-        vw_cut_out = env.calculate_wind(config.Clusterin.preprocessing.ref_vector_height)
+        vw_cut_out = env.calculate_wind(
+            config.General.ref_height)
         res['vw_100m_cut_out'].append(vw_cut_out)
 
         # Plot the wind profiles corresponding to the wind speed operational
         # limits and the profile shapes.
-        env.set_reference_height(config.Clusterin.preprocessing.ref_vector_height)
+        env.set_reference_height(
+            config.General.ref_height)
         env.set_reference_wind_speed(vw_cut_in)
         plt.sca(ax[0])
         env.plot_wind_profile()
@@ -277,6 +283,7 @@ def estimate_wind_speed_operational_limits(config,
 
 def generate_power_curves(config,
                           run_profiles,
+                          input_profiles=None,
                           limit_estimates=None):
     """Determine power curves - requires estimates of the cut-in
         and cut-out wind speed to be available."""
@@ -310,7 +317,8 @@ def generate_power_curves(config,
                       'vw_100m_cut_in': [],
                       'vw_100m_cut_out': []}
     res_pcs = []
-    input_profiles = pd.read_csv(config.IO.cluster_profiles, sep=";")
+    if input_profiles is None:
+        input_profiles = pd.read_csv(config.IO.profiles, sep=";")
     for i_profile in run_profiles:
         # TODO log? print("Power curve generation for profile number {}"
         # .format(i_profile))
@@ -396,11 +404,13 @@ def generate_power_curves(config,
         # mask failed simulation, export only good results
         sel_succ = [kpis['sim_successful']
                     for kpis in pc.performance_indicators]
+        print('# Failed runs: ', -sum(sel_succ)+len(sel_succ))
+        print('# Successful runs: ', sum(sel_succ))
 
         # Plot power curve together with that of the other wind profile shapes.
         p_cycle = np.array([kpis['average_power']['cycle']
                             for kpis in pc.performance_indicators])[sel_succ]
-
+        print('p_cycle: ', p_cycle)
         # Log? print('p_cycle: ', p_cycle)
         # Mask negative jumps in power
         sel_succ_power = p_cycle > 0
@@ -409,11 +419,12 @@ def generate_power_curves(config,
             print(len(sel_succ_power)-sum(sel_succ_power),
                   'masked negative powers')
         p_cycle_masked = p_cycle[sel_succ_power]
-
+        print('masked p_cycle: ', p_cycle_masked)
         # TODO resolve source of problems - done right? leave in as check
         while True:
             sel_succ_power_disc = [True] + list(np.diff(p_cycle_masked)
                                                 > -1000)
+            print('No disc: ', sel_succ_power_disc)
             sel_succ_power[sel_succ_power] = sel_succ_power_disc
             p_cycle_masked = p_cycle_masked[sel_succ_power_disc]
             if sum(sel_succ_power_disc) == len(sel_succ_power_disc):
@@ -441,9 +452,9 @@ def generate_power_curves(config,
                           for kpis in pc.performance_indicators]
                          )[sel_succ][sel_succ_power]
         x_opts = np.array(pc.x_opts)[sel_succ][sel_succ_power]
-
-        export_to_csv(config, wind, vw_cut_out, p_cycle,
-                      x_opts, n_cwp, i_profile)
+        if config.General.write_output:
+            export_to_csv(config, wind, vw_cut_out, p_cycle,
+                          x_opts, n_cwp, i_profile)
         # Refine the wind speed operational limits to wind speeds for
         # which optimal solutions are found.
         limits_refined['i_profile'].append(i_profile)
@@ -455,13 +466,12 @@ def generate_power_curves(config,
         #      "[{:.3f}, {:.3f}].".format(vw_cut_in, vw_cut_out,
         #                                 wind[0],
         #                                 wind[-1]))
-        if len(run_profiles) == 1:
+        if len(run_profiles) == 1 and config.General.write_output:
             df = pd.DataFrame(limits_refined)
             # TODO log? print(df)
             df.to_csv(config.IO.refined_cut_wind_speeds.replace(
                 '.csv', '_profile_{}.csv'.format(i_profile)))
             # TODO include this change in config?
-            # TODO recombine file after all power curves are finished
             # TODO log? print("Exporting single profile operational limits.")
     ax_pcs[1].legend()
     ax_pcs[0].set_xlabel('$v_{w,100m}$ [m/s]')
@@ -472,14 +482,18 @@ def generate_power_curves(config,
     if not config.Plotting.plots_interactive:
         fig.savefig(config.IO.training_plot_output.format(
             title='generated_power_vs_wind_speeds'))
-
-    if len(run_profiles) == config.Clustering.n_clusters:
+    try:
+        n_max_profiles = config.Clustering.n_clusters
+    except AttributeError:
+        n_max_profiles = 2
+    if len(run_profiles) >= n_max_profiles \
+            and config.General.write_output:
         df = pd.DataFrame(limits_refined)
         # TODO log? print(df)
         df.to_csv(config.IO.refined_cut_wind_speeds)
         # TODO log? print("Exporting operational limits.")
 
-    return res_pcs
+    return res_pcs, limits_refined
 
 
 def load_power_curve_results_and_plot_trajectories(config, i_profile=1):
@@ -639,14 +653,21 @@ def get_power_curves(config):
                                 file=file))
             # Interpret res: funct returns a list of the result for each
             # process
-            pcs = [res_n[0] for res_n in res]
+            pcs = []
+            for i, res_n in enumerate(res):
+                pcs.append(res_n[0][0])
+                refined_limits_n = res_n[1]
+                if i == 0:
+                    refined_limits = copy.deepcopy(refined_limits_n)
+                else:
+                    for key, val in refined_limits_n.items():
+                        refined_limits[key].append(val)
             combine_separate_profile_files(
                 config,
                 io_file='refined_cut_wind_speeds')
-            # TODO remove combined (old) fiiles
         else:
             run_profiles = list(range(config.Clustering.n_clusters))
-            pcs = generate_power_curves(
+            pcs, limits_refined = generate_power_curves(
                 config,
                 run_profiles)
         compare_kpis(config, pcs)
@@ -692,7 +713,8 @@ def interpret_input_args():
 
 
 if __name__ == '__main__':
-    from ..config import config
+    from ..config import Config
+    config = Config()
     # TODO is this necessary here?
     if not config.Plotting.plots_interactive:
         import matplotlib as mpl

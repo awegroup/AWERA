@@ -228,11 +228,12 @@ def plot_discrete_map(config, values, title='', label=''):
     # Map range
     cm = 1/2.54
     # Plot Value
-    fig = plt.figure(figsize=(13*cm, 14.5*cm))
+    plt.figure(figsize=(13*cm, 14.5*cm))
     mrc = ccrs.Mercator()
     ax = plt.axes(projection=mrc)
 
-    ax.coastlines()  # TODO resolution='50m', color='black', linewidth=1)
+    ax.coastlines(zorder=4)
+    # TODO resolution='50m', color='black', linewidth=1)
     ax.set_extent([config.Data.lon_range[0],
                    config.Data.lon_range[1],
                    config.Data.lat_range[0],
@@ -247,10 +248,12 @@ def plot_discrete_map(config, values, title='', label=''):
     lons_grid, lats_grid = np.meshgrid(config.Data.all_lons,
                                        config.Data.all_lats)
     # Compute map projection coordinates.
-    ax.pcolormesh(lons_grid, lats_grid, values, cmap=color_map, norm=normalize,
+    # TODO does this work now? threw error too many values to unpack
+    # - works locally
+    ax.pcolormesh(lons_grid, lats_grid, values,
+                  cmap=color_map, norm=normalize,
                   transform=cartopy.crs.PlateCarree(),
-                  zorder=0.5)
-
+                  zorder=3)
     cbar_ax, _ = mpl.colorbar.make_axes(ax)
     mpl.colorbar.ColorbarBase(cbar_ax, cmap=color_map, norm=normalize,
                               label=label)
@@ -271,7 +274,7 @@ def aep_map(config):
         p_loc[i_loc[0], i_loc[1]] = aep[i]/365/24*1000  # p [kW]
         aep_loc[i_loc[0], i_loc[1]] = aep[i]  # aep [MWh]
         c_f_loc[i_loc[0], i_loc[1]] = aep[i]/aep_n  # c_f [-]
-    if np.sum(p_loc.mask) == 0 and False:
+    if np.sum(p_loc.mask) == 0:
         # Plot continuous aep map
         print('Location wise AEP determined. Plot map:')
         plot_aep_map(p_loc, aep_loc, c_f_loc)
@@ -342,7 +345,8 @@ def compare_cf_AWE_turbine(config):
 
 
 if __name__ == "__main__":
-    from ..config import config
+    from ..config import Config
+    config = Config()
     # TODO include this into aep from own plotting
     # plot_power_and_wind_speed_probability_curves() #TODO where??
     aep_map(config)

@@ -683,14 +683,11 @@ class OptimizerCycle(Optimizer):
         return res
 
     def run_optimization(self,
-                         wind_speed,
                          x0,
                          second_attempt=False,
                          save_initial_value_scan_output=True,
                          n_x_test=2, test_until_n_succ=3):
         # TODO set save scan output to False by default
-        self.environment_state.set_reference_wind_speed(wind_speed)
-
         # TODO log? print("x0:", x0)
         # Optimize around x0
         # perturb x0:
@@ -916,7 +913,7 @@ class OptimizerCycle(Optimizer):
             self.optimization_rounds['optimizer_error_starting_vals'].append(
                 x0_range)
             self.optimization_rounds['optimizer_error_wind_speed'].append(
-                wind_speed)
+                self.environment_state.wind_speed)
             print('All optimizations failed, raise optimizer Error: ')
             raise opt_err
 

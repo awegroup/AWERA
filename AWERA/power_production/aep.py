@@ -137,7 +137,8 @@ def calculate_aep(config, loc='mmc'):
 
 
 if __name__ == "__main__":
-    from ..config import config
+    from ..config import Config
+    config = Config()
     plot_power_and_wind_speed_probability_curves(config)
     # TODO remoce loc=''
     aep_sum, freq, p_bins, aep_bins = calculate_aep(config, loc='mmc')

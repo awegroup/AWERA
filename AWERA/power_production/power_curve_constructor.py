@@ -46,9 +46,10 @@ class PowerCurveConstructor:
                 x0_next = x_opt_last + dx0*(vw - vw_last)
 
             # TODO log? print("[{}] Processing v={:.2f}m/s".format(i, vw))
+            power_optimizer.environment_state.set_reference_wind_speed(vw)
             try:
                 x0_opt, x_opt, op_res, cons, kpis = \
-                    power_optimizer.run_optimization(vw, x0_next)
+                    power_optimizer.run_optimization(x0_next)
             except (OperationalLimitViolation, SteadyStateError,
                     PhaseError, OptimizerError):
                 try:  # Retry for a slightly different wind speed.
@@ -56,11 +57,12 @@ class PowerCurveConstructor:
                     # in error: {}'.format(e))
                     # TODO log? print('run with varied wind speed:', vw+1e-2)
                     vw = vw+1e-2
+                    power_optimizer.environment_state.set_reference_wind_speed(
+                        vw)
                     x0_opt, x_opt, op_res, cons, kpis = \
-                        power_optimizer.run_optimization(vw,
-                                                         x0_next,
+                        power_optimizer.run_optimization(x0_next,
                                                          second_attempt=True)
-                    self.wind_speeds[i] = vw+1e-2
+                    self.wind_speeds[i] = vw
                 except (OperationalLimitViolation, SteadyStateError,
                         PhaseError, OptimizerError):
                     self.wind_speeds = self.wind_speeds[:i]
@@ -372,6 +374,12 @@ class PowerCurveConstructor:
         if not self.plots_interactive:
             plt.savefig(self.plot_output_file.format(
                 title='optimization_results{}'.format(plot_info)))
+
+    def curve(self):
+        wind_speeds = self.wind_speeds
+        power = np.array([kpis['average_power']['cycle']
+                                  for kpis in self.performance_indicators])
+        return wind_speeds, power
 
     def export_results(self, file_name):
         export_dict = self.__dict__

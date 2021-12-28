@@ -101,7 +101,8 @@ def plot_optimization_parameter_scatter(config, param_ids=[1, 2, 3]):
 
 
 if __name__ == '__main__':
-    from ..config import config
+    from ..config import Config
+    config = Config()
     plot_power_and_frequency(config)
     # plot_optimization_parameter_scatter(config)
     # TODO include savefig
