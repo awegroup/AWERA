@@ -12,7 +12,7 @@ import cartopy.crs as ccrs
 def plot_location_map(config):
     locations = config.Data.locations
     # Prepare the general map plot.
-    with open(config.IO.cluster_labels, 'rb') as f:
+    with open(config.IO.labels, 'rb') as f:
         labels_file = pickle.load(f)
     labels = labels_file['labels [-]']
     locations = labels_file['locations']
@@ -85,6 +85,7 @@ def plot_location_map(config):
 
 
 if __name__ == '__main__':
-    from ..config import config
+    from ..config import Config
+    config = Config()
     plot_location_map(config)
     plt.show()

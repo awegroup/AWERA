@@ -102,7 +102,7 @@ def preprocess_data(config,
         data = remove_lt_mean_wind_speed_value(data, 5.)
     data = express_profiles_wrt_ref_vector(
         data,
-        config.Clustering.preprocessing.ref_vector_height)
+        config.General.ref_height)
     if normalize:
         data = normalize_data(data)
 
@@ -110,7 +110,8 @@ def preprocess_data(config,
 
 
 if __name__ == '__main__':
-    from ..config import config
+    from ..config import Config
+    config = Config()
     # Read data
     wind_data = get_wind_data(config)
     preprocess_data(wind_data)

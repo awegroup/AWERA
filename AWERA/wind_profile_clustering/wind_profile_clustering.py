@@ -20,7 +20,7 @@ from .read_requested_data import get_wind_data
 
 from .preprocess_data import preprocess_data
 
-from ..power_production.utils import write_timing_info
+# !!! from ..power_production.utils import write_timing_info
 xlim_pc12 = [-1.1, 1.1]
 ylim_pc12 = [-1.1, 1.1]
 x_lim_profiles = [-0.8, 1.25]
@@ -434,7 +434,7 @@ def single_location_prediction(config, pipeline, cluster_mapping, loc):
     # TODO improve this!!
     backscaling = np.array([
         np.interp(
-            config.Clustering.preprocessing.ref_vector_height,
+            config.General.ref_height,
             processed_data_full['altitude'],
             processed_data_full['wind_speed'][i_sample, :])
         for i_sample in range(processed_data_full['wind_speed'].shape[0])])
@@ -443,6 +443,7 @@ def single_location_prediction(config, pipeline, cluster_mapping, loc):
 
 def export_wind_profile_shapes(heights, prl, prp,
                                output_file, ref_height=100.):
+    # TODO move to utils -> move imports to utils
     assert output_file[-4:] == ".csv"
     df = pd.DataFrame({
         'height [m]': heights,
@@ -470,7 +471,8 @@ def export_wind_profile_shapes(heights, prl, prp,
 
 
 if __name__ == '__main__':
-    from ..config import config
+    from ..config import Config
+    config = Config()
     if not config.Plotting.plots_interactive:
         mpl.use('Pdf')
     import matplotlib.pyplot as plt

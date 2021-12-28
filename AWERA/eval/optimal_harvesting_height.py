@@ -47,7 +47,7 @@ def get_data_avg_power_cycle_height_from_cluster(config):
         get_cluster_avg_power_cycle_height_vs_wind_speed(config)
 
     # Read labels and backscaling factors
-    with open(config.IO.cluster_labels, 'rb') as f:
+    with open(config.IO.labels, 'rb') as f:
         clustering_output = pickle.load(f)
     data_matching_cluster = clustering_output['labels [-]']
     data_backscaling_from_cluster = clustering_output['backscaling [m/s]']
@@ -125,7 +125,7 @@ def get_data_power_from_cluster(config):
     # Get clustering power production simulation results
 
     # Read labels and backscaling factors
-    with open(config.IO.cluster_labels, 'rb') as f:
+    with open(config.IO.labels, 'rb') as f:
         clustering_output = pickle.load(f)
     data_matching_cluster = clustering_output['labels [-]']
     backscaling = clustering_output['backscaling [m/s]']
@@ -164,7 +164,7 @@ def get_data_power_from_cluster(config):
 
 
 def read_cluster_profiles(config, descale_ref=False):
-    df = pd.read_csv(config.IO.cluster_profiles, sep=";")
+    df = pd.read_csv(config.IO.profiles, sep=";")
     heights = df['height [m]']
     prl = np.zeros((config.Clustering.n_clusters, len(heights)))
     prp = np.zeros((config.Clustering.n_clusters, len(heights)))
@@ -398,7 +398,7 @@ def eval_wind_speed_at_harvesting_height(config):
                  line_levels=[1.1, 1.3],
                  label='v/v_ref [-]',
                  plot_title='Ratio using {:.0f}m'.format(
-                     config.Clustering.preprocessing.ref_vector_height),
+                     config.General.ref_height),
                  n_decimals=1)
 
         # Average ratio of (wind speed at harvesting altitude) /
@@ -503,7 +503,7 @@ def eval_wind_speed_at_harvesting_height(config):
                 power_density_perc[2, :]/power_density_perc_at_h[2, :])
             )
         rho = barometric_height_formula(
-            config.Clustering.preprocessing.ref_vector_height)
+            config.General.ref_height)
         power_density_at_ref = calc_power(backscaling, rho)  # in W/m**2
         print('Power density: get percentiles...')
         power_density_perc_at_ref = np.percentile(power_density_at_ref,

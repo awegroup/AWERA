@@ -9,7 +9,7 @@ from .wind_profile_clustering import plot_wind_profile_shapes
 
 def plot_cluster_shapes(config):
     # TODO this can only plot 8 cluster shapes for now
-    df = pd.read_csv(config.IO.cluster_profiles, sep=";")
+    df = pd.read_csv(config.IO.profiles, sep=";")
     heights = df['height [m]']
     prl = np.zeros((config.Clustering.n_clusters, len(heights)))
     prp = np.zeros((config.Clustering.n_clusters, len(heights)))

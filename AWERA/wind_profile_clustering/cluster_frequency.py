@@ -82,12 +82,12 @@ def export_frequency_distr(config):
     # TODO make this also parallel/serial, not all input at same time
     print('Exporting frequency distribution only')
     profiles_file = pd.read_csv(
-        config.IO.cluster_profiles, sep=";")
+        config.IO.profiles, sep=";")
     scale_factors = []
     for i in range(config.Clustering.n_clusters):
         scale_factors.append(profiles_file['scale factor{} [-]'
                                            .format(i+1)][0])
-    with open(config.IO.cluster_labels, 'rb') as f:
+    with open(config.IO.labels, 'rb') as f:
         labels_file = pickle.load(f)
     labels = labels_file['labels [-]']
     n_samples = len(labels)

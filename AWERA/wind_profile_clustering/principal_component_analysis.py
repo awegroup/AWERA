@@ -387,7 +387,8 @@ def sample_profile_pc_sum(wind_data, loc_info="", n_pcs=5, i_sample=0):
 
 
 if __name__ == '__main__':
-    from ..config import config
+    from ..config import Config
+    config = Config()
 
     if not config.Plotting.plots_interactive:
         mpl.use('Pdf')

@@ -185,13 +185,14 @@ class Config:
             if key not in ['locations']:
                 setattr(self.IO, key,
                         self.IO.result_dir + getattr(self.IO.format, key))
-            if key in ['freq_distr', 'cluster_labels']:
+
+            if key in ['freq_distr', 'labels']:
                 setattr(self.IO, key,
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
                             data_info=data_info,
                             data_info_training=data_info_training))
-                if key == 'cluster_labels':
+                if key == 'labels':
                     setattr(self.IO, 'training_' + key,
                             self.IO.result_dir +
                             getattr(self.IO.format, key).format(

@@ -54,7 +54,7 @@ def get_cluster_profiles(config):
     config_training_data = copy.deepcopy(config)
     config_training_data.update({'Data': config.Clustering.training.__dict__})
     data = get_wind_data(config_training_data)
-    del config_training_data
+    #del config_training_data
 
     write_timing_info('Input read.', time.time() - since)
 
@@ -71,7 +71,7 @@ def get_cluster_profiles(config):
     # Free up some memory
     del processed_data
 
-    processed_data_full = preprocess_data(config,
+    processed_data_full = preprocess_data(config_training_data,
                                           data,
                                           remove_low_wind_samples=False)
     write_timing_info('Preprocessed full data.', time.time() - since)
@@ -81,7 +81,7 @@ def get_cluster_profiles(config):
         res['data_processing_pipeline'].predict, res['cluster_mapping'])
     write_timing_info('Predicted full data', time.time() - since)
 
-    backscaling = np.array([np.interp(config.Clustering.preprocessing.ref_vector_height,
+    backscaling = np.array([np.interp(config.General.ref_height,
                             processed_data_full['altitude'],
                             processed_data_full['wind_speed'][i_sample, :]) for i_sample in range(processed_data_full['wind_speed'].shape[0])])
 
@@ -97,7 +97,7 @@ def get_cluster_profiles(config):
         'locations': processed_data_full['locations'],
         'n_samples_per_loc': processed_data_full['n_samples_per_loc']
         }
-    pickle.dump(cluster_info_dict, open(config.IO.training_cluster_labels, 'wb'))
+    pickle.dump(cluster_info_dict, open(config.IO.training_labels, 'wb'))
 
     # TODO add option to predict already read in training data,
     # split prediction function to read input and run prediction
@@ -108,8 +108,8 @@ def get_cluster_profiles(config):
     wind_profile_shapes = export_wind_profile_shapes(
             data['altitude'],
             prl, prp,
-            config.IO.cluster_profiles,
-            ref_height=config.Clustering.preprocessing.ref_vector_height)
+            config.IO.profiles,
+            ref_height=config.General.ref_height)
     write_timing_info('Output written. Finished.', time.time() - since)
     return wind_profile_shapes, cluster_info_dict, pipeline
 # --------------------------- Matching Cluster Prediction
@@ -124,7 +124,7 @@ def predict_cluster_labels(config):
         pipeline = pickle.load(f)
     # Sort cluster labels same as mapping from training
     # (largest to smallest cluster):
-    with open(config.IO.training_cluster_labels, 'rb') as f:
+    with open(config.IO.training_labels, 'rb') as f:
         training_labels_file = pickle.load(f)
     cluster_mapping = training_labels_file['cluster_mapping']
     locations = config.Data.locations
@@ -189,7 +189,7 @@ def predict_cluster_labels(config):
         'locations': locations,
         'n_samples_per_loc': n_samples_per_loc,
         }
-    pickle.dump(cluster_info_dict, open(config.IO.cluster_labels, 'wb'))
+    pickle.dump(cluster_info_dict, open(config.IO.labels, 'wb'))
     write_timing_info('Predicted labels written. Done.',
                       time.time() - since)
 
@@ -272,12 +272,12 @@ def export_frequency_distr(config):
     # TODO make this also parallel/serial, not all input at same time
     print('Exporting frequency distribution only')
     profiles_file = pd.read_csv(
-        config.IO.cluster_profiles, sep=";")
+        config.IO.profiles, sep=";")
     scale_factors = []
     for i in range(config.Clustering.n_clusters):
         scale_factors.append(profiles_file['scale factor{} [-]'
                                            .format(i+1)][0])
-    with open(config.IO.cluster_labels, 'rb') as f:
+    with open(config.IO.labels, 'rb') as f:
         labels_file = pickle.load(f)
     labels = labels_file['labels [-]']
     n_samples = len(labels)
@@ -347,7 +347,8 @@ def interpret_input_args():
 
 
 if __name__ == '__main__':
-    from ..config import config
+    from ..config import Config
+    config = Config()
     # Read program parameters
     make_profiles, make_freq_distr, predict_labels = interpret_input_args()
     setattr(config.Clustering, 'make_profiles', make_profiles)
