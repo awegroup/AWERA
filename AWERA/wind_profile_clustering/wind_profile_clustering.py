@@ -79,6 +79,7 @@ def cluster_normalized_wind_profiles_pca(training_data, n_clusters, n_pcs=5,
         'training_data_pc': training_data_pc,
         'cluster_mapping': plot_order,
         'pc_explained_variance': pca.explained_variance_,
+        'pca': pca,
     }
     return res
 

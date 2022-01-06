@@ -30,12 +30,13 @@ class Clustering:
 
 # --------------------------- Full Clustering Procedure
 
-    def train_profiles(self, return_pipeline=False):
+    def train_profiles(self, data=None, return_pipeline=False):
         # Set Data to read to training data
         config = copy.deepcopy(self.config)
         self.config.update(
             {'Data': self.config.Clustering.training.__dict__})
-        data = get_wind_data(self.config)
+        if data is None:
+            data = get_wind_data(self.config)
         processed_data = preprocess_data(self.config, data)
 
         res = cluster_normalized_wind_profiles_pca(
@@ -57,6 +58,9 @@ class Clustering:
         # Write mapping pipeline to file
         pipeline = res['data_processing_pipeline']
         pickle.dump(pipeline, open(self.config.IO.cluster_pipeline, 'wb'))
+        if self.config.Clustering.save_pca_pipeline:
+            pca_pipeline = res['pca']
+            pickle.dump(pca_pipeline, open(self.config.IO.pca_pipeline, 'wb'))
         # setattr(self, 'pipeline', pipeline)
         # setattr(self, 'cluster_mapping', res['cluster_mapping'])
         training_data_full = preprocess_data(self.config,
@@ -195,32 +199,46 @@ class Clustering:
         return freq_distr['frequency'], freq_distr['wind_speed_bin_limits']
 
 
-    def run_clustering(self):
+    def run_clustering(self, return_pipeline=False):
         if self.config.Clustering.make_profiles:
             if self.config.Clustering.predict_labels:
                 profiles, pipeline, cluster_mapping = self.train_profiles(
                     return_pipeline=True)
                 print('Make profiles done.')
 
-                self.predict_labels(
+                labels, backscaling, n_samples_per_loc = self.predict_labels(
                     pipeline=pipeline,
                     cluster_mapping=cluster_mapping)
                 # TODO check if clustering data and data are same: predicting done in make profiles?
+                if return_pipeline:
+                    return profiles, pipeline, cluster_mapping, \
+                        labels, backscaling, n_samples_per_loc
+                else:
+                    return profiles, \
+                        labels, backscaling, n_samples_per_loc
+
             else:
-                self.train_profiles()
+                profiles = self.train_profiles(return_pipeline=return_pipeline)
+                return profiles
+
         elif self.config.Clustering.predict_labels:
             labels, backscaling, n_samples_per_loc = self.predict_labels()
             print('Predict labels done.')
             if self.config.Clustering.make_freq_distr:
-                self.get_frequency(
+                freq, wind_speed_bin_limits = self.get_frequency(
                     labels=labels,
                     backscaling=backscaling,
                     n_samples_per_loc=n_samples_per_loc)
+                return labels, backscaling, n_samples_per_loc, \
+                    freq, wind_speed_bin_limits
+            else:
+                return labels, backscaling, n_samples_per_loc
 
         elif self.config.Clustering.make_freq_distr:
             #TODO need wind speed bins from production here - change this?
-            self.get_frequency()
+            freq, wind_speed_bin_limits = self.get_frequency()
             print('Frequency distribution done.')
+            return freq, wind_speed_bin_limits
 
     # Read available output
     def read_profiles(self):

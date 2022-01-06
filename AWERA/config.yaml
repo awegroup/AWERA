@@ -7,6 +7,7 @@ General:
     # to avoid overwriting of previous output obtained using config
     write_output: True
 
+
 Processing:
     parallel: True
     n_cores: 5
@@ -32,18 +33,20 @@ Clustering:
     # For finished clustering export the frequency distribution matching the
     # velocity binning of the cut-in/out wind speed ranges from
     # power production simulation
-    make_freq_distr: False # True
+    make_freq_distr: True
     n_wind_speed_bins: 100
     # Predict cluster labels for new data given in Data from already trained
     # clustering on the data given in Clustering-training
-    predict_labels: False
+    predict_labels: True
+
+    save_pca_pipeline: True
 
 Power:
     # Estimate cut-in/out wind speeds for the model
-    estimate_cut_in_out: False # True
+    estimate_cut_in_out: True
     # Run power production simulation for the velocity ranges defined
     # by the cut-in/out estimation
-    make_power_curves: False # True
+    make_power_curves: True
 
     #single_sample:
     #    # TODO include in config, siminar to location selection
@@ -107,6 +110,7 @@ IO:
         labels: 'cluster_labels_{data_info}_{data_info_training}.pickle'
         # TODO improve data/training handling, not all just data and traiing in config.py
         cluster_pipeline: 'cluster_pipeline_{data_info_training}.pickle'
+        pca_pipeline: 'pca_pipeline_{data_info_training}.pickle'
         # Power Production
         power_curve: 'power_curve_{{i_profile}}_{data_info_training}.{{suffix}}'
         cut_wind_speeds: 'cluster_profiles_cut_in_out_{data_info_training}_estimate.csv'
