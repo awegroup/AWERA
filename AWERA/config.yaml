@@ -9,7 +9,7 @@ General:
 
 Processing:
     parallel: True
-    n_cores: 3
+    n_cores: 5
     progress_out: 'stdout'  # default:'stderr' or 'stdout' printing pregress bar
 
 Plotting:
@@ -28,7 +28,7 @@ Clustering:
     # Clustering evaluation
     # Run clustering on training data and export cluster labels and
     # cluster vertical wind profiles
-    make_profiles: False  # True
+    make_profiles: True
     # For finished clustering export the frequency distribution matching the
     # velocity binning of the cut-in/out wind speed ranges from
     # power production simulation
@@ -36,7 +36,7 @@ Clustering:
     n_wind_speed_bins: 100
     # Predict cluster labels for new data given in Data from already trained
     # clustering on the data given in Clustering-training
-    predict_labels: False # True
+    predict_labels: False
 
 Power:
     # Estimate cut-in/out wind speeds for the model

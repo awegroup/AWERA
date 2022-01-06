@@ -51,11 +51,12 @@ else:
     # TODO make into utils -> use for map plots in production
     # TODO fix from config
 
-    lons = list(np.arange(-12, -5.0, .25))  # -5.75, .25))
-    lats = list(np.arange(51, 56.25, .25))
-
-    # lons = list(np.arange(-20, 20.25, .25))
-    # lats = list(np.arange(65, 29.75, -.25))
+    # Ireland
+    # lons = list(np.arange(-12, -5.0, .25))  # -5.75, .25))
+    # lats = list(np.arange(51, 56.25, .25))
+    # Europe map
+    lons = list(np.arange(-20, 20.25, .25))
+    lats = list(np.arange(65, 29.75, -.25))
 
 # Plotting map - region selection # TODO rework -> config
 plot_northern_germany = False

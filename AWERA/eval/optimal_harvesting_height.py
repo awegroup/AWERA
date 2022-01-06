@@ -181,16 +181,18 @@ def read_cluster_profiles(config, descale_ref=False):
 
 
 def get_wind_speed_at_height(config, set_height=-1):
-    #harvesting_height, harv_height_range, backscaling, matching_cluster = \
-    #    get_data_avg_power_cycle_height_from_cluster(config)
-    # TODO optional, read or run function
-    with open(
-            config.IO.plot_output.format(
-                title='data_avg_power_cycle_height_from_cluster').replace(
-                    '.pdf', '.pickle'), 'rb') as f:
-        height_file = pickle.load(f)
-    harvesting_height, backscaling, matching_cluster = \
-        height_file['height'], height_file['backscaling'], height_file['label']
+    try:
+        with open(
+                config.IO.plot_output.format(
+                    title='data_avg_power_cycle_height_from_cluster').replace(
+                        '.pdf', '.pickle'), 'rb') as f:
+            height_file = pickle.load(f)
+        harvesting_height, backscaling, matching_cluster = \
+            height_file['height'], height_file['backscaling'], height_file['label']
+    except FileNotFoundError:
+        harvesting_height, harv_height_range, backscaling, matching_cluster = \
+            get_data_avg_power_cycle_height_from_cluster(config)
+    # TODO make optional: rerun?
     # TODO read labels file if set height, make correct shape again
     if set_height > 0:
         harvesting_height = np.zeros(harvesting_height.shape) + set_height
@@ -646,6 +648,4 @@ def eval_wind_speed_at_harvesting_height(config):
     # same with sliding window avg?
 
     # more...
-    plt.show()
-    import sys
-    sys.exit()
+    #plt.show()

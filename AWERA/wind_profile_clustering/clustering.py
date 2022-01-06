@@ -195,7 +195,7 @@ class Clustering:
         return freq_distr['frequency'], freq_distr['wind_speed_bin_limits']
 
 
-    def run(self):
+    def run_clustering(self):
         if self.config.Clustering.make_profiles:
             if self.config.Clustering.predict_labels:
                 profiles, pipeline, cluster_mapping = self.train_profiles(
