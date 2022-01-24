@@ -27,16 +27,12 @@ import os
 import numpy as np
 from .location_selection import get_locations
 
+
 class Config:
-    # TODO include production config
-
-    # TODO handle config imports - config['....']
-    # TODO import in files? or give config to functions?
-    # TODO import in some way that changes on runtime?
-
-    # Handle config initialization from yaml file and runtime updating
+    # TODO include production config (?)
 
     def __init__(self, init_dict=None, interpret=True):
+        # Handle config initialization from yaml file and runtime updating
         if init_dict is None:
             self.update_from_file()
         else:
@@ -59,22 +55,20 @@ class Config:
         if interpret:
             self.interpret()
 
-    def update_from_file(self, path_config_yaml=None):
+    def update_from_file(self, path_config_yaml=None,
+                         config_file='config.yaml'):
         # Read configuration from config.yaml file
-        # TODO try to read from local file first
         if path_config_yaml is None:
             # Read default configuration from package
             path_program_directory = os.path.dirname(__file__)
             path_config_yaml = os.path.join(
-                path_program_directory, '', 'config.yaml')
-            # TODO add confg directory -> add in ''
+                path_program_directory, '', config_file)
         with open(path_config_yaml, 'r') as f:
             initial_config = yaml.safe_load(f)
         self.update(initial_config)
 
-    # Handle file naming, location selection, .. depending on config
-
     def interpret(self):
+        # Handle file naming, location selection, .. depending on config
         # All locations and seletect number of locations
         # Range of all locations
         for key in ['lat', 'lon']:
@@ -127,8 +121,8 @@ class Config:
                     self.Data.location_type:
                 # TODO only log? predefined, no problem?
                 print('WARNING: Same location type but different n given for '
-                      'training - training locations are also uniformly '
-                      'selected, overlapping possible')
+                      'training - if not predefined, training locations are '
+                      'also uniformly selected, overlapping possible.')
             setattr(self.Clustering.training, 'locations',
                     get_locations(self.IO.locations,
                                   self.Clustering.training.location_type,
@@ -150,13 +144,12 @@ class Config:
         else:
             month_tag = ''
         n_max_locs = len(self.Data.all_lats)*len(self.Data.all_lons)
-        # TODO better then this?
+
         if self.Data.n_locs in [-1, n_max_locs]:
             n_locs_tag = 'all'
         else:
             n_locs_tag = self.Data.n_locs
-        data_info = '{}_clusters_{}_n_locs_{}{}_{}_{}_{}'.format(
-            self.Clustering.n_clusters,
+        data_info = '{}_n_locs_{}{}_{}_{}_{}'.format(
             self.Data.location_type,
             n_locs_tag,
             month_tag, self.Data.use_data,
@@ -164,15 +157,13 @@ class Config:
             self.Data.final_year
             )
         setattr(self.Data, 'data_info', data_info)
-        # TODO remove!
-        n_max_locs = 525
+
         if self.Clustering.training.n_locs in [-1, n_max_locs]:
             n_locs_tag = 'all'
         else:
             n_locs_tag = self.Clustering.training.n_locs
         data_info_training = \
-            '{}_clusters_{}_n_locs_{}{}_{}_{}_{}'.format(
-                self.Clustering.n_clusters,
+            '{}_n_locs_{}{}_{}_{}_{}'.format(
                 self.Clustering.training.location_type,
                 n_locs_tag, month_tag,
                 self.Data.use_data,
@@ -180,7 +171,36 @@ class Config:
                 self.Clustering.training.final_year
                 )
         setattr(self.Clustering.training, 'data_info', data_info_training)
+
+        settings_info = '{}_clusters_{}_pcs{{}}'.format(
+            self.Clustering.n_clusters,
+            self.Clustering.n_pcs,
+            )
+        try:
+            norm = self.config.Clustering.do_normalize_data
+            if norm:
+                norm_tag = '_do_norm{}'
+            else:
+                norm_tag = '_no_norm{}'
+            settings_info = settings_info.format(norm_tag)
+        except AttributeError:
+            pass
+        try:
+            train_cut = self.Clustering.Validation_type.training
+            test_cut = self.Clustering.Validation_type.testing
+            if train_cut == 'cut' and test_cut == 'full':
+                # Default settings, no extra tagging
+                pass
+            else:
+                cut_tag = '_{}_train_{}_data{{}}'.format(train_cut, test_cut)
+                settings_info = settings_info.format(cut_tag)
+        except AttributeError:
+            pass
+        settings_info = settings_info.format('')
+        setattr(self.Clustering.training, 'settings_info', settings_info)
+
         # --------------------------- DIR + FILE and SUFFIX FORMATTING
+        # TODO optimize this....
         for key in self.IO.format.__dict__:
             if key not in ['locations']:
                 setattr(self.IO, key,
@@ -191,30 +211,82 @@ class Config:
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
                             data_info=data_info,
-                            data_info_training=data_info_training))
+                            data_info_training=data_info_training,
+                            settings_info=settings_info))
                 if key == 'labels':
                     setattr(self.IO, 'training_' + key,
                             self.IO.result_dir +
                             getattr(self.IO.format, key).format(
                                 data_info=data_info_training,
-                                data_info_training=data_info_training))
-                    # TODO do we want the trainng labels file?
+                                data_info_training=data_info_training,
+                                settings_info=settings_info))
             elif key in ['plot_output']:
                 setattr(self.IO, key,
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
-                            data_info=data_info))
+                            data_info=data_info,
+                            data_info_training=data_info_training,
+                            settings_info=settings_info))
                 setattr(self.IO, 'training_' + key,
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
-                            data_info=data_info_training))
-                # TODO is this always data or also training?
+                            data_info=data_info_training,
+                            data_info_training=data_info_training,
+                            settings_info=settings_info))
+            elif key in ['cluster_validation_plotting',
+                         'cluster_validation_plotting_pdfs',
+                         'cluster_validation_processing']:
+                setattr(self.IO, key,
+                        self.IO.result_dir + self.IO.result_dir_validation +
+                        getattr(self.IO.format, key).format(
+                            data_info=data_info,
+                            data_info_training=data_info_training,
+                            settings_info=settings_info))
+            elif key in ['pca_validation_plotting',
+                         'pca_validation_plotting_pdfs',
+                         'pca_validation_processing',
+                         'pca_pipeline']:
+                settings_info_pca = '_'.join(settings_info.split('_')[2:])
+                if key == 'pca_pipeline':
+                    setattr(self.IO, key,
+                            self.IO.result_dir +
+                            getattr(self.IO.format, key).format(
+                                data_info_training=data_info_training,
+                                # Remove cluster info from pca output
+                                settings_info=settings_info_pca))
+                else:
+                    setattr(self.IO, key,
+                            self.IO.result_dir +
+                            self.IO.result_dir_validation +
+                            getattr(self.IO.format, key).format(
+                                data_info=data_info,
+                                data_info_training=data_info_training,
+                                # Remove cluster info from pca output
+                                settings_info=settings_info_pca))
+            elif key in ['sample_power',
+                         'sample_vs_cluster_power']:
+                if 'cluster' in key:
+                    setattr(self.IO, key,
+                            self.IO.result_dir + self.IO.result_dir_validation
+                            + getattr(self.IO.format, key).format(
+                                sample_type=
+                                self.Validation_Data.sample_type,
+                                data_info=data_info,
+                                data_info_training=data_info_training,
+                                settings_info=settings_info))
+                else:
+                    setattr(self.IO, key,
+                            self.IO.result_dir + self.IO.result_dir_validation
+                            + getattr(self.IO.format, key).format(
+                                sample_type=
+                                self.Validation_Data.sample_type,
+                                data_info=data_info))
             elif key not in ['locations']:
                 setattr(self.IO, key,
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
-                            data_info_training=data_info_training))
-                # TODO cluster profiles, pipeline always training
+                            data_info_training=data_info_training,
+                            settings_info=settings_info))
 
         for key in ['latitude_ds_file_name',
                     'model_level_file_name_format',
@@ -225,8 +297,7 @@ class Config:
     # Output Configuration
 
     def dictify(self):
-        # TODO print locations only if specifically asked
-        # TODO why is this copy necessary..?
+        # ??? why is this copy necessary..
         out = self.__dict__.copy()
         for key, val in out.items():
             if isinstance(val, Config):
@@ -251,42 +322,3 @@ class Config:
 
     def __str__(self):
         return str(self.pop_locations())
-
-
-#config = Config()
-
-# TODO fix validation - fix config validation
-#                     - own config class? own yaml file
-# ----------------------------------------------------------------
-# -------------------------------- VALIDATION - sample config
-# ----------------------------------------------------------------
-# PCA/ Clustering sample settings
-#validation_type_opts = ['full_training_full_test',
-#                        #'cut_training_full_test',
-#                        #'cut_training_cut_test']
-#validation_type = validation_type_opts[1]  # default: 1
-
-# Height range settings
-# DOWA height range
-#height_range = [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
-                #180., 200., 220., 250., 300., 500., 600.]
-# Test linearized height range (ERA5 only)
-# height_range = [70.,  100., 140., 170., 200., 240., 270., 300., 340., 370.,
-#                400., 440., 470., 500., 540., 570., 600.]
-
-#height_range_name_opts = ['DOWA_height_range']  # , 'lin_height_range']
-#height_range_name = height_range_name_opts[0]  # default: 0
-
-# Normalization settings preprocessing
-#do_normalize_data = True  # default: True
-
-# Validation output directories
-#if do_normalize_data:
-#    result_dir_validation = (
-#        config.IO.result_dir + validation_type + '/' + height_range_name + '/')
-#else:
-#    result_dir_validation = (
-#        config.IO.result_dir + 'no_norm/' + validation_type + '/'
-#        + height_range_name + '/')
-
-#make_result_subdirs = True

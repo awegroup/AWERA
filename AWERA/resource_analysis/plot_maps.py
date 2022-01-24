@@ -187,13 +187,11 @@ def individual_plot(z, cf_lvls, cl_lvls,
 
 
 def plot_single_panel(plot_item, plot_title=''):
-    """"Plot panel with 3 columns of individual plots using solely seperate
-        plot properties.
+    """"Plot panel with one individual plot.
 
     Args:
-        plot_items (list of dict): Individual properties of the plots.
-        column_titles (list): Plot titles per column.
-
+        plot_item (dict): Individual properties of the plots.
+        plot_title (string, optional): Title to be written above the plot.
     """
     # Set up figure, calculate figure height corresponding to desired width.
     plot_frame_top, plot_frame_bottom, plot_frame_left, \
