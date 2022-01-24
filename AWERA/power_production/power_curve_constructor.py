@@ -33,7 +33,10 @@ class PowerCurveConstructor:
         vw_switch = next(wind_speed_tresholds)
 
         x_opt_last, vw_last = None, None
+        failed_wind_speeds = []
+        n_wind_speeds = len(self.wind_speeds)
         for i, vw in enumerate(self.wind_speeds):
+            i = i - len(failed_wind_speeds)
             if vw > vw_switch:
                 vw_switch = next(wind_speed_tresholds)
 
@@ -47,6 +50,11 @@ class PowerCurveConstructor:
 
             # TODO log? print("[{}] Processing v={:.2f}m/s".format(i, vw))
             power_optimizer.environment_state.set_reference_wind_speed(vw)
+
+            if i+1 == len(self.wind_speeds):
+                dv = 1e-2
+            else:
+                dv = (self.wind_speeds[i+1]-self.wind_speeds[i])/3
             try:
                 x0_opt, x_opt, op_res, cons, kpis = \
                     power_optimizer.run_optimization(x0_next)
@@ -56,22 +64,50 @@ class PowerCurveConstructor:
                     # TODO log? print('first optimization/simulation ended
                     # in error: {}'.format(e))
                     # TODO log? print('run with varied wind speed:', vw+1e-2)
-                    vw = vw+1e-2
+                    vw = vw + dv
+                    print('2: Try wind speed: ', vw)
                     power_optimizer.environment_state.set_reference_wind_speed(
                         vw)
                     x0_opt, x_opt, op_res, cons, kpis = \
                         power_optimizer.run_optimization(x0_next,
+                                                         n_x_test=4,
                                                          second_attempt=True)
                     self.wind_speeds[i] = vw
                 except (OperationalLimitViolation, SteadyStateError,
                         PhaseError, OptimizerError):
-                    self.wind_speeds = self.wind_speeds[:i]
-                    # TODO log? print("Optimization sequence stopped
-                    # prematurely due to failed optimization. {:.2f} m/s is
-                    # the "
-                    #       "highest wind speed for which the optimization
-                    # was successful.".format(self.wind_speeds[-1]))
-                    break
+                    try:  # Retry for a slightly different wind speed.
+                        # TODO log? print('first optimization/simulation ended
+                        # in error: {}'.format(e))
+                        # TODO log? print('run with varied wind speed:')
+                        vw = vw + dv
+                        print('3: Try wind speed: ', vw)
+                        power_optimizer.environment_state\
+                            .set_reference_wind_speed(vw)
+                        x0_opt, x_opt, op_res, cons, kpis = \
+                            power_optimizer.run_optimization(
+                                x0_next,
+                                n_x_test=4,
+                                second_attempt=True)
+                        self.wind_speeds[i] = vw
+                    except (OperationalLimitViolation, SteadyStateError,
+                            PhaseError, OptimizerError) as e:
+                        err = e
+                        if len(failed_wind_speeds) == n_wind_speeds:
+                            self.wind_speeds = []
+                            print('Optimisation wind speeds failed at step'
+                                  ' {}, wind speed{} m/s'.format(i, vw))
+                            # TODO log? print("Optimization sequence stopped
+                            # prematurely due to failed optimization. {:.2f}
+                            # m/s is
+                            # the "
+                            #       "highest wind speed for which the
+                            # optimization
+                            # was successful.".format(self.wind_speeds[-1]))
+                            break
+                        else:
+                            failed_wind_speeds.append(vw)
+                            self.wind_speeds = np.delete(self.wind_speeds, i)
+                            continue
             self.x0.append(x0_opt)
             self.x_opts.append(x_opt)
             self.optimization_details.append(op_res)
@@ -83,6 +119,10 @@ class PowerCurveConstructor:
             # for kpi in self.performance_indicators])
             # TODO log? print(len(self.wind_speeds[:i+1]), sum([kpi['
             # sim_successful'] for kpi in self.performance_indicators]))
+        if len(failed_wind_speeds) == n_wind_speeds:
+            # First tested wind speed ran into break:
+            print('No working solutions for any wind speed found.')
+            raise err
 
     def plot_optimal_trajectories(self,
                                   wind_speed_ids=None,

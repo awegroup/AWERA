@@ -24,7 +24,7 @@ v = np.array([0]*len(heights))
 profile = prod.as_input_profile(heights, u, v)
 print(profile)
 
-pc = prod.read_curve(i_profile=1)
+pc = prod.read_curve(i_profile=1, return_constructor=True)
 # # Roughly estimate wind speed cut-in/out limits
 # limit_estimates = prod.estimate_wind_speed_operational_limits(
 #    input_profiles=profile)

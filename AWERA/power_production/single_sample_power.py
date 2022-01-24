@@ -356,7 +356,7 @@ def run_location(config, loc, sel_sample_ids):
     # x_opt_sample, x_opt_cluster, x_opt_cc_opt
     x_opt = np.zeros([3, len(sel_sample_ids), 5])
     # cluster_id, backscaling
-    cluster_info = np.zeros([2, len(sample_ids)])
+    cluster_info = np.zeros([2, len(sel_sample_ids)])
     # Read all selected samples for location
     if len(sel_sample_ids) > 0:
         data = get_wind_data(locs=[loc], sel_sample_ids=sel_sample_ids)
@@ -459,6 +459,8 @@ def multiple_locations(config, locs, sel_sample_ids, file_name):
             cluster_info[:, i_loc, i_sample] = res_i[2]
 
     # Define result dictionary
+    # TODO only sample or all with cluster and so on
+    # save sample individually
     res = {
         'p_sample': power[0, :, :],
         'p_cluster': power[1, :, :],
@@ -467,7 +469,15 @@ def multiple_locations(config, locs, sel_sample_ids, file_name):
         'x_opt_sample': x_opt[0, :, :, :],
         'x_opt_cluster': x_opt[1, :, :, :],
         'x_opt_cc_opt': x_opt[2, :, :, :],
-        'cluster_id': cluster_info[0, :, :],
+        'cluster_label': cluster_info[0, :, :],
+        'backscaling': cluster_info[1, :, :],
+        'locs': locs,
+        'sample_ids': sample_ids,
+        }
+    res_sample = {
+        'p_sample': power[0, :, :],
+        'x_opt_sample': x_opt[0, :, :, :],
+        'cluster_label': cluster_info[0, :, :],
         'backscaling': cluster_info[1, :, :],
         'locs': locs,
         'sample_ids': sample_ids,

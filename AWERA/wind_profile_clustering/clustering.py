@@ -19,25 +19,46 @@ from .cluster_frequency import \
 class Clustering:
     #TODO inherit from config... or as is set config object as config item?
 
-    def __init__(self, config, read_input=True):
+    def __init__(self, config):
         # Set configuration from Config class object
         setattr(self, 'config', config)
-        if read_input:
-            if not self.config.Clustering.make_profiles:
-                self.read_profiles()
-            if not self.config.Clustering.predict_labels:
-                self.read_labels()
 
 # --------------------------- Full Clustering Procedure
 
-    def train_profiles(self, data=None, return_pipeline=False):
+    def preprocess_data(self,
+                        data,
+                        config=None,
+                        remove_low_wind_samples=True,
+                        normalize=None):
+        if config is None:
+            config = self.config
+        if normalize is None:
+            try:
+                normalize = self.config.Clustering.do_normalize_data
+            except AttributeError:
+                normalize = True
+
+        # Preprocess data
+        return preprocess_data(
+            config,
+            data,
+            remove_low_wind_samples=remove_low_wind_samples,
+            normalize=normalize)
+
+    def train_profiles(self,
+                       data=None,
+                       training_remove_low_wind_samples=False,
+                       return_pipeline=False):
         # Set Data to read to training data
         config = copy.deepcopy(self.config)
         self.config.update(
             {'Data': self.config.Clustering.training.__dict__})
         if data is None:
             data = get_wind_data(self.config)
-        processed_data = preprocess_data(self.config, data)
+
+        processed_data = self.preprocess_data(
+            data,
+            remove_low_wind_samples=training_remove_low_wind_samples)
 
         res = cluster_normalized_wind_profiles_pca(
             processed_data['training_data'],
@@ -63,9 +84,9 @@ class Clustering:
             pickle.dump(pca_pipeline, open(self.config.IO.pca_pipeline, 'wb'))
         # setattr(self, 'pipeline', pipeline)
         # setattr(self, 'cluster_mapping', res['cluster_mapping'])
-        training_data_full = preprocess_data(self.config,
-                                             data,
-                                             remove_low_wind_samples=False)
+        training_data_full = self.preprocess_data(
+            data,
+            remove_low_wind_samples=False)
         # TODO make wirting output optional?
         self.predict_labels(data=training_data_full,
                             pipeline=pipeline,
@@ -79,7 +100,9 @@ class Clustering:
     def predict_labels(self,
                        data=None,
                        pipeline=None,
-                       cluster_mapping=None):
+                       cluster_mapping=None,
+                       remove_low_wind_samples=False,
+                       locs_slice=None):
         # TODO this can also be done step by step for the data
         # or in parallel - fill labels incrementally
         if pipeline is None:
@@ -89,9 +112,26 @@ class Clustering:
         if cluster_mapping is None:
             _, _, _, cluster_mapping = self.read_labels(data_type='training')
 
+        try:
+            normalize = self.config.Clustering.do_normalize_data
+        except AttributeError:
+            normalize = True
+
         if data is not None:
             locations = data['locations']
+            n_locs = len(locations)
+            if locs_slice is not None:
+                end = (locs_slice[0]+1)*locs_slice[1]
+                if end > n_locs:
+                    end = n_locs
+                locations = locations[locs_slice[0]*locs_slice[1]:end]
             n_samples_per_loc = data['n_samples_per_loc']
+            if 'training_data' not in data:
+                # Preprocess data
+                data = self.preprocess_data(
+                    data,
+                    remove_low_wind_samples=remove_low_wind_samples,
+                    normalize=normalize)
             res_labels, frequency_clusters = predict_cluster(
                 data['training_data'],
                 self.config.Clustering.n_clusters,
@@ -107,6 +147,12 @@ class Clustering:
                         data['wind_speed'].shape[0])])
         else:
             locations = self.config.Data.locations
+            n_locs = len(locations)
+            if locs_slice is not None:
+                end = (locs_slice[0]+1)*locs_slice[1]
+                if end > n_locs:
+                    end = n_locs
+                locations = locations[locs_slice[0]*locs_slice[1]:end]
             n_samples_per_loc = get_wind_data(
                 self.config,
                 locs=[locations[0]])['n_samples_per_loc']
@@ -124,10 +170,13 @@ class Clustering:
                 from multiprocessing import get_context
                 from tqdm import tqdm
                 import functools
-                funct = functools.partial(single_location_prediction,
-                                          self.config,
-                                          pipeline,
-                                          cluster_mapping)
+                funct = functools.partial(
+                    single_location_prediction,
+                    self.config,
+                    pipeline,
+                    cluster_mapping,
+                    remove_low_wind_samples=remove_low_wind_samples,
+                    normalize=normalize)
                 if self.config.Processing.progress_out == 'stdout':
                     file = sys.stdout
                 else:
@@ -149,10 +198,13 @@ class Clustering:
                 setattr(self.config.Processing, 'parallel', True)
             else:
                 import functools
-                funct = functools.partial(single_location_prediction,
-                                          self.config,
-                                          pipeline,
-                                          cluster_mapping)
+                funct = functools.partial(
+                    single_location_prediction,
+                    self.config,
+                    pipeline,
+                    cluster_mapping,
+                    remove_low_wind_samples=remove_low_wind_samples,
+                    normalize=normalize)
                 # TODO add progress bar
                 for i, loc in enumerate(locations):
                     j = i*n_samples_per_loc
@@ -171,8 +223,15 @@ class Clustering:
             'locations': locations,
             'n_samples_per_loc': n_samples_per_loc,
             }
+        # TODO include locs_slicing in config
+        if locs_slice is None:
+            file_name = self.config.IO.labels
+        else:
+            file_name = self.config.IO.labels.replace(
+                '.pickle',
+                '{}_n_{}.pickle'.format(locs_slice[0], locs_slice[1]))
         pickle.dump(cluster_info_dict,
-                    open(self.config.IO.labels, 'wb'))
+                    open(file_name, 'wb'))
 
         return (cluster_info_dict['labels [-]'],
                 cluster_info_dict['backscaling [m/s]'],
@@ -240,6 +299,28 @@ class Clustering:
             print('Frequency distribution done.')
             return freq, wind_speed_bin_limits
 
+    def plot_cluster_shapes(self):
+        from .wind_profile_clustering import plot_wind_profile_shapes
+        # TODO this can only plot 8 cluster shapes for now
+        df = pd.read_csv(self.config.IO.profiles, sep=";")
+        heights = df['height [m]']
+        print(heights)
+        prl = np.zeros((self.config.Clustering.n_clusters, len(heights)))
+        prp = np.zeros((self.config.Clustering.n_clusters, len(heights)))
+        for i in range(self.config.Clustering.n_clusters):
+            u = df['u{} [-]'.format(i+1)]
+            v = df['v{} [-]'.format(i+1)]
+            sf = df['scale factor{} [-]'.format(i+1)]
+            prl[i, :] = u/sf
+            prp[i, :] = v/sf
+
+        plot_wind_profile_shapes(self.config,
+                                 heights,
+                                 prl, prp,
+                                 (prl ** 2 + prp ** 2) ** .5,
+                                 plot_info=
+                                 self.config.Clustering.training.data_info)
+
     # Read available output
     def read_profiles(self):
         profiles = pd.read_csv(
@@ -251,21 +332,52 @@ class Clustering:
             pipeline = pickle.load(f)
         return pipeline
 
-    def read_labels(self, data_type='Data'):
-        if data_type in ['Data', 'data']:
-            file_name = self.config.IO.labels
-        elif data_type in ['Training', 'training']:
-            file_name = self.config.IO.training_labels
-        with open(file_name, 'rb') as f:
-            labels_file = pickle.load(f)
-        return (
-            labels_file['labels [-]'],
-            labels_file['backscaling [m/s]'],
-            labels_file['n_samples_per_loc'],
-            labels_file['cluster_mapping'])
+    def read_labels(self, data_type='Data',
+                    file_name=None,
+                    return_file=False):
+        if file_name is None:
+            if data_type in ['Data', 'data']:
+                file_name = self.config.IO.labels
+            elif data_type in ['Training', 'training']:
+                file_name = self.config.IO.training_labels
+
+        try:
+            with open(file_name, 'rb') as f:
+                labels_file = pickle.load(f)
+        except FileNotFoundError as e:
+            print('Error: Trying to read labels but file not found'
+                  ' - run predict_labels first.')
+            raise e
+        if return_file:
+            return labels_file
+        else:
+            return (
+                labels_file['labels [-]'],
+                labels_file['backscaling [m/s]'],
+                labels_file['n_samples_per_loc'],
+                labels_file['cluster_mapping'])
+
+    def combine_labels(self, n_i=23, n_max=1000):
+        file_name = self.config.IO.labels.replace(
+            '.pickle',
+            '{{}}_n_{}.pickle'.format(n_max))
+        for i in range(n_i):
+            print('{}/{}'.format(i+1, n_i))
+            res_i = self.read_labels(file_name=file_name.format(i),
+                                     return_file=True)
+            # First label is start for res
+            if i == 0:
+                res = copy.deepcopy(res_i)
+            else:
+                # Append labels to results, append locations
+                for key in ['labels [-]', 'backscaling [m/s]']:
+                    res[key] = np.append(res[key], res_i[key])
+        file_name = self.config.IO.labels
+        pickle.dump(res,
+                    open(file_name, 'wb'), protocol=4)
+        return res
 
     def read_frequency(self):
         with open(self.config.IO.freq_distr, 'rb') as f:
             freq_distr = pickle.load(f)
         return freq_distr['frequency'], freq_distr['wind_speed_bin_limits']
-

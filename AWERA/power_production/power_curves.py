@@ -46,7 +46,7 @@ def get_cut_in_wind_speed(env):
     reel-out path, feasible steady flight states
     with the minimum allowable reel-out speed are found."""
     dv = 1e-2  # Step size [m/s].
-    v0 = 5.6  # Lowest wind speed [m/s] with which the iteration is started.
+    v0 = 4  # Lowest wind speed [m/s] with which the iteration is started.
 
     v = v0
     rescan_finer_steps = False
@@ -108,16 +108,55 @@ def get_max_wind_speed_at_elevation(env=LogProfile(),
     cross-wind manoeuvre during the reel-out phase for
     provided elevation angle."""
     dv = 0.2  # Step size [m/s].
-    v0 = 15.  # Lowest wind speed [m/s] with which the iteration is started.
+    v0 = 25.  # Lowest wind speed [m/s] with which the iteration is started.
     # Check if the starting wind speed gives a feasible solution.
     env.set_reference_wind_speed(v0)
     try:
         n_cw_patterns = calc_n_cw_patterns(env, theta)
-    except SteadyStateError as e:
-        if e.code != 8:
-            raise ValueError("No feasible solution found for first"
-                             "assessed cut out wind speed.")
+    except (SteadyStateError, OperationalLimitViolation) as e:
+        if e.code == 8:
+            pass
+        else:
+            try:
+                # Iteration fails for low wind speed
+                # -> try very low and check if it works then
+                v0 = v0 * 0.8
+                print('second test: ', v0)
+                # Check if the starting wind speed gives a feasible solution.
+                env.set_reference_wind_speed(v0)
+                n_cw_patterns = calc_n_cw_patterns(env, theta)
+            except (SteadyStateError, OperationalLimitViolation) as e:
+                if e.code == 8:
+                    pass
+                else:
+                    try:
 
+                        # Iteration fails for low wind speed
+                        # -> try very low and check if it works then
+                        v0 = v0 * 0.8
+                        print('third test: ', v0)
+                        # Check if the starting wind speed gives
+                        # a feasible solution.
+                        env.set_reference_wind_speed(v0)
+                        n_cw_patterns = calc_n_cw_patterns(env, theta)
+                    except (SteadyStateError,
+                            OperationalLimitViolation) as e:
+                        try:
+
+                            # Iteration fails for low wind speed
+                            # -> try very low and check if it works then
+                            v0 = v0 * 0.8
+                            print('fourth test: ', v0)
+                            # Check if the starting wind speed gives
+                            # a feasible solution.
+                            env.set_reference_wind_speed(v0)
+                            n_cw_patterns = calc_n_cw_patterns(env, theta)
+                        except (SteadyStateError,
+                                OperationalLimitViolation) as e:
+                            if e.code != 8:
+                                print("No feasible solution found for"
+                                      " first assessed cut out wind speed.")
+                                raise e
     # Increase wind speed until number of cross-wind manoeuvres subceeds one.
     v = v0 + dv
 
@@ -240,13 +279,11 @@ def estimate_wind_speed_operational_limits(config,
         res['vw_100m_cut_in'].append(vw_cut_in)
         res['tether_force_cut_in'].append(tether_force_cut_in)
 
-        # Get cut-out wind speed, which proved to work better when using
-        # 250m reference height. #TODO check this, change this?
-        env.set_reference_height(250)
-        vw_cut_out250m, elev = get_cut_out_wind_speed(env)
-        env.set_reference_wind_speed(vw_cut_out250m)
-        vw_cut_out = env.calculate_wind(
-            config.General.ref_height)
+        # Get cut-out wind speed
+        vw_cut_out, elev = get_cut_out_wind_speed(env)
+        #if vw_cut_out > 27:
+        #    vw_cut_out = 27
+
         res['vw_100m_cut_out'].append(vw_cut_out)
 
         # Plot the wind profiles corresponding to the wind speed operational
@@ -426,18 +463,23 @@ def generate_power_curves(config,
                                                 > -1000)
             print('No disc: ', sel_succ_power_disc)
             sel_succ_power[sel_succ_power] = sel_succ_power_disc
-            p_cycle_masked = p_cycle_masked[sel_succ_power_disc]
-            if sum(sel_succ_power_disc) == len(sel_succ_power_disc):
-                # No more discontinuities
-                break
+            # p_cycle_masked = p_cycle_masked[sel_succ_power_disc]
+            # if sum(sel_succ_power_disc) == len(sel_succ_power_disc):
+            #    # No more discontinuities
+            #       break
+            # TODO this leads to errors sometimes:
+            # IndexError: boolean index did not match indexed array along
+            # dimension 0; dimension is 0
+            # but corresponding boolean dimension is 1
+            break
             print(len(sel_succ_power_disc)-sum(sel_succ_power_disc),
                   'masked power discontinuities')
 
         p_cycle = p_cycle[sel_succ_power]
         wind = pc.wind_speeds[sel_succ_power]
 
-        ax_pcs[0].plot(wind, p_cycle_masked/1000, label=i_profile)
-        ax_pcs[1].plot(wind/vw_cut_out, p_cycle_masked/1000, label=i_profile)
+        ax_pcs[0].plot(wind, p_cycle/1000, label=i_profile)
+        ax_pcs[1].plot(wind/vw_cut_out, p_cycle/1000, label=i_profile)
 
         pc.plot_optimal_trajectories(plot_info='_profile_{}'.format(i_profile))
         pc.plot_optimization_results(op_cycle_pc_phase2.OPT_VARIABLE_LABELS,

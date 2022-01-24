@@ -5,14 +5,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import copy
-from .qsm import TractionPhase, TractionPhaseHybrid, NormalisedWindTable1D
+from .qsm import TractionPhase, TractionPhaseHybrid, NormalisedWindTable1D,\
+    SteadyStateError, OperationalLimitViolation, PhaseError
+
 from .kitepower_kites import sys_props_v3
-from .cycle_optimizer import OptimizerCycle
+from .cycle_optimizer import OptimizerCycle, OptimizerError
 
 from .power_curves import estimate_wind_speed_operational_limits,\
     generate_power_curves, combine_separate_profile_files, compare_kpis
 
 from .power_curve_constructor import PowerCurveConstructor
+
 
 from ..utils.wind_profile_shapes import export_wind_profile_shapes
 
@@ -21,85 +24,103 @@ from ..utils.wind_profile_shapes import export_wind_profile_shapes
 # include production cycle settings here - extract later in power curves?
 
 
-def create_environment(wind_profile_u, wind_profile_v, heights):
-    """Use wind profile shape to create the environment object."""
-    env = NormalisedWindTable1D()
-    env.heights = list(heights)
-    env.normalised_wind_speeds = list(
-        (wind_profile_u**2 + wind_profile_v**2)**.5)
-    return env
-
-
-def create_optimizer(env_state, ref_wind_speed):
-    # TODO use this in power_curves
-    phi_ro = 13 * np.pi / 180.
-    chi_ro = 100 * np.pi / 180.
-    # Cycle simulation settings for different phases of the power curves.
-    cycle_sim_settings_pc = {
-        'cycle': {
-            'traction_phase': TractionPhase,
-            'include_transition_energy': False,
-        },
-        'retraction': {},
-        'transition': {
-            'time_step': 0.25,
-        },
-        'traction': {
-            'azimuth_angle': phi_ro,
-            'course_angle': chi_ro,
-        },
-    }
-
-    # Modify settings in accordance with clustering settings
-    # TODO test what happen if always use Hybrid?
-    # TODO this refers to the clustering v_100m classification of
-    # settings, change/ remove difference?
-    if ref_wind_speed > 7:
-        cycle_sim_settings_pc['cycle']['traction_phase'] = \
-            TractionPhaseHybrid
-    oc = OptimizerCycle(cycle_sim_settings_pc, sys_props_v3,
-                        env_state, reduce_x=np.array([0, 1, 2, 3]))
-    # !!! optional reduce_x, settingsm ref wind speed -> also in class?
-    if ref_wind_speed <= 7:
-        oc.bounds_real_scale[2][1] = 30*np.pi/180.
-    return oc
-
-
 class SingleProduction:
     def __init__(self, ref_height=100):
         """Initialise using from Config class object."""
         # TODO not standalone then? own config class object
         # & yaml in production?
-        setattr(self, 'ref_height', 100)  # m
+        setattr(self, 'ref_height', ref_height)  # m
+        setattr(self, 'prod_errors', (SteadyStateError,
+                                      PhaseError,
+                                      OperationalLimitViolation,
+                                      OptimizerError))
 
     def single_profile_power(self, heights, wind_u, wind_v,
                              x0=[4100., 850., 0.5, 240., 200.0],
-                             ref_wind_speed=1):
+                             ref_wind_speed=1,
+                             oc=None,
+                             return_optimizer=False,
+                             raise_errors=True):
         # ref wind speed = 1 - No backscaling of non-normalised wind profiles
         # Starting control parameters from mean of ~180k optimizations
         # unbiased (starting controls independent of clustering)
 
-        # Create optimization wind environment
-        env_state = create_environment(wind_u, wind_v, heights)
-        env_state.set_reference_wind_speed(ref_wind_speed)
-        ref_wind_speed = env_state.calculate_wind(self.ref_height)
-        oc = create_optimizer(env_state, ref_wind_speed)
+        if oc is None:
+            # Create optimization wind environment
+            env_state = self.create_environment(wind_u, wind_v, heights)
+            env_state.set_reference_wind_speed(ref_wind_speed)
+            ref_wind_speed = env_state.calculate_wind(self.ref_height)
+            oc = self.create_optimizer(env_state, ref_wind_speed)
 
         # Optimize individual profile
-        x0_opt, x_opt, op_res, cons, kpis = oc.run_optimization(x0)
+        try:
+            x0_opt, x_opt, op_res, cons, kpis = oc.run_optimization(x0)
+        except self.prod_errors as e:
+            print("Clustering output point evaluation finished with a "
+                  "simulation error: {}".format(e))
+            if raise_errors:
+                raise e
+            else:
+                x0_opt, x_opt, op_res, cons, kpis = \
+                    x0, [-1]*len(x0), -1, -1, -1
         # TODO use? optHist = History(optimizer_history_file_name)
         # print(optHist.getValues(major=True, scale=False,
         #                         stack=False, allowSens=True)['isMajor'])
+        if return_optimizer:
+            return x0_opt, x_opt, op_res, cons, kpis, oc
+        else:
+            return x0_opt, x_opt, op_res, cons, kpis
 
-        return x0_opt, x_opt, op_res, cons, kpis
+    def create_environment(self, wind_profile_u, wind_profile_v, heights):
+        """Use wind profile shape to create the environment object."""
+        env = NormalisedWindTable1D()
+        env.heights = list(heights)
+        env.normalised_wind_speeds = list(
+            (wind_profile_u**2 + wind_profile_v**2)**.5)
+        return env
 
 
-class PowerProduction:
+    def create_optimizer(self, env_state, ref_wind_speed):
+        # TODO use this in power_curves
+        phi_ro = 13 * np.pi / 180.
+        chi_ro = 100 * np.pi / 180.
+        # Cycle simulation settings for different phases of the power curves.
+        cycle_sim_settings_pc = {
+            'cycle': {
+                'traction_phase': TractionPhase,
+                'include_transition_energy': False,
+            },
+            'retraction': {},
+            'transition': {
+                'time_step': 0.25,
+            },
+            'traction': {
+                'azimuth_angle': phi_ro,
+                'course_angle': chi_ro,
+            },
+        }
+
+        # Modify settings in accordance with clustering settings
+        # TODO test what happen if always use Hybrid?
+        # TODO this refers to the clustering v_100m classification of
+        # settings, change/ remove difference?
+        if ref_wind_speed > 7:
+            cycle_sim_settings_pc['cycle']['traction_phase'] = \
+                TractionPhaseHybrid
+        oc = OptimizerCycle(cycle_sim_settings_pc, sys_props_v3,
+                            env_state, reduce_x=np.array([0, 1, 2, 3]))
+        # !!! optional reduce_x, settingsm ref wind speed -> also in class?
+        if ref_wind_speed <= 7:
+            oc.bounds_real_scale[2][1] = 30*np.pi/180.
+        return oc
+
+
+class PowerProduction(SingleProduction):
     def __init__(self, config):
         """Initialise using from Config class object."""
         # TODO not standalone then? own config class object
         # & yaml in production?
-        # TODO use super().__init__(config)? Do they even need each other?
+        super().__init__(ref_height=config.General.ref_height)
         setattr(self, 'config', config)
 
     def as_input_profile(self, heights, u, v,
@@ -132,7 +153,7 @@ class PowerProduction:
     def make_power_curves(self,
                           input_profiles=None,
                           run_profiles=None,
-                          wind_speed_limit_estimates=None):
+                          limit_estimates=None):
         """
         Determine power curve(s) of relected run_profiles of input profiles.
 
@@ -145,7 +166,7 @@ class PowerProduction:
             Select wind profile id(s) to generate power curves for,
             starting at 1.
             The default is None, all available profiles are run.
-        wind_speed_limit_estimates : pandas DataFrame, optional
+        limit_estimates : pandas DataFrame, optional
             Cut-in and cut-out wind speeds matchting the input_profiles.
             The default is None. Default requires estimates of the cut-in
             and cut-out wind speed to be available to read from file in config.
@@ -177,7 +198,7 @@ class PowerProduction:
                 generate_power_curves,
                 self.config,
                 input_profiles=input_profiles,
-                limit_estimates=wind_speed_limit_estimates)
+                limit_estimates=limit_estimates)
             with Pool(self.config.Processing.n_cores) as p:
                 if self.config.Processing.progress_out == 'stdout':
                     file = sys.stdout
@@ -200,16 +221,19 @@ class PowerProduction:
 
             if run_profiles == \
                     list(range(1, self.config.Clustering.n_clusters+1)):
-                combine_separate_profile_files(
-                    self.config,
+                self.combine_separate_profile_files(
                     io_file='refined_cut_wind_speeds')
         else:
             pcs, refined_limits = generate_power_curves(
                 self.config,
                 run_profiles,
                 input_profiles=input_profiles,
-                limit_estimates=wind_speed_limit_estimates)
+                limit_estimates=limit_estimates)
         return pcs, refined_limits
+
+    def combine_separate_profile_files(self,
+                                       io_file='refined_cut_wind_speeds'):
+        combine_separate_profile_files(self.config, io_file=io_file)
 
     def run_curves(self,
                    input_profiles=None,
@@ -297,23 +321,32 @@ class PowerProduction:
         # TODO automatise limits: min, round, ...?, make optional
         # plt.show()
 
-    def read_curve(self, i_profile=None, file_name=None):
+    def read_curve(self,
+                   i_profile=None,
+                   file_name=None,
+                   return_constructor=False):
         """Read power curve pickle file for either profile id or file name."""
-        pc = PowerCurveConstructor(None)
-        setattr(pc, 'plots_interactive',
-                self.config.Plotting.plots_interactive)
-        setattr(pc, 'plot_output_file',
-                self.config.IO.training_plot_output)
         if file_name is None:
             if i_profile is not None:
+                if return_constructor:
+                    suffix = 'pickle'
+                else:
+                    suffix = 'csv'
                 file_name = self.config.IO.power_curve.format(
                     i_profile=i_profile,
-                    suffix='pickle')
+                    suffix=suffix)
             else:
                 raise ValueError('No profile id (i_profile) or file_name given')
 
-        pc.import_results(file_name)
-
+        if return_constructor:
+            pc = PowerCurveConstructor(None)
+            setattr(pc, 'plots_interactive',
+                    self.config.Plotting.plots_interactive)
+            setattr(pc, 'plot_output_file',
+                    self.config.IO.training_plot_output)
+            pc.import_results(file_name)
+        else:
+            pc = pd.read_csv(file_name, sep=";")
         return pc
 
     def read_profiles(self, file_name=None, sep=';'):
@@ -356,6 +389,6 @@ class PowerProduction:
 
         """
         if file_name is None:
-            file_name = self.config.cut_wind_speeds
+            file_name = self.config.IO.cut_wind_speeds
         limits = pd.read_csv(file_name, sep=sep)
         return limits

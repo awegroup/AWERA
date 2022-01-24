@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma as ma
 import matplotlib.pyplot as plt
 
 # !!! from config_production import plots_interactive
@@ -73,7 +74,8 @@ def hist_data_eval_mean_std(txt_x_pos, data, unit):
 
 
 def plot_diff_pdf(data, diff_type, parameter,
-                  unit, output_file_name='diff_pdf.pdf', title=''):
+                  unit, output_file_name='diff_pdf.pdf', title='',
+                  plots_interactive=False):
     """Plot pdf of differences.
 
     Parameters
@@ -284,3 +286,103 @@ def plot_abs_rel_step_wise(x_vals, abs_res, rel_res, **plot_config):
 
     if not plot_config['plots_interactive']:
         plt.savefig(plot_config['output_file_name'])
+
+
+def diff_original_vs_reco(original,
+                          reco):
+    """Assess differences between original and fit reconstruction.
+
+    Parameters
+    ----------
+    original : array
+        Original data before fit.
+    reco : array
+        Reconstructed wind data via fit.
+
+    Returns
+    -------
+    diffs : dict
+        Dictionary of difference types containing the respective
+        resulting difference for each sample.
+
+    """
+    # Absolute difference:
+    absolute_difference = ma.array(reco - original)
+
+    # Relative difference:
+    # Mask div by 0 in relative difference (explicitly coded,
+    # ma.masked_values(data, 0) for some data (low values?) masks all)
+    print('Masking original vertical wind profile data with zero wind speed: ',
+          np.sum(original == 0, axis=0),
+          'samples masked in each part of vertical wind profile.')
+    original_data_masked = ma.array(original)
+    original_data_masked[original == 0] = ma.masked
+    # Set ignore underflow - otherwise masked array error
+    np.seterr(all='raise', under='ignore')
+    relative_difference = absolute_difference/original_data_masked
+
+    # Average over all samples - mean and standard deviation:
+    diffs = {
+            'absolute': absolute_difference,
+            'relative': relative_difference
+            }
+
+    return diffs
+
+
+def diffs_original_vs_reco(original, reco, n_altitudes,
+                           wind_type_eval=['abs']):
+    """Evaluate precision of reconstructed data versus original data.
+
+    Parameters
+    ----------
+    original : array
+        Original data (parallel and perpendicular wind speed) before fit.
+        Same normalisation as reco.
+    reco : array
+        Reconstructed wind data (parallel and perpendicular wind speed)
+        via fit. Same normalisation as original.
+    n_altitudes : int
+        Number of height levels in the data.
+    wind_type_eval : list, optional
+        Only evaluate selected wind orientations (parallel,
+        perpendicular, abs). The default is ['abs'].
+
+    Returns
+    -------
+    diffs_sample_mean : dict
+        Dictionary of difference types containing the respective resulting
+        difference mean&standard deviation.
+    diffs : dict
+        Dictionary of difference types containing the respective resulting
+        difference for each sample.
+
+
+    """
+    # Also compare absolute wind speeds:
+    # Calc resulting reco absolute wind speed
+    reco_abs_wind_speed = (reco[:, :n_altitudes]**2 +
+                           reco[:, n_altitudes:]**2)**.5
+    original_abs_wind_speed = (original[:, :n_altitudes]**2 +
+                               original[:, n_altitudes:]**2)**.5
+    # Average over all samples - mean and standard deviation:
+    diffs = {'parallel': diff_original_vs_reco(original[:, :n_altitudes],
+                                               reco[:, :n_altitudes]),
+             'perpendicular': diff_original_vs_reco(original[:, n_altitudes:],
+                                                    reco[:, n_altitudes:]),
+             'abs': diff_original_vs_reco(original_abs_wind_speed,
+                                          reco_abs_wind_speed)
+             }
+
+    diffs_sample_mean = {}
+
+    for wind_orientation in diffs:
+        if wind_orientation not in wind_type_eval:
+            continue
+        diffs_sample_mean[wind_orientation] = {}
+        for diff_type, val in diffs[wind_orientation].items():
+            diffs_sample_mean[wind_orientation][diff_type] = (np.mean(val,
+                                                                      axis=0),
+                                                              np.std(val,
+                                                                     axis=0))
+    return diffs_sample_mean, diffs

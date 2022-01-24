@@ -81,8 +81,8 @@ def evaluate_aep(config):
                                      i_profile=i_profile),
                              sep=";")
             # TODO drop? mask_faulty_point = get_mask_discontinuities(df)
-            v = df['v_100m [m/s]'].values #.values[~mask_faulty_point]
-            p = df['P [W]'].values #.values[~mask_faulty_point]
+            v = df['v_100m [m/s]'].values  # .values[~mask_faulty_point]
+            p = df['P [W]'].values  # .values[~mask_faulty_point]
             if i_loc == 0:
                 # Once extract nominal (maximal) power of cluster
                 p_n.append(np.max(p))
@@ -135,7 +135,10 @@ def evaluate_aep(config):
     # TODO nominal AEP -> average power and nominal power
 
 
-def plot_aep_map(p_loc, aep_loc, c_f_loc):
+def plot_aep_map(p_loc, aep_loc, c_f_loc,
+                 plots_interactive=True,
+                 file_name='aep_p_cf_contour_maps.pdf',
+                 file_name_aep='aep_conour_map.pdf'):
     from ..resource_analysis.plot_maps import eval_contour_fill_levels, \
         plot_panel_1x3_seperate_colorbar
     column_titles = ['Power', 'AEP', 'capacity factor']
@@ -174,9 +177,15 @@ def plot_aep_map(p_loc, aep_loc, c_f_loc):
     }
 
     plot_items = [plot_item00, plot_item01, plot_item02]
-
     eval_contour_fill_levels(plot_items)
     plot_panel_1x3_seperate_colorbar(plot_items, column_titles)
+    if not plots_interactive:
+        plt.savefig(file_name)
+    from ..utils.plotting_utils import plot_single_map
+    plot_single_map(aep_loc, title='', label='',
+                    plot_item=plot_item01)
+    if not plots_interactive:
+        plt.savefig(file_name_aep)
 
 
 def plot_cf_map(cf_1, cf_2):
@@ -224,7 +233,9 @@ def plot_cf_map(cf_1, cf_2):
     plot_panel_1x3_seperate_colorbar(plot_items, column_titles)
 
 
-def plot_discrete_map(config, values, title='', label=''):
+def plot_discrete_map(config, values, title='', label='',
+                      plots_interactive=True,
+                      file_name='discrete_map.pdf'):
     # Map range
     cm = 1/2.54
     # Plot Value
@@ -242,8 +253,8 @@ def plot_discrete_map(config, values, title='', label=''):
 
     color_map = plt.get_cmap('YlOrRd')
 
-    normalize = mpl.colors.Normalize(vmin=min(values.flat),
-                                     vmax=max(values.flat))
+    normalize = mpl.colors.Normalize(vmin=np.min(values),
+                                     vmax=np.max(values))
 
     lons_grid, lats_grid = np.meshgrid(config.Data.all_lons,
                                        config.Data.all_lats)
@@ -257,6 +268,9 @@ def plot_discrete_map(config, values, title='', label=''):
     cbar_ax, _ = mpl.colorbar.make_axes(ax)
     mpl.colorbar.ColorbarBase(cbar_ax, cmap=color_map, norm=normalize,
                               label=label)
+
+    if not plots_interactive:
+        plt.savefig(file_name)
 
 
 def aep_map(config):
@@ -277,18 +291,32 @@ def aep_map(config):
     if np.sum(p_loc.mask) == 0:
         # Plot continuous aep map
         print('Location wise AEP determined. Plot map:')
-        plot_aep_map(p_loc, aep_loc, c_f_loc)
+        plot_aep_map(p_loc, aep_loc, c_f_loc,
+                     plots_interactive=config.Plotting.plots_interactive,
+                     file_name=config.IO.plot_output.format(
+                         title='aep_p_cf_contour_maps'),
+                     file_name_aep=config.IO.plot_output.format(
+                         title='aep_contour_map')
+                     )
     else:
         plot_discrete_map(config,
                           aep_loc,
                           title="AEP for {} clusters".format(
                               config.Clustering.n_clusters),
-                          label='AEP [MWh]')
-        plot_discrete_map(config,
-                          c_f_loc,
-                          title="Capacity factor for {} clusters".format(
-                              config.Clustering.n_clusters),
-                          label=r'c$_f$ [-]')
+                          label='AEP [MWh]',
+                          plots_interactive=config.Plotting.plots_interactive,
+                          file_name=config.IO.plot_output.format(
+                              title='aep_discrete_map')
+                          )
+
+        # plot_discrete_map(config,
+        #                   c_f_loc,
+        #                   title="Capacity factor for {} clusters".format(
+        #                       config.Clustering.n_clusters),
+        #                   label=r'c$_f$ [-]',
+        #                   plots_interactive=config.Plotting.plots_interactive,
+        #                   file_name=config.IO.plot_output.format(
+        #                       title='cf_discrete_map'))
     return aep_loc, c_f_loc
 
 

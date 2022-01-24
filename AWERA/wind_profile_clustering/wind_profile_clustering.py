@@ -15,6 +15,7 @@ import pandas as pd
 
 import copy
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 from .read_requested_data import get_wind_data
 
@@ -414,14 +415,17 @@ def predict_cluster(training_data, n_clusters, predict_fun, cluster_mapping):
     return labels, frequency_clusters
 
 
-def single_location_prediction(config, pipeline, cluster_mapping, loc):
+def single_location_prediction(config, pipeline, cluster_mapping, loc,
+                               remove_low_wind_samples=False,
+                               normalize=True):
     data = get_wind_data(config, locs=[loc])
     # write_timing_info('Input read.', time.time() - since)
 
     processed_data_full = preprocess_data(
         config,
         data,
-        remove_low_wind_samples=False)
+        remove_low_wind_samples=remove_low_wind_samples,
+        normalize=normalize)
     # TODO no make copy here -> need less RAM
     # write_timing_info('Preprocessed full data.', time.time() - since)
     labels, frequency_clusters = predict_cluster(

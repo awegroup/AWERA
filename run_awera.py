@@ -165,6 +165,17 @@ if __name__ == '__main__':
     settings_id = int(os.environ['SETTINGS_ID'])
 
     settings = training_settings[settings_id]  # (-1 - settings_id)]
+    # settings = {
+    #     'Processing': {'n_cores': 100},
+    #     'Data': {'n_locs': -1,
+    #              'location_type': 'europe'},
+    #     'Clustering': {
+    #         'training': {
+    #             'n_locs': 5000,
+    #             'location_type': 'europe'
+    #             }
+    #         },
+    # }
     print(settings)
     # Update settings to config
     config.update(settings)
@@ -175,9 +186,9 @@ if __name__ == '__main__':
     # Code Profiling
     # TODO include in config -> optional
     # imports at top level / optional
-    # import cProfile, pstats
-    # profiler = cProfile.Profile()
-    # profiler.enable()
+    import cProfile, pstats
+    profiler = cProfile.Profile()
+    profiler.enable()
 
     # Run full clustering, production, aep estimation
     # depending on flags set in config
@@ -185,26 +196,27 @@ if __name__ == '__main__':
 
     # TODO check if clustering etc has to be done?
 
-    working_title = 'run_profile'
+    working_title = 'run_production' #'predict_labels' #  'file'
+    #awera.predict_labels()
     awera.run()
 
-    # profiler.disable()
+    profiler.disable()
     # # Write profiler output
-    # file_name = (
-    #     config.IO.result_dir
-    #     + config.IO.format.plot_output.format(
-    #               data_info=(config.Data.data_info
-    #                          + '_'
-    #                          + config.Clustering.training.data_info))
-    #     .replace('.pdf', '.profile')
-    #     )
-    # with open(file_name.format(title='run_profile'), 'w') as f:
-    #     stats = pstats.Stats(profiler, stream=f)
-    #     stats.strip_dirs()
-    #     stats.sort_stats('cumtime')
-    #     stats.print_stats('py:', .1)
-    # print('Profile output written to: ',
-    #       file_name.format(title=working_title))
+    file_name = (
+        config.IO.result_dir
+        + config.IO.format.plot_output.format(
+                  data_info=(config.Data.data_info
+                             + '_'
+                             + config.Clustering.training.data_info))
+        .replace('.pdf', '.profile')
+        )
+    with open(file_name.format(title='run_profile'), 'w') as f:
+        stats = pstats.Stats(profiler, stream=f)
+        stats.strip_dirs()
+        stats.sort_stats('cumtime')
+        stats.print_stats('py:', .1)
+    print('Profile output written to: ',
+          file_name.format(title=working_title))
 
 
     #plt.show()

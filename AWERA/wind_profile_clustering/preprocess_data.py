@@ -105,6 +105,15 @@ def preprocess_data(config,
         config.General.ref_height)
     if normalize:
         data = normalize_data(data)
+    else:
+        # Non-normalized data :
+        # imitate data structure with norm factor set to 1
+        data['normalisation_value'] = np.zeros(
+            (data['wind_speed'].shape[0])) + 1
+        data['training_data'] = np.concatenate(
+            (data['wind_speed_parallel'],
+             data['wind_speed_perpendicular']),
+            1)
 
     return data
 

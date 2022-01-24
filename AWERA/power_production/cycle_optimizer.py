@@ -552,6 +552,7 @@ class OptimizerCycle(Optimizer):
         self.cycle_settings = cycle_settings
 
         self.set_max_traction_power = 20000.  # TODO make optional in config
+        self.random_x0 = True  # Randomize starting x0 (smearing, gaussian selection)
 
         # TODO remove? reorganise?
         self.optimization_rounds = {'total_opts': [],
@@ -695,7 +696,28 @@ class OptimizerCycle(Optimizer):
         # Optimization variables bounds defining the search space.
         bounds = self.bounds_real_scale
         reduce_x = self.reduce_x
+
+        def get_smeared_x0():
+            return [np.random.normal(x0[i], x0[i]*smearing)
+                    if i in reduce_x else x0[i] for i in range(len(x0))]
+
+        def test_smeared_x0(test_x0, precision=0):
+            return np.all([np.logical_and(
+                test_x0[i] >= (bounds[i][0]-precision),
+                test_x0[i] <= (bounds[i][1]+precision))
+                for i in range(len(test_x0))])
+
+        def smearing_x0():
+            test_smearing = get_smeared_x0()
+            bounds_adhered = test_smeared_x0(test_smearing)
+            while not bounds_adhered:
+                test_smearing = get_smeared_x0()
+                bounds_adhered = test_smeared_x0(test_smearing)
+            return test_smearing
+
         for n_test in range(n_x_test):
+            if not self.random_x0:
+                continue
             # Gaussian random selection of x0 within bounds
             # TODO or just use uniform distr, mostly at bounds anyways...?
             x0_range.append([truncnorm(a=bounds[i][0]/bounds[i][1],
@@ -706,23 +728,6 @@ class OptimizerCycle(Optimizer):
             # Gaussian random smearing of x0 within bounds
             smearing = 0.1  # 10% smearing of the respective values
 
-            def get_smeared_x0():
-                return [np.random.normal(x0[i], x0[i]*smearing)
-                        if i in reduce_x else x0[i] for i in range(len(x0))]
-
-            def test_smeared_x0(test_x0, precision=0):
-                return np.all([np.logical_and(
-                    test_x0[i] >= (bounds[i][0]-precision),
-                    test_x0[i] <= (bounds[i][1]+precision))
-                    for i in range(len(test_x0))])
-
-            def smearing_x0():
-                test_smearing = get_smeared_x0()
-                bounds_adhered = test_smeared_x0(test_smearing)
-                while not bounds_adhered:
-                    test_smearing = get_smeared_x0()
-                    bounds_adhered = test_smeared_x0(test_smearing)
-                return test_smearing
             # Test on two smeared variations of x0
             x0_range.append(smearing_x0())
             x0_range.append(smearing_x0())
@@ -914,7 +919,8 @@ class OptimizerCycle(Optimizer):
                 x0_range)
             self.optimization_rounds['optimizer_error_wind_speed'].append(
                 self.environment_state.wind_speed)
-            print('All optimizations failed, raise optimizer Error: ')
+            print('All optimizations for this wind speed '
+                  'failed, raise optimizer error.')
             raise opt_err
 
 

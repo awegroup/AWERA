@@ -24,20 +24,11 @@ def plot_power_and_frequency(config):
         wind_speeds = df_profile['v_100m [m/s]']
         power = df_profile['P [W]']
 
-        # Filter spikey results
-        while True:
-            mask_power_disc = [True] + list(np.diff(power) > -500)
-            power = power[mask_power_disc]
-            wind_speeds = wind_speeds[mask_power_disc]
-            if sum(mask_power_disc) == len(mask_power_disc):
-                # No more discontinuities
-                break
-            print('Power masked')
         # Plot power
         ax_pcs[0].plot(wind_speeds, power/1000, label=i_profile+1)
 
         # Frequency Plot for profile
-        sel_loc_id = 343  # TODO make optional
+        sel_loc_id = -1  # 343  # TODO make optional
         if sel_loc_id != -1:
             freq = frequency[sel_loc_id, i_profile, :]
             wind_speed_bins = wind_speed_bin_limits[i_profile, :]
@@ -45,7 +36,7 @@ def plot_power_and_frequency(config):
             # Mult locations
             freq = np.sum(frequency[:, i_profile, :], axis=0)/len(locations)
             wind_speed_bins = wind_speed_bin_limits[i_profile, :]
-        else:
+        else:  # TODO this is not right anymore?
             freq = frequency[i_profile, :]
             wind_speed_bins = wind_speed_bin_limits[i_profile, :]
 
@@ -72,6 +63,9 @@ def plot_power_and_frequency(config):
     # TODO paper: nomalised frequency?
     for ax in ax_pcs:
         ax.set_xlim([5, 21])
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.plot_output.format(
+                title='power_curves_and_freq'))
     # plt.show()
 
 
