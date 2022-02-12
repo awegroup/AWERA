@@ -31,7 +31,7 @@ Clustering:
     # Clustering evaluation
     # Run clustering on training data and export cluster labels and
     # cluster vertical wind profiles
-    make_profiles: False # True
+    make_profiles: True
     # For finished clustering export the frequency distribution matching the
     # velocity binning of the cut-in/out wind speed ranges from
     # power production simulation
@@ -45,10 +45,10 @@ Clustering:
 
 Power:
     # Estimate cut-in/out wind speeds for the model
-    estimate_cut_in_out: True
+    estimate_cut_in_out: False # True
     # Run power production simulation for the velocity ranges defined
     # by the cut-in/out estimation
-    make_power_curves: True
+    make_power_curves: False # True
 
 Data:
     start_year: 2010  # (4-digit int): Process the wind data starting from this year
@@ -100,8 +100,11 @@ Data:
 
     # Requested height range:
     # DOWA height range
-    height_range: [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
-                    180., 200., 220., 250., 300., 500., 600.]
+    height_range_DOWA: [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
+                        180., 200., 220., 250., 300., 500., 600.]
+    # Equidistant height range ~40m
+    height_range: [10.,  50.,  100.,  140.,  180., 220., 260., 300., 340., 380.,
+                    420., 500., 600.]
 
 IO:
     result_dir: "/cephfs/user/s6lathim/AWERA_results/"
@@ -116,14 +119,16 @@ IO:
         cluster_pipeline: 'cluster_pipeline_{data_info_training}_{settings_info}.pickle'
         pca_pipeline: 'pca_pipeline_{data_info_training}_{settings_info}.pickle'
         # Power Production
-        power_curve: 'power_curve_{{i_profile}}_{data_info_training}_{settings_info}.{{suffix}}'
-        # power_curve: 'power_curve_max_27_{{i_profile}}_{data_info_training}_{settings_info}.{{suffix}}'
+        power_curve: 'power_curve_{{i_profile:.0f}}_{data_info_training}_{settings_info}.{{suffix}}'
+        # power_curve: 'power_curve_max_27_{{i_profile:.0f}}_{data_info_training}_{settings_info}.{{suffix}}'
         cut_wind_speeds: 'cluster_profiles_cut_in_out_{data_info_training}_{settings_info}_estimate.csv'
-        #cut_wind_speeds: 'cluster_profiles_cut_in_out_max_27_{data_info_training}_{settings_info}_estimate.csv'
+        # cut_wind_speeds: 'cluster_profiles_cut_in_out_max_27_{data_info_training}_{settings_info}_estimate.csv'
         refined_cut_wind_speeds: 'cluster_profiles_cut_in_out_{data_info_training}_{settings_info}_refined.csv'
-        #refined_cut_wind_speeds: 'cluster_profiles_cut_in_out_max_27_{data_info_training}_{settings_info}_refined.csv'
+        # refined_cut_wind_speeds: 'cluster_profiles_cut_in_out_max_27_{data_info_training}_{settings_info}_refined.csv'
         optimizer_history: 'optimizer_history_{data_info_training}_{settings_info}.hist'
         # Plotting
         plot_output: '{{title}}_{data_info}__{data_info_training}_{settings_info}.pdf'
+        plot_output_data: '{{title}}_{data_info}_{settings_info}.pdf'
+        training_plot_output: '{{title}}_{data_info_training}_{settings_info}.pdf'
 
 

@@ -119,15 +119,15 @@ def read_ds_single_loc_files(data_config,
 
 
 def eval_single_loc_era5_input(data_config,
-                               ds,
                                sel_sample_ids,
                                i_highest_level,
                                levels,
                                n_per_loc,
-                               loc_i_loc):
+                               loc_i_loc,
+                               ds=None):
     # TODO improve arguments!
     lat, lon,  i_lat, i_lon = loc_i_loc
-    if data_config.era5_data_input_format == 'single_loc':
+    if data_config.era5_data_input_format == 'single_loc' or ds is None:
         # For single location data files, always reaad next file
         ds = read_ds_single_loc_files(data_config,
                                       lat, lon,
@@ -158,6 +158,7 @@ def eval_single_loc_era5_input(data_config,
     v_req_alt_east_loc = np.zeros((n_per_loc, len(data_config.height_range)))
     v_req_alt_north_loc = np.zeros((n_per_loc, len(data_config.height_range)))
 
+    same = 0
     for i_hr in range(n_per_loc):
         if not np.all(level_heights[i_hr, 0] > data_config.height_range):
             raise ValueError("Requested height ({:.2f} m) is higher than \
@@ -169,6 +170,15 @@ def eval_single_loc_era5_input(data_config,
         v_req_alt_north_loc[i_hr, :] = np.interp(data_config.height_range,
                                                  level_heights[i_hr, ::-1],
                                                  v_levels_north[i_hr, ::-1])
+        # Sanity check height range oversampling
+        same_hr = sum(np.diff(np.round(np.interp(data_config.height_range,
+                              level_heights[i_hr, ::-1],
+                              np.arange(level_heights.shape[1])))) == 0)
+        same += same_hr
+    print('Height Level Ids: ',  np.round(np.interp(data_config.height_range,
+                                           level_heights[i_hr, ::-1],
+                                           np.arange(level_heights.shape[1]))))
+    print('Same level data used {} times.'.format(same))
     return(v_req_alt_east_loc, v_req_alt_north_loc)
 
 
@@ -202,8 +212,9 @@ def get_wind_data_era5(config,
                                   for i, i_loc in enumerate(i_locs)]
         import functools
         funct = functools.partial(eval_single_loc_era5_input,
-                                  config.Data, ds, sel_sample_ids,
-                                  i_highest_level, levels, n_per_loc)
+                                  config.Data, sel_sample_ids,
+                                  i_highest_level, levels, n_per_loc,
+                                  ds=ds)
         with Pool(config.Processing.n_cores) as p:
             if config.Processing.progress_out == 'stdout':
                 file = sys.stdout
@@ -228,10 +239,10 @@ def get_wind_data_era5(config,
             v_req_alt_east_loc, v_req_alt_north_loc = \
                 eval_single_loc_era5_input(
                     config.Data,
-                    ds,
                     sel_sample_ids, i_highest_level,
                     levels, n_per_loc,
-                    (lat, lon, i_lat, i_lon))
+                    (lat, lon, i_lat, i_lon),
+                    ds=ds)
             # TODO is this even xarray anymore?
             # check efficiency numpy, pandas, xarray
             v_req_alt_east[n_per_loc*i:n_per_loc*(i+1), :] = v_req_alt_east_loc

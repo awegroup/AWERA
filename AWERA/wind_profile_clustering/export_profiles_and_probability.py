@@ -12,7 +12,7 @@ from .preprocess_data import preprocess_data
 from .wind_profile_clustering import \
     cluster_normalized_wind_profiles_pca, predict_cluster, \
     single_location_prediction
-from ..power_production.utils import write_timing_info
+from ..utils.convenience_utils import write_timing_info
 
 import time
 since = time.time()

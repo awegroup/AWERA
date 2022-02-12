@@ -52,17 +52,21 @@ def random_locations(n=10,
                      base=0.25,
                      initial_locs=[]):
     # Randomly select n locations
-    xy_min = (lat_range[0], lon_range[0])
     # Uniform draws from [min, max) -> slightly extend max
     epsilon = 0.0000001
     if lat_range[0] > lat_range[1]:
-        lat_max = lat_range[1] - epsilon*base
+        lat_max = lat_range[0] + epsilon*base
+        lat_min = lat_range[1]
     else:
         lat_max = lat_range[1] + epsilon*base
+        lat_min = lat_range[0]
     if lon_range[0] > lon_range[1]:
-        lon_max = lon_range[1] - epsilon*base
+        lon_max = lon_range[0] + epsilon*base
+        lon_min = lon_range[1]
     else:
         lon_max = lon_range[1] + epsilon*base
+        lon_min = lon_range[0]
+    xy_min = (lat_min, lon_min)
     xy_max = (lat_max, lon_max)
     locations = np.random.default_rng().uniform(low=xy_min,
                                                 high=xy_max,

@@ -176,6 +176,8 @@ class Config:
             self.Clustering.n_clusters,
             self.Clustering.n_pcs,
             )
+        setattr(self.Clustering.training, 'settings_info', settings_info)
+
         try:
             norm = self.config.Clustering.do_normalize_data
             if norm:
@@ -227,10 +229,10 @@ class Config:
                             data_info=data_info,
                             data_info_training=data_info_training,
                             settings_info=settings_info))
-                setattr(self.IO, 'training_' + key,
+            elif key in ['training_plot_output']:
+                setattr(self.IO, key,
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
-                            data_info=data_info_training,
                             data_info_training=data_info_training,
                             settings_info=settings_info))
             elif key in ['cluster_validation_plotting',
@@ -267,7 +269,7 @@ class Config:
                          'sample_vs_cluster_power']:
                 if 'cluster' in key:
                     setattr(self.IO, key,
-                            self.IO.result_dir + self.IO.result_dir_validation
+                            self.IO.result_dir
                             + getattr(self.IO.format, key).format(
                                 sample_type=
                                 self.Validation_Data.sample_type,
@@ -276,11 +278,17 @@ class Config:
                                 settings_info=settings_info))
                 else:
                     setattr(self.IO, key,
-                            self.IO.result_dir + self.IO.result_dir_validation
+                            self.IO.result_dir
                             + getattr(self.IO.format, key).format(
                                 sample_type=
                                 self.Validation_Data.sample_type,
                                 data_info=data_info))
+            elif key in ['plot_output_data']:
+                setattr(self.IO, key,
+                        self.IO.result_dir +
+                        getattr(self.IO.format, key).format(
+                            data_info=data_info,
+                            settings_info=settings_info))
             elif key not in ['locations']:
                 setattr(self.IO, key,
                         self.IO.result_dir +

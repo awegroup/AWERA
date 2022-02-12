@@ -39,11 +39,11 @@ class ChainAWERA(Clustering, PowerProduction):
                                                (i_loc+1)*n_samples_per_loc])
             profile_ids = np.array(matching_cluster) + 1
         else:
-            matching_cluster = np.array(labels[
-                single_sample_id + i_loc*n_samples_per_loc])
-            backscaling = np.array(backscaling[
-                single_sample_id + i_loc*n_samples_per_loc])
-            profile_ids = np.array([matching_cluster+1])
+            matching_cluster = np.array([labels[
+                single_sample_id + i_loc*n_samples_per_loc]])
+            backscaling = np.array([backscaling[
+                single_sample_id + i_loc*n_samples_per_loc]])
+            profile_ids = np.array([matching_cluster[0]+1])
 
         used_profiles = list(np.unique(profile_ids))
         p_cluster = np.ma.array(np.empty(profile_ids.shape))

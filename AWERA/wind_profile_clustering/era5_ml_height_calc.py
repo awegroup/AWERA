@@ -114,6 +114,7 @@ def compute_level_heights(levels, surface_pressure, levels_temperature, levels_h
     densities = np.zeros((n_hours, n_levels))
     heights = np.zeros((n_hours, n_levels))
     for i_hr in range(n_hours):
+        # This sets the calculated height to be above ground
         h_h = 0  # Half-level height at lower model level.
         for i, level in enumerate(reversed(levels)):  # Start from lower model level.
             i_level = n_levels - 1 - i  # Identifier of model level.
