@@ -21,6 +21,7 @@ class Clustering:
 
     def __init__(self, config):
         # Set configuration from Config class object
+        super().__init__(config)
         setattr(self, 'config', config)
 
 # --------------------------- Full Clustering Procedure
@@ -320,6 +321,27 @@ class Clustering:
                                  (prl ** 2 + prp ** 2) ** .5,
                                  plot_info=
                                  self.config.Clustering.training.data_info)
+
+    def visualize_clustering_flow(self,
+                                  loc=None,
+                                  sample_id=None):
+        # Read sample wind data
+        if loc is None:
+            loc = self.config.Data.locations[0]
+        if sample_id is None:
+            sample_id = 0
+        data = get_wind_data(self.config,
+                             sel_sample_ids=[sample_id],
+                             locs=[loc])
+        # Plot original sample wind profile
+
+        # Plot sample wind profile after preprocessing
+        # care: remove low wind samples?
+
+        # Plot sample wind profile, PC profiles and reconstructed profile
+
+        # Plot matched cluster profile (with cluster tag),
+        # backscaled to sample profile
 
     # Read available output
     def read_profiles(self):

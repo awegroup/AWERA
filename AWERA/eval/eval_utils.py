@@ -5,6 +5,8 @@ def sliding_window_avg(data, i_window):
 
     n_samples = data.shape[1]
     for i_sample in range(n_samples):
+        if i_sample % 100 == 0:
+            print('{}/{} samples'.format(i_sample + 1, n_samples))
         if i_sample < i_window//2:
             i_low = 0
             i_high = i_window
@@ -38,9 +40,16 @@ def count_consecutive_bool(data):
         else:
             consec_True = consec[1::2]
             consec_False = consec[::2]
-
-        max_True_time[i_loc] = max(consec_True)
-        max_False_time[i_loc] = max(consec_False)
+        if len(consec_True) > 0:
+            max_True_time[i_loc] = np.max(consec_True)
+        else:
+            print('No True in i_loc', i_loc)
+            max_True_time[i_loc] = 0
+        if len(consec_False) > 0:
+            max_False_time[i_loc] = np.max(consec_False)
+        else:
+            print('No False in i_loc', i_loc)
+            max_False_time[i_loc] = 0
     # TODO option for time resolved return? -> radius eval?
     # , time-distance to change, ... ?
 
