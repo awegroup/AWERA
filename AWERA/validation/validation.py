@@ -3,12 +3,15 @@ import copy
 import pickle
 import numpy as np
 import numpy.ma as ma
+import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from ..wind_profile_clustering.clustering import Clustering
 from ..wind_profile_clustering.read_requested_data import get_wind_data
 from ..wind_profile_clustering.preprocess_data import reduce_wind_data
-from ..wind_profile_clustering.utils_validation import plot_diff_pdf, \
-    diffs_original_vs_reco
+from ..validation.utils_validation import diffs_original_vs_reco
+from ..utils.plotting_utils import plot_diff_pdf
+
+from .aep_vs_n_loc import aep_err_vs_n_locs
 
 from ..awera import ChainAWERA
 
@@ -17,6 +20,7 @@ class ValidationProcessingPowerProduction(ChainAWERA):
         super().__init__(config)
         # Read configuration from config_validation.yaml file
         self.config.update_from_file(config_file='config_validation.yaml')
+        setattr(self, 'loc_tag', '{:.2f}_lat_{:.2f}_lon')
 
     def single_sample_power(self,
                             processed_data,
@@ -88,7 +92,8 @@ class ValidationProcessingPowerProduction(ChainAWERA):
                     x0=[4100., 850., 0.5, 240., 200.0],
                     oc=oc,
                     ref_wind_speed=ref_wind_speed,
-                    return_optimizer=False)
+                    return_optimizer=False,
+                    raise_errors=False)
             if not np.all([x_i == -1 for x_i in x_opt_cc_opt]):
                 # Optimization did not fail
                 p_cc_opt = kpis_cc_opt['average_power']['cycle']
@@ -191,12 +196,11 @@ class ValidationProcessingPowerProduction(ChainAWERA):
                 res_sample = {
                     'p_sample': power[0, :],
                     'x_opt_sample': x_opt[0, :, :],
-                    'cluster_label': cluster_info[0, :],
                     'backscaling': cluster_info[1, :],
                     'locs': [loc],
                     'sample_ids': sel_sample_ids,
                     }
-                with open(self.config.IO.sample_vs_cluster_power
+                with open(self.config.IO.sample_power
                           .format(loc=loc_tag), 'wb') as f:
                     pickle.dump(res_sample, f)
         return power, x_opt, cluster_info
@@ -287,7 +291,6 @@ class ValidationProcessingPowerProduction(ChainAWERA):
         res_sample = {
             'p_sample': power[0, :, :],
             'x_opt_sample': x_opt[0, :, :, :],
-            'cluster_label': cluster_info[0, :, :],
             'backscaling': cluster_info[1, :, :],
             'locs': locs,
             'sample_ids': sel_sample_ids,
@@ -312,7 +315,7 @@ class ValidationProcessingPowerProduction(ChainAWERA):
         if not self.config.Power.write_location_wise:
             # Pickle results
             if self.config.Power.save_sample_only_results:
-                with open(self.config.IO.sample_vs_cluster_power
+                with open(self.config.IO.sample_power
                           .format(loc='mult_loc_results'), 'wb') as f:
                     pickle.dump(res_sample, f)
 
@@ -336,10 +339,10 @@ class ValidationProcessingPowerProduction(ChainAWERA):
                 return res
 
             for i_loc, loc in enumerate(locs):
-                loc_tag = '{:.2f}_lat_{:.2f}_lon'.format(loc[0], loc[1])
+                loc_tag = self.loc_tag.format(loc[0], loc[1])
 
                 if self.config.Power.save_sample_only_results:
-                    with open(self.config.IO.sample_vs_cluster_power
+                    with open(self.config.IO.sample_power
                               .format(loc=loc_tag), 'wb') as f:
                         pickle.dump(sel_loc(res_sample, i_loc, loc), f)
 
@@ -352,23 +355,119 @@ class ValidationProcessingPowerProduction(ChainAWERA):
 
         return return_res
 
+    def power_curve_spread(self, ref='p_cc_opt'):
+        # Read power curves
+        p_curves = []
+        v_curves = []
+        v_bins = []
+        for i_c in range(self.config.Clustering.n_clusters):
+            df_profile = self.read_curve(i_profile=i_c+1,
+                                         return_constructor=False)
+            wind_speeds = list(df_profile['v_100m [m/s]'])
+            power = list(df_profile['P [W]'])
+
+            p_curves.append(power)
+            v_curves.append(wind_speeds)
+
+            v_bins.append(np.linspace(
+                wind_speeds[0],
+                wind_speeds[-1],
+                self.config.Clustering.n_wind_speed_bins+1))
+
+        # Evaluate for each cluster and velocity bin for mean, std, min, max
+        sample_res = np.zeros([self.config.Clustering.n_clusters,
+                               self.config.Clustering.n_wind_speed_bins,
+                               4])
+
+        # Read single sample results
+        for loc in self.config.Data.locations:
+            if loc == self.config.Data.locations[0]:
+                continue
+            loc_tag = self.loc_tag.format(loc[0], loc[1])
+
+            with open(self.config.IO.sample_vs_cluster_power
+                      .format(loc=loc_tag), 'rb') as f:
+                res = pickle.load(f)
+
+            # TODO read 'wrong' sample output and read labels individually
+            #ref = 'p_cluster'
+            p_loc = res[ref]
+            label_loc = res['cluster_label']
+
+            print('-------------', loc, ref)
+            print(p_loc[np.logical_and(p_loc != -1, label_loc == 0)])
+            print('---')
+
+            v_loc = res['backscaling']
+            print(v_loc[np.logical_and(p_loc != -1, label_loc == 0)])
+            print('---')
+
+
+            for i_c in [0]:  # range(self.config.Clustering.n_clusters):
+                i_start = 0
+                for i_v, (v0, v1) in enumerate(zip(v_bins[i_c][:-1],
+                                                   v_bins[i_c][1:])):
+                    v_sel = np.logical_and(
+                        np.logical_and(
+                            np.logical_and(
+                                (v_loc >= v0),
+                                (v_loc < v1)),
+                            (label_loc == i_c)),
+                        p_loc != -1)
+                    p_i_cluster = p_loc[v_sel]
+                    if len(p_i_cluster) == 0:
+                        if i_v == i_start:
+                            i_start = i_v + 1
+                        continue
+                    print((v0, v1), p_i_cluster)
+                    print('---------------------------------------------')
+                    # Mean, standard deviation, min, max
+                    p_avg = np.mean(p_i_cluster)
+                    p_std = np.std(p_i_cluster)
+                    p_min = np.min(p_i_cluster)
+                    p_max = np.max(p_i_cluster)
+
+                    if i_v == i_start:
+                        p_avg = np.mean((sample_res[i_c, i_v, 0], p_avg))
+                        # TODO how to combine std correctly?
+                        # is there a good way or would I need to
+                        # save up the data?: but 2 locs basically indep...?
+                        p_std = np.sqrt((sample_res[i_c, i_v, 1]**2
+                                         + p_std**2)/2)
+                        p_min = np.min((sample_res[i_c, i_v, 2], p_min))
+                        p_max = np.max((sample_res[i_c, i_v, 3], p_max))
+                    sample_res[i_c, i_v, :] = (p_avg, p_std, p_min, p_max)
+
+        # Plot power curves
+        for i_c in [0]:  # range(self.config.Clusterinng.n_clusters):
+            self.plot_power_curves(pcs=[(np.array(v_curves[i_c]),
+                                         np.array(p_curves[i_c]))],
+                                   labels=str(i_c+1),
+                                   lim=[v_bins[i_c][0], v_bins[i_c][-1]])
+            # Add single production info to plot
+            plt.plot(v_bins[i_c][:-1], sample_res[i_c, :, 0]/1000,  '.',
+                     label='s-mean')
+            # Plot transparent std band around mean
+            # plt.fill_between(
+            #     v_bins[i_c][:-1],
+            #     (sample_res[i_c, :, 0]-sample_res[i_c, :, 1])/1000,
+            #     (sample_res[i_c, :, 0]+sample_res[i_c, :, 1])/1000,
+            #     alpha=0.5, label='s-std')
+            plt.plot(v_bins[i_c][:-1], sample_res[i_c, :, 2]/1000, '.',
+                     label='s-min')
+            plt.plot(v_bins[i_c][:-1], sample_res[i_c, :, 3]/1000, '.',
+                     label='s-max')
+            plt.legend()
+            # Save plot
+            title = 'power_curve_spread_vs_{}_profile_{}'.format(ref, i_c+1)
+            plt.savefig(self.config.IO.plot_output.format(title=title))
+
 
 class ValidationProcessingClustering(Clustering):
     def __init__(self, config):
         super().__init__(config)
         # Read configuration from config_validation.yaml file
         self.config.update_from_file(config_file='config_validation.yaml')
-
-    def clustering_validation():
-        #TODO include clustering validation processing
-        # rn custering, write results to files in driectory validation
-        # range of n pcs, n_clusters, ....?
-
-        # what about different training and data? -> prediction validation
-        # 5000 locs training, DIFFERENT 5000locs predicted
-        #     -> difference in wind profiles, wind speed bins... always on data
-        pass
-
 
     def eval_velocities(self,
                         mean_diffs, full_diffs,
@@ -643,3 +742,171 @@ class ValidationProcessingClustering(Clustering):
 
 
 
+# class ValidationPlottingClustering(Clustering):
+#     def __init__(self, config):
+#         super().__init__(config)
+#         # Read configuration from config_validation.yaml file
+#         self.config.update_from_file(config_file='config_validation.yaml')
+
+#         #                   One set of n_clusters, n_pcs:
+#         # Height dependence
+#         if n_clusters > 0:
+#             plot_height_vs_diffs(heights, wind_orientation, diff_type, n, data_info,
+#                                  pc_mean, pc_std,
+#                                  cluster_mean=cluster_mean, cluster_std=cluster_std,
+#                                  n_clusters=n_clusters)
+#         else:
+#             plot_height_vs_diffs(heights, wind_orientation, diff_type, n, data_info,
+#                                  pc_mean, pc_std)
+#         # Velocity Dependence
+#         # ---- Plot velocity dependence vs n_pc
+#         for wind_orientation in vel_res:
+#             for fit_type in vel_res[wind_orientation]:
+#                 if fit_type == 'cluster' and n_clusters == 0: continue
+#                 elif fit_type == 'pc' and n_clusters > 0: continue
+#                 for diff_type in vel_res[wind_orientation][fit_type]:
+#                     for height_idx, height in enumerate(eval_heights):
+#                         x = np.array(range(len(split_velocities)))
+
+#                         plt.xlabel('velocity ranges in m/s')
+#                         if diff_type == 'absolute':
+#                             plt.ylabel('{} diff for v {} in m/s'.format(diff_type, wind_orientation))
+#                         else:
+#                             plt.ylabel('{} diff for v {}'.format(diff_type, wind_orientation))
+#                         if n_clusters == 0:
+#                             plt.ylim((-0.5,0.5))
+#                         else:
+#                             plt.ylim((-1.2,1.2))
+#                         plot_dict = {}
+#                         for pc_idx, n_pcs in enumerate(eval_pcs):
+#                             y = vel_res[wind_orientation][fit_type][diff_type][height_idx, pc_idx, :, 0]
+#                             dy = vel_res[wind_orientation][fit_type][diff_type][height_idx, pc_idx, :, 1]
+#                             if len(eval_pcs) > 1:
+#                                 shift = -0.25 + 0.5/(len(eval_pcs)-1) * pc_idx
+#                             else:
+#                                 shift = 0
+#                             shifted_x = x+shift
+#                             use_only = y.mask == False
+#                             y = y[use_only]
+#                             dy = dy[use_only]
+#                             shifted_x = shifted_x[use_only]
+#                             plot_dict[n_pcs] = plt.errorbar(shifted_x, y, yerr=dy, fmt='+')
+#                         ax = plt.axes()  # This triggers a deprecation warning, works either way, ignore
+#                         ax.set_xticks(x)
+#                         ax.set_xticklabels(['0-1.5','1.5-3', '3-5', '5-10', '10-20', '20 up', 'full'])
+#                         legend_list = [plot_item for key, plot_item in plot_dict.items()]
+#                         legend_names = ['{} pcs'.format(key) for key in plot_dict]
+
+#                         plt.legend(legend_list, legend_names)
+#                         if n_clusters > 0:
+#                             plt.title('{} diff of v {} at {} m using {} {}'.format(diff_type, wind_orientation, height, n_clusters, fit_type))
+#                             plt.savefig(result_dir_validation + '{}_cluster/{}_wind_{}_{}_{}_diff_vs_velocity_ranges_{}_m'.format(
+#                                         n_clusters, wind_orientation, n_clusters, fit_type, diff_type, height) + data_info + '.pdf')
+#                         else:
+#                             plt.title('{} diff of v {} at {} m using {}'.format(diff_type, wind_orientation, height, fit_type))
+#                             plt.savefig(result_dir_validation + 'pc_only/{}_wind_{}_{}_diff_vs_velocity_ranges_{}_m'.format(
+#                                         wind_orientation, fit_type, diff_type, height) + data_info + '.pdf')
+#                         # Clear plots after saving, otherwise plotted on top of each other
+#                         plt.cla()
+#                         plt.clf()
+
+
+#         #                   All n_clusters, all n_pcs:
+#    # Plot dependence of mean differences for each height depending on the number of pcs
+#     for height_idx, height in enumerate(wind_data['altitude']):
+#         if height not in eval_heights:
+#             continue
+
+#         for wind_orientation in n_pc_dependence:
+#             for diff_type in n_pc_dependence[wind_orientation]:
+#                 x = np.array(range(eval_n_pc_up_to-2)) + 3
+#                 y_pc = n_pc_dependence[wind_orientation][diff_type][2:, 0, height_idx]
+#                 dy_pc = n_pc_dependence[wind_orientation][diff_type][2:, 1, height_idx]
+
+#                 plt.xlabel('# pcs')
+#                 if diff_type == 'absolute':
+#                     plt.ylabel('{} diff for v {} in m/s'.format(diff_type, wind_orientation))
+#                     plt.ylim((-1.5, 1.5))
+#                 else:
+#                     plt.ylabel('{} diff for v {}'.format(diff_type, wind_orientation))
+#                     # plt.ylim((-0.6,0.6))
+#                     plt.ylim((-1.5, 1.5))
+#                 plt.title('{} diff of v {} at {} m'.format(diff_type, wind_orientation, height))
+
+#                 if len(eval_clusters) == 0:
+#                     # Plot detailed number of pcs dependence for only pc analysis
+#                     plt.errorbar(x, y_pc, yerr=dy_pc, fmt='+', color='tab:blue')
+#                     if wind_orientation in sample_mean_dict:
+#                         plt.text(plt.xlim()[1]*0.55, plt.ylim()[1]*0.8, 'mean: {:.2E} +- {:.2E}'.format(
+#                             sample_mean_dict[wind_orientation][diff_type][0][height_idx],
+#                             sample_mean_dict[wind_orientation][diff_type][1][height_idx]))
+#                     plt.text(plt.xlim()[1]*0.55, plt.ylim()[1]*0.7, '#pc=1: {:.2E} +- {:.2E}'.format(
+#                         n_pc_dependence[wind_orientation][diff_type][0, 0, height_idx],
+#                         n_pc_dependence[wind_orientation][diff_type][0, 1, height_idx]))
+#                     plt.text(plt.xlim()[1]*0.55, plt.ylim()[1]*0.6, '#pc=2: {:.2E} +- {:.2E}'.format(
+#                         n_pc_dependence[wind_orientation][diff_type][1, 0, height_idx],
+#                         n_pc_dependence[wind_orientation][diff_type][1, 1, height_idx]))
+#                     plt.savefig(result_dir_validation + 'pc_only/{}_wind_{}_diff_vs_number_of_pcs_{}_m'.format(
+#                                 wind_orientation, diff_type, height) + data_info + '.pdf')
+#                     # Clear plots after saving, otherwise plotted on top of each other
+#                     plt.cla()
+#                     plt.clf()
+#                 else:
+#                     # Plot number of pcs dependence comparing all analyses with number of clusters given in eval_clusters
+#                     plot_dict = {}
+#                     for n_cluster_idx, n_clusters in enumerate(n_cluster_dependence):
+#                         y = n_cluster_dependence[n_clusters][wind_orientation][diff_type][2:, 0, height_idx]
+#                         dy = n_cluster_dependence[n_clusters][wind_orientation][diff_type][2:, 1, height_idx]
+#                         shift = -0.25 + 0.5/(len(n_cluster_dependence)) * n_cluster_idx
+#                         plot_dict[n_clusters] = plt.errorbar(x+shift, y, yerr=dy, fmt='+')
+
+#                     ax = plt.axes()
+#                     ax.set_xticks(x)
+
+#                     legend_list = [plot_item for key, plot_item in plot_dict.items()]
+#                     legend_names = ['{} clusters'.format(key) for key, plot_item in plot_dict.items()]
+#                     pc = plt.errorbar(x+0.25, y_pc, yerr=dy_pc, fmt='+', color='b')
+#                     legend_list.insert(0, pc)
+#                     legend_names.insert(0, 'pc only')
+#                     plt.legend(legend_list, legend_names)
+#                     plt.savefig(result_dir_validation + '{}_wind_cluster_{}_diff_vs_number_of_pcs_{}_m'.format(
+#                                 wind_orientation, diff_type, height) + data_info + '.pdf')
+#                     # Clear plots after saving, otherwise plotted on top of each other
+#                     plt.cla()
+#                     plt.clf()
+
+class ValidationChain(ChainAWERA):
+    def __init__(self, config):
+        super().__init__(config)
+    def aep_vs_n_locs(self,
+                      prediction_settings=None,
+                      data_settings=None,
+                      i_ref=0,
+                      set_labels=None,
+                      run_missing_prediction=True):
+        # TODO get i_ref from comparing prediction settings and data_settings
+        if data_settings is not None:
+            self.config.update({'Data': data_settings})
+        if prediction_settings is not None:
+            if not isinstance(prediction_settings, list):
+                prediction_settings = [prediction_settings]
+        elif prediction_settings is None:
+            prediction_settings = [self.config.Clustering.dictify()]
+
+        if run_missing_prediction:
+            for settings in prediction_settings:
+                self.config.update({'Clustering': settings})
+                labels_file = self.config.IO.labels
+                freq_file = self.config.IO.freq_distr
+                if not os.path.isfile(labels_file):
+                    print('Predicting labels: ', settings)
+                    self.predict_labels()
+                if not os.path.isfile(freq_file):
+                    print('Evaluating frequency: ', settings)
+                    self.get_frequency()
+
+        aep_err_vs_n_locs(self.config,
+                          prediction_settings=prediction_settings,
+                          i_ref=i_ref,
+                          set_labels=set_labels,
+                          )
