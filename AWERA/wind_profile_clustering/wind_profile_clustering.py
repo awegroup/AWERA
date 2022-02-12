@@ -21,7 +21,7 @@ from .read_requested_data import get_wind_data
 
 from .preprocess_data import preprocess_data
 
-# !!! from ..power_production.utils import write_timing_info
+# !!! from ..utils.convenience_utils import write_timing_info
 xlim_pc12 = [-1.1, 1.1]
 ylim_pc12 = [-1.1, 1.1]
 x_lim_profiles = [-0.8, 1.25]
@@ -126,10 +126,12 @@ def plot_wind_profile_shapes(config,
                           color='#2ca02c')
 
         txt = '${}$'.format(i+1)
-        ax[j, k].plot(0.1, 0.1, 'o', mfc="white", alpha=1, ms=14, mec='k',
-                      transform=ax[j, k].transAxes)
+        cmap = plt.get_cmap("tab10")
+        ax[j, k].plot(0.1, 0.1, 'o', mfc=cmap(i), alpha=1, ms=14, mec='k',
+                      transform=ax[j, k].transAxes)  # "white"
         ax[j, k].plot(0.1, 0.1, marker=txt, alpha=1, ms=7, mec='k',
                       transform=ax[j, k].transAxes)
+        # TODO Add matching background color cluster name -> mfc to power curves colors
 
         ax[j, k].grid(True)
         ax[j, k].set_xlabel(x_label0)
@@ -149,10 +151,8 @@ def plot_wind_profile_shapes(config,
                                     0.2), loc="lower left", mode="expand",
                     borderaxespad=0, ncol=4)
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'cluster_wind_profile_shapes'
-                    + plot_info
-                    + '.pdf')
+        plt.savefig(config.IO.training_plot_output
+                    .format(title='cluster_wind_profile_shapes'))
 
 
 def plot_bars(array2d, bars_labels=None, ax=None, legend_title="",

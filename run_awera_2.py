@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
     settings = {
         'Processing': {'n_cores': 10},
-        'Data': {'n_locs': -1,
+        'Data': {'n_locs': 5000, # -1
                  'location_type': 'europe'},
         'Clustering': {
             'training': {
@@ -196,17 +196,20 @@ if __name__ == '__main__':
     # TODO check if clustering etc has to be done?
 
     #working_title = 'predict_labels_{}'.format(loc_id) # 'run_profile'
-    #awera.predict_labels(locs_slice=(loc_id, 1000))
+    #awera.predict_labels() # locs_slice=(loc_id, 1000))
+    #print('Labels predicted.')
     #working_title = 'combine_labels'
     #awera.combine_labels()
-    working_title = 'plotting'
+    #working_title = 'plotting'
     #awera.plot_cluster_shapes()
     #awera.get_frequency()
     from AWERA.eval.evaluation import evalAWERA
     e = evalAWERA(config)
-    e.aep_map()
+    working_title = 'sliding_window_eval'
+    e.sliding_window_power()
+    #e.aep_map()
     #awera.run()
-    e.power_freq()
+    #e.power_freq()
 
     profiler.disable()
     # # Write profiler output

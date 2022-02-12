@@ -100,7 +100,7 @@ def plot_figure_5a(hours, v_ceiling, optimal_heights,
                    height_bounds=[200, 500],
                    v_bounds=[None, None],
                    show_n_hours=24*7):
-    # TODO rename
+    # TODO rename, update Docstring
     """Plot optimal height and wind speed time series for the first week of data.
 
     Args:
@@ -116,10 +116,14 @@ def plot_figure_5a(hours, v_ceiling, optimal_heights,
     # TODO optional time range, not only from beginning
     # TODO heights_of_interest use cases fix -> height_bounds
     optimal_heights = optimal_heights[shift:shift+show_n_hours]
-    dates = [hour_to_date(h) for h in hours[shift:shift+show_n_hours]]
+
+    if not isinstance(hours[0], np.datetime64):
+        dates = [hour_to_date(h) for h in hours[shift:shift+show_n_hours]]
+    else:
+        dates = hours[shift:shift+show_n_hours]
     v_ceiling = v_ceiling[shift:shift+show_n_hours]
 
-    fig, ax = plt.subplots(2, 1, sharex=True)
+    fig, ax = plt.subplots(2, 1, sharex=True, figsize=(7, 6))
     plt.subplots_adjust(bottom=.2)
 
     # Plot the height limits.
@@ -134,12 +138,12 @@ def plot_figure_5a(hours, v_ceiling, optimal_heights,
         ax[0].plot(dates_limits, [floor_height]*2, 'k--')
 
     # Plot the optimal height time series.
-    ax[0].plot(dates, optimal_heights, color='darkcyan', label='avg. cycle height')
+    ax[0].plot(dates, optimal_heights, color='darkcyan', label='AWES height')
     if height_range is not None:
         ax[0].plot(dates, height_range['min'][shift:shift+show_n_hours],
                    color='darkcyan', alpha=0.25)
         ax[0].plot(dates, height_range['max'][shift:shift+show_n_hours],
-                   color='darkcyan', alpha=0.25, label='max/min cycle height')
+                   color='darkcyan', alpha=0.25, label='max/min AWES height')
     print('heights plotted...')
     # Plot the markers at the points for which the wind profiles are plotted
     # in figure 5b.
@@ -168,7 +172,7 @@ def plot_figure_5a(hours, v_ceiling, optimal_heights,
         ax[1].plot(dates_limits,
                    [v_bounds[1]]*2, 'k--')
     # Plot the optimal wind speed time series.
-    ax[1].plot(dates, v_ceiling, label='@ avg. cycle height')
+    ax[1].plot(dates, v_ceiling, label='@ AWES height', color='darkcyan')
 
     ax[1].legend()
     #for i, h_id in enumerate(marker_ids):
@@ -181,6 +185,8 @@ def plot_figure_5a(hours, v_ceiling, optimal_heights,
     plt.axes(ax[1])
     plt.xticks(rotation=70)
     #fig.savefig('/home/s6lathim/physik/AWE/meeting/ireland/harvesting_height_wind_speed_timeline.pdf')
+
+    return dates
 
 
 def plot_figure_5b(hours, v_req_alt, v_ceiling, optimal_heights, heights_of_interest, ceiling_id, floor_id):
@@ -361,6 +367,9 @@ def main():
     start_year = 2016
     end_year = 2016
     hours, v_req_alt, v_ceilings, optimal_heights = eval_single_location(eval_lat, eval_lon, start_year, end_year)
+
+    # FIXME: Index to match 500m by default?
+    # FIXME Function call fig 5a different - check
     plot_figure_5a(hours, v_ceilings[:, 1], optimal_heights[:, 1], heights_of_interest,
                    analyzed_heights_ids['ceilings'][1], analyzed_heights_ids['floor'])
     plot_figure_5b(hours, v_req_alt, v_ceilings[:, 1], optimal_heights[:, 1], heights_of_interest,

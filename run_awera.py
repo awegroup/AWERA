@@ -1,5 +1,8 @@
 import os
 from AWERA import config, ChainAWERA
+import time
+from AWERA.utils.convenience_utils import write_timing_info
+since = time.time()
 
 training_settings = []
 prediction_settings = []
@@ -164,7 +167,7 @@ if __name__ == '__main__':
     # 4 big jobs
     settings_id = int(os.environ['SETTINGS_ID'])
 
-    settings = training_settings[settings_id]  # (-1 - settings_id)]
+    settings = training_settings[settings_id]
     # settings = {
     #     'Processing': {'n_cores': 100},
     #     'Data': {'n_locs': -1,
@@ -196,20 +199,19 @@ if __name__ == '__main__':
 
     # TODO check if clustering etc has to be done?
 
-    working_title = 'run_production' #'predict_labels' #  'file'
+    working_title = 'run_clustering'  # 'run_production' #'predict_labels' #  'file'
     #awera.predict_labels()
     awera.run()
-
+    print('Done.')
+    print('------------------------------ Config:')
+    print(awera.config)
+    print('------------------------------ Time:')
+    write_timing_info('{} AWERA run finished.'.format(working_title),
+                      time.time() - since)
     profiler.disable()
     # # Write profiler output
-    file_name = (
-        config.IO.result_dir
-        + config.IO.format.plot_output.format(
-                  data_info=(config.Data.data_info
-                             + '_'
-                             + config.Clustering.training.data_info))
-        .replace('.pdf', '.profile')
-        )
+    file_name = config.IO.plot_output.replace('.pdf', '.profile')
+
     with open(file_name.format(title='run_profile'), 'w') as f:
         stats = pstats.Stats(profiler, stream=f)
         stats.strip_dirs()
@@ -220,4 +222,6 @@ if __name__ == '__main__':
 
 
     #plt.show()
+
+
 
