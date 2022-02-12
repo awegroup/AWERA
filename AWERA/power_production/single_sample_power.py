@@ -5,7 +5,7 @@ import pickle
 import pandas as pd
 
 import time
-from .utils import write_timing_info
+from ..utils.convenience_utils import write_timing_info
 
 from .cycle_optimizer import OptimizerCycle
 

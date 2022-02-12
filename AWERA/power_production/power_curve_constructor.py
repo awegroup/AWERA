@@ -59,7 +59,13 @@ class PowerCurveConstructor:
                 x0_opt, x_opt, op_res, cons, kpis = \
                     power_optimizer.run_optimization(x0_next)
             except (OperationalLimitViolation, SteadyStateError,
-                    PhaseError, OptimizerError):
+                    PhaseError, OptimizerError, FloatingPointError):
+                # Include FloatingPointError in except
+                # - QSM simulation sometimes runs into this
+                # File qsm.py", line 2339, in run_simulation:
+                # self.average_power = self.energy / self.time[-1]
+                # FloatingPointError: divide by zero encountered
+                # in double_scalars
                 try:  # Retry for a slightly different wind speed.
                     # TODO log? print('first optimization/simulation ended
                     # in error: {}'.format(e))
@@ -74,7 +80,7 @@ class PowerCurveConstructor:
                                                          second_attempt=True)
                     self.wind_speeds[i] = vw
                 except (OperationalLimitViolation, SteadyStateError,
-                        PhaseError, OptimizerError):
+                        PhaseError, OptimizerError, FloatingPointError):
                     try:  # Retry for a slightly different wind speed.
                         # TODO log? print('first optimization/simulation ended
                         # in error: {}'.format(e))
@@ -90,7 +96,8 @@ class PowerCurveConstructor:
                                 second_attempt=True)
                         self.wind_speeds[i] = vw
                     except (OperationalLimitViolation, SteadyStateError,
-                            PhaseError, OptimizerError) as e:
+                            PhaseError, OptimizerError, FloatingPointError
+                            ) as e:
                         err = e
                         if len(failed_wind_speeds) == n_wind_speeds:
                             self.wind_speeds = []

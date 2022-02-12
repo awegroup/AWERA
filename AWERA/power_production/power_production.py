@@ -29,6 +29,7 @@ class SingleProduction:
         """Initialise using from Config class object."""
         # TODO not standalone then? own config class object
         # & yaml in production?
+        super().__init__()
         setattr(self, 'ref_height', ref_height)  # m
         setattr(self, 'prod_errors', (SteadyStateError,
                                       PhaseError,
@@ -282,7 +283,9 @@ class PowerProduction(SingleProduction):
 
     def plot_power_curves(self,
                           pcs=None,
-                          n_profiles=None):
+                          n_profiles=None,
+                          labels=None,
+                          lim=[5, 21]):
         """Plot power curve(s) of previously generated power curve(s)."""
         fig, ax_pcs = plt.subplots(1, 1)
         ax_pcs.grid()
@@ -307,17 +310,27 @@ class PowerProduction(SingleProduction):
                 wind_speeds = df_profile['v_100m [m/s]']
                 power = df_profile['P [W]']
             else:
-                # get power and wind speeds from pc inpus
+                # Get power and wind speeds from pc input
                 pc = pcs[i_profile]
-                wind_speeds, power = pc.curve()
+                if isinstance(pc, PowerCurveConstructor):
+                    wind_speeds, power = pc.curve()
+                else:
+                    wind_speeds, power = pc[0], pc[1]
             # Plot power
-            ax_pcs.plot(wind_speeds, power/1000, label=i_profile+1)
+            if labels is None:
+                label = i_profile+1
+            elif isinstance(labels, list):
+                label = labels[i_profile]
+            else:
+                label = labels
+
+            ax_pcs.plot(wind_speeds, power/1000, label=label)
 
         ax_pcs.set_xlabel(('$v_{w,' +
                            str(self.config.General.ref_height) + 'm}$ [m/s]'))
         ax_pcs.set_ylabel('Mean cycle Power [kW]')
 
-        ax_pcs.set_xlim([5, 21])
+        ax_pcs.set_xlim(lim)
         # TODO automatise limits: min, round, ...?, make optional
         # plt.show()
 
@@ -371,7 +384,7 @@ class PowerProduction(SingleProduction):
         profiles = pd.read_csv(file_name, sep=sep)
         return profiles
 
-    def read_limits(self, file_name=None, sep=','):
+    def read_limits(self, file_name=None, sep=',', refined=False):
         """
         Read existing limit estimates from csv-file to pandas DataFrame.
 
@@ -389,6 +402,9 @@ class PowerProduction(SingleProduction):
 
         """
         if file_name is None:
-            file_name = self.config.IO.cut_wind_speeds
+            if refined:
+                file_name = self.config.IO.refined_cut_wind_speeds
+            else:
+                file_name = self.config.IO.cut_wind_speeds
         limits = pd.read_csv(file_name, sep=sep)
         return limits

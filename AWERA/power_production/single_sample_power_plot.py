@@ -7,8 +7,9 @@ from ..wind_profile_clustering.config import data_info, result_dir, \
 from .config import get_loc_brute_force_name_and_locs, \
     sample_selection, brute_force_files, step
 
-from ..wind_profile_clustering.utils_validation import plot_diff_pdf,\
-    get_velocity_bin_mask, plot_diff_pdf_mult_data, plot_abs_rel_step_wise
+from ..utils.plotting_utils import plot_diff_pdf,\
+    plot_diff_pdf_mult_data, plot_abs_rel_step_wise
+from ..validation.utils_validation import get_velocity_bin_mask
 from .plot_diff_map import plot_diff_map
 
 # !!! from .config import plots_interactive

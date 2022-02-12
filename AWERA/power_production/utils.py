@@ -106,8 +106,3 @@ def plot_traces(x, data_sources, source_labels, plot_parameters, y_labels=None,
         # ax.legend()
     axes[-1].set_xlabel(x_label)
     axes[-1].set_xlim([0, None])
-
-
-def write_timing_info(info, time_elapsed):
-    print('{} - Time lapsed: \t{:.0f}m {:.0f}s'
-          .format(info, time_elapsed // 60, time_elapsed % 60))

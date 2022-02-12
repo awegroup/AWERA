@@ -13,7 +13,7 @@ from .qsm import LogProfile, NormalisedWindTable1D, KiteKinematics,\
 from .kitepower_kites import sys_props_v3
 from .cycle_optimizer import OptimizerCycle
 from .power_curve_constructor import PowerCurveConstructor
-from .utils import write_timing_info
+from ..utils.convenience_utils import write_timing_info
 
 import matplotlib.pyplot as plt
 
@@ -281,8 +281,8 @@ def estimate_wind_speed_operational_limits(config,
 
         # Get cut-out wind speed
         vw_cut_out, elev = get_cut_out_wind_speed(env)
-        #if vw_cut_out > 27:
-        #    vw_cut_out = 27
+        # if vw_cut_out > 27:
+        #     vw_cut_out = 27
 
         res['vw_100m_cut_out'].append(vw_cut_out)
 
