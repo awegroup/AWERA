@@ -108,7 +108,7 @@ class ValidationProcessingPowerProduction(ChainAWERA):
         else:
             x0_opt_sample, x_opt_sample, op_res_sample,\
                 cons_sample, kpis_sample = optimizer_results
-            if not np.all(x_opt_sample == -1):
+            if not np.all([x_i == -1 for x_i in x_opt_sample]):
                 # Optimization did not fail
                 p_sample = kpis_sample['average_power']['cycle']
             else:
@@ -288,15 +288,24 @@ class ValidationProcessingPowerProduction(ChainAWERA):
             setattr(self.config.Processing, 'parallel', True)
 
         # Define result dictionary
-        res_sample = {
-            'p_sample': power[0, :, :],
-            'x_opt_sample': x_opt[0, :, :, :],
-            'backscaling': cluster_info[1, :, :],
-            'locs': locs,
-            'sample_ids': sel_sample_ids,
-            }
-        return_res = res_sample
-        if self.config.Power.compare_sample_vs_clustering:
+        if not self.config.Power.compare_sample_vs_clustering:
+            res_sample = {
+                'p_sample': power[0, :, :],
+                'x_opt_sample': x_opt[0, :, :, :],
+                'backscaling': cluster_info[0, :, :],
+                'locs': locs,
+                'sample_ids': sel_sample_ids,
+                }
+            return_res = res_sample
+        else:
+            res_sample = {
+                'p_sample': power[0, :, :],
+                'x_opt_sample': x_opt[0, :, :, :],
+                'backscaling': cluster_info[1, :, :],
+                'locs': locs,
+                'sample_ids': sel_sample_ids,
+                }
+
             res_sample_vs_cluster = {
                 'p_sample': power[0, :, :],
                 'p_cluster': power[1, :, :],

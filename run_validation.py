@@ -9,6 +9,7 @@ import time
 from AWERA.utils.convenience_utils import write_timing_info
 since = time.time()
 settings = {
+    'General': {'use_memmap': False},
     'Processing': {'n_cores': 23},
     'Data': {
         'n_locs': 5000,

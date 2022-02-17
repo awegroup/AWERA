@@ -120,7 +120,7 @@ settings = {
 training_settings.append(settings)
 # TODO include prediction
 settings = {
-    'Processing': {'n_cores': 23},
+    'Processing': {'n_cores': 50},
     'Data': {'n_locs': 1,
              'location_type': 'europe_ref_1'},
     'Clustering': {
@@ -132,7 +132,7 @@ settings = {
     }
 training_settings.append(settings)
 settings = {
-    'Processing': {'n_cores': 23},
+    'Processing': {'n_cores': 50},
     'Data': {'n_locs': 1,
              'location_type': 'europe_ref_1'},
     'Clustering': {
@@ -167,11 +167,12 @@ if __name__ == '__main__':
     # 4 big jobs
     settings_id = int(os.environ['SETTINGS_ID'])
 
+    test_final_setup_settings = training_settings[10:12]  # 5000, 1000
     settings = training_settings[settings_id]
     # settings = {
     #     'Processing': {'n_cores': 100},
     #     'Data': {'n_locs': -1,
-    #              'location_type': 'europe'},
+    #               'location_type': 'europe'},
     #     'Clustering': {
     #         'training': {
     #             'n_locs': 5000,
@@ -179,6 +180,7 @@ if __name__ == '__main__':
     #             }
     #         },
     # }
+
     print(settings)
     # Update settings to config
     config.update(settings)
@@ -199,9 +201,35 @@ if __name__ == '__main__':
 
     # TODO check if clustering etc has to be done?
 
-    working_title = 'run_clustering'  # 'run_production' #'predict_labels' #  'file'
+    working_title = 'run_clustering'  #'run_production'  #  'run_production' #'predict_labels' #  'file'
+    prod_settings = {
+        #'Processing': {'n_cores': 57},
+        'Clustering': {'n_clusters': 8}}
+    awera.config.update(prod_settings)
     #awera.predict_labels()
-    awera.run()
+    profiles, data = awera.train_profiles(return_data=True)
+    print('8 clusters done.')
+    print('------------------------------ Time:')
+    write_timing_info('{} AWERA run finished.'.format(working_title),
+                      time.time() - since)
+    prod_settings = {
+        #'Processing': {'n_cores': 57},
+        'Clustering': {'n_clusters': 16}}
+    awera.config.update(prod_settings)
+    #awera.predict_labels()
+    profiles, data = awera.train_profiles(data=data)
+    print('16 clusters done.')
+    print('------------------------------ Time:')
+    write_timing_info('{} AWERA run finished.'.format(working_title),
+                      time.time() - since)
+    prod_settings = {
+       # 'Processing': {'n_cores': 57},
+        'Clustering': {'n_clusters': 80}}
+    awera.config.update(prod_settings)
+    #awera.predict_labels()
+    profiles, data = awera.train_profiles(data=data)
+
+
     print('Done.')
     print('------------------------------ Config:')
     print(awera.config)

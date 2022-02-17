@@ -30,6 +30,7 @@ class Clustering:
                         data,
                         config=None,
                         remove_low_wind_samples=True,
+                        return_copy=True,
                         normalize=None):
         if config is None:
             config = self.config
@@ -44,12 +45,14 @@ class Clustering:
             config,
             data,
             remove_low_wind_samples=remove_low_wind_samples,
+            return_copy=return_copy,
             normalize=normalize)
 
     def train_profiles(self,
                        data=None,
-                       training_remove_low_wind_samples=False,
-                       return_pipeline=False):
+                       training_remove_low_wind_samples=True,
+                       return_pipeline=False,
+                       return_data=False):
         # Set Data to read to training data
         config = copy.deepcopy(self.config)
         self.config.update(
@@ -87,14 +90,19 @@ class Clustering:
         # setattr(self, 'cluster_mapping', res['cluster_mapping'])
         training_data_full = self.preprocess_data(
             data,
-            remove_low_wind_samples=False)
+            remove_low_wind_samples=False,
+            return_copy=False)
         # TODO make wirting output optional?
         self.predict_labels(data=training_data_full,
                             pipeline=pipeline,
                             cluster_mapping=res['cluster_mapping'])
         setattr(self, 'config', config)
-        if return_pipeline:
+        if return_pipeline and return_data:
+            return profiles, pipeline, res['cluster_mapping'], data
+        elif return_pipeline:
             return profiles, pipeline, res['cluster_mapping']
+        elif return_data:
+            return profiles, data
         else:
             return profiles
 
@@ -299,6 +307,18 @@ class Clustering:
             freq, wind_speed_bin_limits = self.get_frequency()
             print('Frequency distribution done.')
             return freq, wind_speed_bin_limits
+
+    def get_wind_speed_at_height(self, wind_speeds, h, heights=None):
+        if heights is None:
+            heights = self.config.Data.height_range
+        v = np.interp(h, heights,
+                      wind_speeds, left=np.nan, right=np.nan)
+        return v
+
+    def scale_profile(self, wind_speeds, v_ref, h_ref, heights=None):
+        v_ref_0 = self.get_wind_speed_at_height(wind_speeds, h_ref,
+                                                heights=heights)
+        return np.array(wind_speeds)*v_ref/v_ref_0
 
     def plot_cluster_shapes(self):
         from .wind_profile_clustering import plot_wind_profile_shapes

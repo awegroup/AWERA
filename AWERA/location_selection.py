@@ -150,7 +150,7 @@ def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
                'lon_range': lon_range,
                'grid_size': grid_size,
                'locations': locations,
-              }
+               }
         # Pickle results
         with open(locations_file, 'wb') as f:
             pickle.dump(res, f)
