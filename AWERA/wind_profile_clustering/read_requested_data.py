@@ -124,9 +124,11 @@ def eval_single_loc_era5_input(data_config,
                                levels,
                                n_per_loc,
                                loc_i_loc,
-                               ds=None):
+                               ds=None,
+                               use_memmap=False):
     # TODO improve arguments!
-    lat, lon,  i_lat, i_lon = loc_i_loc
+    lat, lon,  i_lat, i_lon, i = loc_i_loc
+
     if data_config.era5_data_input_format == 'single_loc' or ds is None:
         # For single location data files, always reaad next file
         ds = read_ds_single_loc_files(data_config,
@@ -175,11 +177,27 @@ def eval_single_loc_era5_input(data_config,
                               level_heights[i_hr, ::-1],
                               np.arange(level_heights.shape[1])))) == 0)
         same += same_hr
-    print('Height Level Ids: ',  np.round(np.interp(data_config.height_range,
-                                           level_heights[i_hr, ::-1],
-                                           np.arange(level_heights.shape[1]))))
+    print('Height Level Ids: ',
+          np.round(np.interp(data_config.height_range,
+                             level_heights[i_hr, ::-1],
+                             np.arange(level_heights.shape[1]))))
     print('Same level data used {} times.'.format(same))
-    return(v_req_alt_east_loc, v_req_alt_north_loc)
+    if use_memmap:
+        v_east = np.memmap('tmp/v_east.memmap', dtype='float32', mode='r+',
+                           shape=(n_per_loc, len(data_config.height_range)),
+                           offset=n_per_loc*i*len(data_config.height_range)
+                           * int(32/8))
+        v_east[:, :] = v_req_alt_east_loc
+        del v_east
+        v_north = np.memmap('tmp/v_north.memmap', dtype='float32', mode='r+',
+                            shape=(n_per_loc, len(data_config.height_range)),
+                            offset=n_per_loc*i*len(data_config.height_range)
+                            * int(32/8))
+        v_north[:, :] = v_req_alt_north_loc
+        del v_north
+        return 0
+    else:
+        return(v_req_alt_east_loc, v_req_alt_north_loc)
 
 
 def get_wind_data_era5(config,
@@ -198,23 +216,34 @@ def get_wind_data_era5(config,
     else:
         i_locs = [(0, 0) for lat, lon in locations]
 
-    v_req_alt_east = np.zeros((n_per_loc*len(locations),
-                               len(config.Data.height_range)))
-    v_req_alt_north = np.zeros((n_per_loc*len(locations),
-                                len(config.Data.height_range)))
+    if config.General.use_memmap:
+        v_req_alt_east = np.memmap('tmp/v_east.memmap', dtype='float32',
+                                   mode='w+',
+                                   shape=(n_per_loc*len(locations),
+                                          len(config.Data.height_range)))
+        v_req_alt_north = np.memmap('tmp/v_north.memmap', dtype='float32',
+                                    mode='w+',
+                                    shape=(n_per_loc*len(locations),
+                                           len(config.Data.height_range)))
+    else:
+        v_req_alt_east = np.zeros((n_per_loc*len(locations),
+                                   len(config.Data.height_range)))
+        v_req_alt_north = np.zeros((n_per_loc*len(locations),
+                                    len(config.Data.height_range)))
 
     if config.Processing.parallel:
         # TODO import not here
         from multiprocessing import Pool
         from tqdm import tqdm
         loc_i_loc_combinations = [(locations[i][0], locations[i][1],
-                                   i_loc[0], i_loc[1])
+                                   i_loc[0], i_loc[1], i)
                                   for i, i_loc in enumerate(i_locs)]
         import functools
         funct = functools.partial(eval_single_loc_era5_input,
                                   config.Data, sel_sample_ids,
                                   i_highest_level, levels, n_per_loc,
-                                  ds=ds)
+                                  ds=ds,
+                                  use_memmap=config.General.use_memmap)
         with Pool(config.Processing.n_cores) as p:
             if config.Processing.progress_out == 'stdout':
                 file = sys.stdout
@@ -223,13 +252,13 @@ def get_wind_data_era5(config,
             results = list(tqdm(p.imap(funct, loc_i_loc_combinations),
                                 total=len(loc_i_loc_combinations),
                                 file=file))
-            # TODO is this more RAM intensive?
-            for i, val in enumerate(results):
-                v_req_alt_east_loc, v_req_alt_north_loc = val
-                v_req_alt_east[n_per_loc*i:n_per_loc*(i+1), :] = \
-                    v_req_alt_east_loc
-                v_req_alt_north[n_per_loc*i:n_per_loc*(i+1), :] = \
-                    v_req_alt_north_loc
+            if not config.General.use_memmap:
+                for i, val in enumerate(results):
+                    v_req_alt_east_loc, v_req_alt_north_loc = val
+                    v_req_alt_east[n_per_loc*i:n_per_loc*(i+1), :] = \
+                        v_req_alt_east_loc
+                    v_req_alt_north[n_per_loc*i:n_per_loc*(i+1), :] = \
+                        v_req_alt_north_loc
     else:
         # Not parallelized version:
         for i, i_loc in enumerate(i_locs):
@@ -241,7 +270,7 @@ def get_wind_data_era5(config,
                     config.Data,
                     sel_sample_ids, i_highest_level,
                     levels, n_per_loc,
-                    (lat, lon, i_lat, i_lon),
+                    (lat, lon, i_lat, i_lon, i),
                     ds=ds)
             # TODO is this even xarray anymore?
             # check efficiency numpy, pandas, xarray
@@ -254,6 +283,19 @@ def get_wind_data_era5(config,
         #    ds.close()
     # TODO This could get too large for a large number of locations
     # - better use an xarray/ more efficient data structure here?
+    if config.General.use_memmap:
+        del v_req_alt_east
+        del v_req_alt_north
+        v_req_alt_east = np.memmap('tmp/v_east.memmap', dtype='float32',
+                                   mode='r',
+                                   shape=(n_per_loc*len(locations),
+                                          len(config.Data.height_range)))
+        v_req_alt_north = np.memmap('tmp/v_north.memmap', dtype='float32',
+                                    mode='r',
+                                    shape=(n_per_loc*len(locations),
+                                           len(config.Data.height_range)))
+
+
     wind_data = {
         'wind_speed_east': v_req_alt_east,
         'wind_speed_north': v_req_alt_north,

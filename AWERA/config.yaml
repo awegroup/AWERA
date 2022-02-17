@@ -6,6 +6,9 @@ General:
     # Set this to False when using custom input to functions
     # to avoid overwriting of previous output obtained using config
     write_output: True
+    # Use numpy memory mapping to disk files - useful for clustering
+    # large numbers of locations and samples
+    use_memmap: False
 
 
 Processing:
