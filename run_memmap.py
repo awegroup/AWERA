@@ -166,22 +166,24 @@ if __name__ == '__main__':
     if not os.path.exists('tmp'):
         os.makedirs('tmp')
     # read config from jobnumber
-    #settings_id = int(os.environ['SETTINGS_ID'])  # use 6, 7
+    settings_id = int(os.environ['SETTINGS_ID'])
 
+    n_locs_settings = [200, 500, 1000, 5000]
+    n_locs = n_locs_settings[settings_id]
     #settings = training_settings[settings_id]
     settings = {
         'Data': {'n_locs': 1,
                  'location_type': 'europe_ref_0'},
         'Clustering': {
             'training': {
-                'n_locs': 500,
-                'location_type': 'europe'
+                'n_locs': n_locs,
+                'location_type': 'europe_ref'
                 }
             },
         }
 
     settings['General'] = {'use_memmap': True}
-    settings['Processing'] = {'n_cores': 15}
+    settings['Processing'] = {'n_cores': 50}
 
     # settings = {
     #     'Processing': {'n_cores': 100},
@@ -232,7 +234,7 @@ if __name__ == '__main__':
         'Clustering': {'n_clusters': 16}}
     awera.config.update(prod_settings)
     # awera.predict_labels()
-    profiles, data = awera.train_profiles(data=data)
+    profiles = awera.train_profiles(data=data)
     print('16 clusters done.')
     print('------------------------------ Time:')
     write_timing_info('{} AWERA run finished.'.format(working_title),
@@ -242,7 +244,11 @@ if __name__ == '__main__':
         'Clustering': {'n_clusters': 80}}
     awera.config.update(prod_settings)
     # awera.predict_labels()
-    profiles, data = awera.train_profiles(data=data)
+    profiles = awera.train_profiles(data=data)
+    print('80 clusters done.')
+    print('------------------------------ Time:')
+    write_timing_info('{} AWERA run finished.'.format(working_title),
+                      time.time() - since)
 
     print('Done.')
     print('------------------------------ Config:')

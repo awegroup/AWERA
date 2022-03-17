@@ -193,11 +193,6 @@ prediction_settings = [
      'location_type': 'europe'},
 
     ]
-training_settings = []
-for p in prediction_settings:
-    training_settings.append({'n_clusters': 8, 'training': p})
-for p in prediction_settings[6:]:
-    training_settings.append({'n_clusters': 80, 'training': p})
 # TODO make clear how each module runs with the inout of the previous
 # power_model.load() .generate() how is the object made/passed
 
@@ -212,14 +207,11 @@ if __name__ == '__main__':
         ValidationProcessingPowerProduction
     # prediction using data reference
     # TODO rn for all ref locs
-    i_data = 0  # 5
+    i_data = -2  # 5
     # data_settings =   #training_settings[-7]['Clustering']['training']  #
     # Update starting settings to config
-    # config.update({'Data': data_settings[i_data],
-    #                'Clustering': {'n_clusters': 8,
-    #                               'training': data_settings[0]}})  # prediction_settings[0]})
-    config.update({'Data': data_settings[-2],
-                    'Clustering': {'n_clusters': 80,
+    config.update({'Data': data_settings[i_data],
+                   'Clustering': {'n_clusters': 8,
                                   'training': data_settings[-1]}})  # prediction_settings[0]})
     print(config)
     awera = ChainAWERA(config)
@@ -227,11 +219,11 @@ if __name__ == '__main__':
     val_chain = ValidationChain(config)
     val = ValidationProcessingPowerProduction(config)
 
-    #val.power_curve_spread(overwrite=False)
-    val.plot_power_diff_maps()
+    val.power_curve_spread(overwrite=True)
+    # val.plot_power_diff_maps()
 
     # val_chain.aep_vs_n_locs(
-    #     prediction_settings=training_settings,
+    #     prediction_settings=prediction_settings,
     #     data_settings=data_settings[0],
     #     # Training settings organised in the same way as the data settings
     #     i_ref=0,

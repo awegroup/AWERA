@@ -165,32 +165,29 @@ if __name__ == '__main__':
     # read config from jobnumber
     # 8 small jobs
     # 4 big jobs
-    # settings_id = int(os.environ['SETTINGS_ID'])
+    settings_id = int(os.environ['SETTINGS_ID'])
 
     # test_final_setup_settings = training_settings[10:12]  # 5000, 1000
     # settings = training_settings[settings_id]
-    import os
-    if not os.path.exists('tmp'):
-        os.makedirs('tmp')
-    # read config from jobnumber
-    settings_id = int(os.environ['SETTINGS_ID'])
+    n_clusters_settings = [8, 16, 80]
+    n_clusters = n_clusters_settings[0]
 
-    n_locs_settings = [200, 500, 1000, 5000]
-    n_locs = n_locs_settings[settings_id]
-    # settings = training_settings[settings_id]
+    n_locs = [200, 500, 1000, 5000]
+    n_l = n_locs[settings_id]
     settings = {
-        'Data': {'n_locs': 5000,
-                 'location_type': 'europe_ref'},
+        'Data': {'n_locs': 50,
+                 'location_type': 'europe'},
         'Clustering': {
+            'n_clusters': n_clusters,
             'training': {
                 'n_locs': n_locs,
                 'location_type': 'europe'
                 }
             },
-        }
-
-    settings['General'] = {'use_memmap': False}  # True}
-    settings['Processing'] = {'n_cores': 15}  # 30}  # 50}
+        'Processing': {'n_cores': n_clusters},
+    }
+    # settings['General'] = {'use_memmap': True}
+    # settings[
     print(settings)
     # Update settings to config
     config.update(settings)
@@ -211,47 +208,48 @@ if __name__ == '__main__':
 
     # TODO check if clustering etc has to be done?
 
-    working_title = 'predict_labels'  # 'run_clustering'  #'run_production'  #  'run_production' # 'file'
-    prod_settings = {
-       # 'Processing': {'n_cores': 57},
-        'Clustering': {'n_clusters': 80}}
-    awera.config.update(prod_settings)
-    awera.predict_labels()
-    print('80 clusters done.')
-    write_timing_info('{} AWERA run finished.'.format(working_title),
-                      time.time() - since)
-    prod_settings = {
-        #'Processing': {'n_cores': 57},
-        'Clustering': {'n_clusters': 8}}
-    awera.config.update(prod_settings)
-    awera.predict_labels()
+    working_title = 'run_production'  #  'run_production' #'predict_labels' #  'file'
+    # prod_settings = {
+    #     #'Processing': {'n_cores': 57},
+    #     'Clustering': {'n_clusters': 8}}
+    # awera.config.update(prod_settings)
+    # #awera.predict_labels()
     # profiles, data = awera.train_profiles(return_data=True)
-    # limit_estimates = awera.estimate_wind_speed_operational_limits()
-    # pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
-    # awera.compare_kpis(pcs)
-    print('8 clusters done.')
-    print('------------------------------ Time:')
-    write_timing_info('{} AWERA run finished.'.format(working_title),
-                      time.time() - since)
-    prod_settings = {
-        #'Processing': {'n_cores': 57},
-        'Clustering': {'n_clusters': 16}}
-    awera.config.update(prod_settings)
-    awera.predict_labels()
+    # # limit_estimates = awera.estimate_wind_speed_operational_limits()
+    # # pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
+    # # awera.compare_kpis(pcs)
+    # print('8 clusters done.')
+    # print('------------------------------ Time:')
+    # write_timing_info('{} AWERA run finished.'.format(working_title),
+    #                   time.time() - since)
+    # prod_settings = {
+    #     #'Processing': {'n_cores': 57},
+    #     'Clustering': {'n_clusters': 16}}
+    # awera.config.update(prod_settings)
+    # awera.predict_labels()
     # profiles = awera.train_profiles(data=data)
     # limit_estimates = awera.estimate_wind_speed_operational_limits()
     # pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
     # awera.compare_kpis(pcs)
-    print('16 clusters done.')
-    print('------------------------------ Time:')
-    write_timing_info('{} AWERA run finished.'.format(working_title),
-                      time.time() - since)
-
-    # profiles = awera.train_profiles(data=data)
+    # print('16 clusters done.')
+    # print('------------------------------ Time:')
+    # write_timing_info('{} AWERA run finished.'.format(working_title),
+    #                   time.time() - since)
+    # prod_settings = {
+    #     # 'Processing': {'n_cores': 57},
+    #     'Clustering': {'n_clusters': 80}}
+    # awera.config.update(prod_settings)
+    # # awera.predict_labels()
+    # # profiles = awera.train_profiles(data=data)
     # limit_estimates = awera.estimate_wind_speed_operational_limits()
     # pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
     # awera.compare_kpis(pcs)
 
+    # awera.predict_labels()
+    # profiles = awera.train_profiles(data=data)
+    limit_estimates = awera.estimate_wind_speed_operational_limits()
+    pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
+    awera.compare_kpis(pcs)
 
     print('Done.')
     print('------------------------------ Config:')

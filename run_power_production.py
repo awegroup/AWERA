@@ -17,6 +17,9 @@ prod = PowerProduction(config)
 heights = [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
            180., 200., 220., 250., 300., 500., 600.]
 log_profile = LogProfile()
+log_profile.set_reference_height(100)
+log_profile.set_reference_wind_speed(10)
+
 # Define absolute wind speed with logarithmic profile
 u = np.array([log_profile.calculate_wind(height) for height in heights])
 v = np.array([0]*len(heights))
