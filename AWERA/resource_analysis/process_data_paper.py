@@ -4,9 +4,9 @@ from netCDF4 import Dataset
 from timeit import default_timer as timer
 from os.path import join as path_join
 
-from .config import start_year, final_year, era5_data_dir, output_file_name, read_n_lats_per_subset
-from .process_data import read_raw_data, check_for_missing_data, initialize_result_dict,\
-    calc_power, get_statistics, get_percentile_ranks, create_empty_dict
+from config import start_year, final_year, era5_data_dir, output_file_name, read_n_lats_per_subset
+# from process_data import read_raw_data, check_for_missing_data, initialize_result_dict,\
+#     calc_power, get_statistics, get_percentile_ranks, create_empty_dict
 
 # Set the relevant heights for the different analysis types.
 analyzed_heights = {
@@ -76,7 +76,7 @@ def get_altitude_from_level(level_number):
     return altitude_levels_all[level_number - 1]
 
 
-def get_surface_elevation(wind_lat, wind_lon):
+def get_surface_elevation(wind_lat, wind_lon, remove_neg=True, revert_lat=False):
     """Determine surface elevation using ERA5 geopotential data file.
 
     Args:
@@ -88,9 +88,11 @@ def get_surface_elevation(wind_lat, wind_lon):
 
     """
     # Load the NetCDF file containing the geopotential of Europe.
-    ds = xr.open_dataset(path_join(era5_data_dir, 'geopotential.netcdf'), decode_times=False)
+    ds = xr.open_dataset(path_join(era5_data_dir, 'europe_geopotential.netcdf'), decode_times=False)
 
     # Read the variables from the netCDF file.
+    if revert_lat:
+        ds = ds.reindex(latitude=ds.latitude[::-1])
     geopot_lat = ds['latitude'].values
     geopot_lon = ds['longitude'].values
 
@@ -106,10 +108,11 @@ def get_surface_elevation(wind_lat, wind_lon):
           .format(np.amin(surface_elevation), np.amax(surface_elevation)))
 
     # Get rid of negative elevation values.
-    for i, row in enumerate(surface_elevation):
-        for j, val in enumerate(row):
-            if val < 0.:
-                surface_elevation[i, j] = 0.
+    if remove_neg:
+        for i, row in enumerate(surface_elevation):
+            for j, val in enumerate(row):
+                if val < 0.:
+                    surface_elevation[i, j] = 0.
 
     return surface_elevation
 

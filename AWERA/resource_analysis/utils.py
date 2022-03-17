@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 """Utility functions."""
-import datetime as dt
-from pytz import utc
 import numpy as np
 
-datetime0 = dt.datetime(1900, 1, 1, 0, 0, 0, tzinfo=utc)  # Date used as starting point for counting hours.
 r_d = 287.06  # Gas constant for dry air [J/K/kg]
 g = 9.80665  # Gravitational acceleration [m/s^2]
 
@@ -27,36 +24,7 @@ def zip_el(*args):
     return zip(*args)
 
 
-def hour_to_date_str(hour, str_format=None):
-    """Convert hour since 1900-01-01 00:00 to string of date.
 
-    Args:
-        hour (int): Hour since 1900-01-01 00:00.
-        str_format (str, optional): Explicit format string from datetime packages. Defaults to isoformat.
-
-    Returns:
-        str: String representing the timestamp.
-
-    """
-    date = hour_to_date(hour)
-    if str_format is None:
-        return date.isoformat()
-    else:
-        return date.strftime(str_format)
-
-
-def hour_to_date(hour):
-    """Convert hour since 1900-01-01 00:00 to datetime object.
-
-    Args:
-        hour (int): Hour since 1900-01-01 00:00.
-
-    Returns:
-        datetime: Datetime object of timestamp.
-
-    """
-    date = (datetime0 + dt.timedelta(hours=int(hour)))
-    return date
 
 
 def get_ph_levs(level, sp):

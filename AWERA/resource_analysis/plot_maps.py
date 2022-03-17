@@ -12,6 +12,7 @@ Example::
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import matplotlib.colors as colors
 from matplotlib.ticker import LogFormatter
 
@@ -26,8 +27,8 @@ color_map = plt.get_cmap('YlOrRd')  # 'coolwarm' 'RdBu' 'bwr'  # plt.get_cmap('Y
 
 if __name__ == "__main__":
     # TODO this has to be changed to work via class!
-    from .utils import hour_to_date_str
-    from .plotting_utils import read_dataset_user_input
+    # from ..utils.convenience_utils import hour_to_date_str
+    from plotting_utils import read_dataset_user_input
 
     # Load the processed data from the NetCDF files specified in the input.
     nc = read_dataset_user_input()
@@ -42,11 +43,12 @@ if __name__ == "__main__":
     p_integral_mean = nc['p_integral_mean'].values
     # Hours since 1900-01-01 00:00:00, see: print(nc['time'].values).
     hours = nc['time'].values
-    print("Analyzing " + hour_to_date_str(hours[0]) + " till "
-          + hour_to_date_str(hours[-1]))
+    # print("Analyzing " + hour_to_date_str(hours[0]) + " till "
+    #       + hour_to_date_str(hours[-1]))
     # TODO fix from config
-#     lons = list(np.arange(-20, 20.25, .25))
-#     lats = list(np.arange(65, 29.75, -.25))
+else:
+    lons = list(np.arange(-20, 20.25, .25))
+    lats = list(np.arange(65, 29.75, -.25))
 
 #     #lons = np.arange(-12, -5.0, .25)  # config.Data.all_lons
 #     #lats = np.arange(51, 56.25, .25)  # config.Data.all_lats
@@ -126,7 +128,8 @@ def eval_contour_fill_levels(plot_items):
 def individual_plot(z, cf_lvls, cl_lvls,
                     cline_label_format=cline_label_format_default,
                     log_scale=False,
-                    extend="neither"):
+                    extend="neither",
+                    overflow=None):
     """"Individual plot of coastlines and contours.
 
     Args:
@@ -143,8 +146,44 @@ def individual_plot(z, cf_lvls, cl_lvls,
         QuadContourSet: Contour fills object.
 
     """
+    # Care if colorbar ticks are set beforehand, see plot_single_map
+    # colors_undersea = plt.cm.terrain(np.linspace(0, 0.17, 56))
+    # colors_land = plt.cm.terrain(np.linspace(0.25, 1, 200))
 
-    if log_scale:
+    # # combine them and build a new colormap
+    # colors_stack = np.vstack((colors_undersea, colors_land))
+    # color_map = colors.LinearSegmentedColormap.from_list('color_map',
+    #                                                      colors_stack)
+    color_map = plt.get_cmap('YlOrRd')
+    if overflow is not None:
+        n_normal = 224
+        n_over = 32
+        top_overflow = overflow
+        colors_underflow = []
+        underflow_bounds = []
+        min_val = np.min(z)
+        if isinstance(overflow, list):
+            top_overflow = overflow[1]
+            min_val = overflow[0]
+            n_over = int(n_over/2)
+            colors_underflow = list(plt.get_cmap('coolwarm')(
+                np.linspace(0, 0.21, n_over)))
+            underflow_bounds = list(np.linspace(np.min(z), min_val,
+                                                n_over+1))[:-1]
+        colors_normal = list(plt.get_cmap('YlOrRd')(
+            np.linspace(0, .9, n_normal)))
+        colors_overflow = list(
+            plt.get_cmap('Greens')(np.linspace(0.5, 1, n_over)))
+        all_colors = colors_underflow + colors_normal + colors_overflow
+        color_map = mpl.colors.LinearSegmentedColormap.from_list(
+            'color_map', all_colors)
+        normal_bounds = list(np.linspace(min_val,
+                                         top_overflow, n_normal+1))[:-1]
+        overflow_bounds = list(np.linspace(top_overflow,
+                                           np.max(z), n_over))
+        bounds = underflow_bounds + normal_bounds + overflow_bounds
+        norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=256)
+    elif log_scale:
         norm = colors.LogNorm(vmin=cf_lvls[0], vmax=cf_lvls[-1])
     else:
         norm = None
@@ -190,7 +229,8 @@ def individual_plot(z, cf_lvls, cl_lvls,
     return contour_fills
 
 
-def plot_single_panel(plot_item, plot_title=''):
+def plot_single_panel(plot_item, plot_title='',
+                      overflow=None):
     """"Plot panel with one individual plot.
 
     Args:
@@ -237,7 +277,8 @@ def plot_single_panel(plot_item, plot_title=''):
     contour_fills = individual_plot(z, cf_lvls, cl_lvls,
                                     cline_label_format=cl_label_fmt,
                                     log_scale=apply_log_scale,
-                                    extend=extend)
+                                    extend=extend,
+                                    overflow=overflow)
 
     # Add axis for colorbar.
     i = 0
@@ -1039,7 +1080,7 @@ def plot_mean_and_ratio(data_type='v',
     plot_single_panel(plot_item, plot_title=plot_title)
 
     plot_title = 'Ratio using 100m'
-    linspace00 = np.linspace(ratio_range[0], ratio_range[1], 21)
+    linspace00 = np.linspace(ratio_range[0], ratio_range[1], 25)
     plot_item = {
         'data': nc['{}_ceiling_mean'.format(data_type)].values[height_ceiling_id, :, :]/nc[
             '{}_fixed_mean'.format(data_type)].values[fixed_height_id, :, :],
@@ -1054,6 +1095,32 @@ def plot_mean_and_ratio(data_type='v',
     eval_contour_fill_levels([plot_item])
     plot_single_panel(plot_item, plot_title=plot_title)
 
+def plot_surface_elevation_from_geopotential():
+    from process_data_paper import get_surface_elevation
+    data = get_surface_elevation(lats, lons, remove_neg=False,
+                                 revert_lat=True)
+    data[np.logical_and(data < 20, data > 0)] = 0
+
+    plot_title = 'Topography'
+    # color_map = plt.get_cmap('terrain')
+    # Set range such that 0 is at blue part
+    min_range_data, max_range = np.min(data), np.max(data)
+    blue = 56/256.
+    min_range = blue/(1 - blue) * max_range
+    if -min_range > min_range_data:
+        print('Min range does not cover full min range.')
+    linspace00 = np.linspace(-min_range, max_range, 42)
+    plot_item = {
+        'data': data,
+        'contour_fill_levels': linspace00,
+        'contour_line_levels': [-300, 300, 700, 1500],
+        'contour_line_label_fmt': '%.{}f'.format(0),
+        'colorbar_ticks': linspace00[::8],
+        'colorbar_tick_fmt': '{:.0f}',
+        'colorbar_label': 'surface elevation [m]',
+    }
+    eval_contour_fill_levels([plot_item])
+    plot_single_panel(plot_item, plot_title=plot_title)
 
 def plot_all():
     # plot_mean_and_ratio(data_type='v',
@@ -1064,12 +1131,13 @@ def plot_all():
     # plot_mean_and_ratio(data_type='p',
     #                     fill_range=[0, 2.7],
     #                     line_levels=[0.3, 1.1, 1.5, 2],
-    #                     ratio_range=[0, 17],
+    #                     ratio_range=[1, 17],
     #                     n_decimals=1)
+    plot_surface_elevation_from_geopotential()
     # plot_figure3()
     # plot_figure4()
     # #plot_figure5()
-    plot_figure8()
+    # plot_figure8()
     # plot_figure9_upper()
     # plot_figure9_lower()
     # #plot_figure10()

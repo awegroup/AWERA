@@ -2,7 +2,7 @@ import xarray as xr
 import sys
 import getopt
 
-from .config import output_file_name, output_file_name_subset, start_year, final_year
+from config import output_file_name, output_file_name_subset, start_year, final_year
 
 
 def read_dataset_user_input():

@@ -22,7 +22,8 @@ import getopt
 
 import dask
 
-from .utils import hour_to_date_str, compute_level_heights, flatten_dict
+from .utils import compute_level_heights, flatten_dict
+from ..utils.convenience_utils import hour_to_date_str
 from .config import start_year, final_year, era5_data_dir, model_level_file_name_format, surface_file_name_format,\
     output_file_name, output_file_name_subset, read_n_lats_per_subset, output_dir
 

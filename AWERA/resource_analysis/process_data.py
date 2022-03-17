@@ -20,9 +20,12 @@ import sys
 import getopt
 import dask
 
-from .utils import hour_to_date_str, compute_level_heights, flatten_dict
+from .utils import compute_level_heights, flatten_dict
+from ..utils.convenience_utils import hour_to_date_str
 from .config import start_year, final_year, era5_data_dir, model_level_file_name_format, surface_file_name_format,\
     output_file_name, output_file_name_subset, read_n_lats_per_subset
+
+from ..utils.wind_resource_utils import calc_power
 
 # Overwrite default with single-threaded scheduler.
 dask.config.set(scheduler='synchronous')
@@ -92,20 +95,6 @@ def get_percentile_ranks(vals, scores=(150., 200., 250.)):
     """
     ranks = [percentileofscore(vals, s) for s in scores]
     return ranks
-
-
-def calc_power(v, rho):
-    """"Determine power density.
-
-    Args:
-        v (float): Wind speed.
-        rho (float): Air density.
-
-    Returns:
-        float: Power density.
-
-    """
-    return .5 * rho * v ** 3
 
 
 def read_raw_data(start_year, final_year):

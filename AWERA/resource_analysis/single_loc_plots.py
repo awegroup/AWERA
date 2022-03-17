@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import weibull_min
 from scipy.optimize import curve_fit
 
-from .utils import hour_to_date_str, hour_to_date
+from ..utils.convenience_utils import hour_to_date_str, hour_to_date
 from .process_data import eval_single_location, heights_of_interest, analyzed_heights, analyzed_heights_ids
 
 # Timestamps for which the wind profiles are evaluated in figure 5.
