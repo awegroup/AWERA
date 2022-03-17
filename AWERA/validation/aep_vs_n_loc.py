@@ -17,7 +17,6 @@ def aep_err_vs_n_locs(config,
         labels = set_labels
 
     # TODO check if all production/prediction is run -> try except FileNotFoundError
-
     for settings in prediction_settings:
         config.update({'Clustering': settings})
         # TODO drop this hard-coding... ?
@@ -36,6 +35,7 @@ def aep_err_vs_n_locs(config,
     plot_config = {
         'title':  'Impact of the selected number of training locations on the AEP',
         'x_label': '# training locations',
+        'y_label': 'abs diff [MWh]',
         'x_ticks': labels,
         'output_file_name': config.IO.plot_output_data.format(
             title='diff_aep_vs_n_training_locs'),
@@ -43,12 +43,11 @@ def aep_err_vs_n_locs(config,
         }
 
     reference = np.array(aep[i_ref])
-    print(reference)
-    print(aep)
+    print('Reference AEP at {}: '.format(i_ref), reference)
+    print('Resulting AEP: ', aep)
     abs_diff, rel_diff = get_abs_rel_diff(reference, np.array(aep))
-    print(abs_diff)
-    print(abs_diff.shape)
-    if config.Data.n_locs > 1:
+    print('Absolute AEP differences: ', abs_diff)
+    if n_locs[i_ref] > 1:
         # Ignore Numpy Masked floating point error bug for now
         np.seterr(all='raise', under='ignore')
         abs_diff = np.mean(abs_diff, axis=1)
