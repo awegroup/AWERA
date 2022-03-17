@@ -5,7 +5,7 @@ def sliding_window_avg(data, i_window):
 
     n_samples = data.shape[1]
     for i_sample in range(n_samples):
-        if i_sample % 100 == 0:
+        if i_sample % 10000 == 0:
             print('{}/{} samples'.format(i_sample + 1, n_samples))
         if i_sample < i_window//2:
             i_low = 0

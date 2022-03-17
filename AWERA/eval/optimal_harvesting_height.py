@@ -4,6 +4,8 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
+from ..utils.plotting_utils import plot_percentile_ratios, plot_percentiles
+
 def get_cluster_avg_power_cycle_height_vs_wind_speed(config):
     harvesting_height = []
     harvesting_height_range = {'min': [], 'max': []}
@@ -76,6 +78,7 @@ def get_data_avg_power_cycle_height_from_cluster(config):
         data_max_harvesting_height[matched_cluster_id] = np.interp(data_v,
                                                                    v,
                                                                    max_h_of_v)
+        # TODO left right handling...? -1, masked, ...?
     # TODO save  clusters also starting from 1 same as profiles
     # TODO make return backsaling optional?
 
@@ -221,15 +224,7 @@ def get_wind_speed_at_height(config, set_height=-1):
 # UTILS
 
 
-def match_loc_data_map_data(config, data):
-    # Match locations with values - rest NaN
-    n_lats = len(config.Data.all_lats)
-    n_lons = len(config.Data.all_lons)
-    data_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
-    # TODO right way around?
-    for i, i_loc in enumerate(config.Data.i_locations):
-        data_loc[i_loc[0], i_loc[1]] = data[i]
-    return data_loc
+
 
 
 def barometric_height_formula(h):
@@ -269,96 +264,11 @@ def plot_map(data,
     plot_single_panel(plot_item, plot_title=plot_title)
 
 
-def plot_percentiles(perc_5, perc_32, perc_50):
-    """" Generate power density percentile plot. """
-    from ..resource_analysis.plot_maps import eval_contour_fill_levels, \
-        plot_panel_1x3_seperate_colorbar
-    column_titles = ["5th percentile", "32nd percentile", "50th percentile"]
-
-    linspace0 = np.linspace(0, .033, 21)
-    plot_item0 = {
-        'data': perc_5*1e-3,
-        'contour_fill_levels': linspace0,
-        'contour_line_levels': sorted([.003]+list(linspace0[::5])),
-        'contour_line_label_fmt': '%.3f',
-        'colorbar_ticks': linspace0[::5],
-        'colorbar_tick_fmt': '{:.3f}',
-        'colorbar_label': 'Power density [$kW/m^2$]',
-    }
-    linspace1 = np.linspace(0, .45, 21)
-    plot_item1 = {
-        'data': perc_32*1e-3,
-        'contour_fill_levels': linspace1,
-        'contour_line_levels': sorted([.04]+list(linspace1[::4])),
-        'contour_line_label_fmt': '%.2f',
-        'colorbar_ticks': linspace1[::4],
-        'colorbar_tick_fmt': '{:.2f}',
-        'colorbar_label': 'Power density [$kW/m^2$]',
-    }
-    linspace2 = np.linspace(0, 1, 21)
-    plot_item2 = {
-        'data': perc_50*1e-3,
-        'contour_fill_levels': linspace2,
-        'contour_line_levels': sorted([.1]+list(linspace2[::4])),
-        'contour_line_label_fmt': '%.2f',
-        'colorbar_ticks': linspace2[::4],
-        'colorbar_tick_fmt': '{:.2f}',
-        'colorbar_label': 'Power density [$kW/m^2$]',
-    }
-
-    plot_items = [plot_item0, plot_item1, plot_item2]
-
-    eval_contour_fill_levels(plot_items)
-    plot_panel_1x3_seperate_colorbar(plot_items, column_titles)
-
-
-def plot_percentile_ratios(perc_5, perc_32, perc_50,
-                           plot_range=[1, 2.7]):
-    """" Generate power density percentile plot. """
-    from ..resource_analysis.plot_maps import eval_contour_fill_levels, \
-        plot_panel_1x3_seperate_colorbar
-    column_titles = ["5th percentile", "32nd percentile", "50th percentile"]
-
-    linspace0 = np.linspace(plot_range[0], plot_range[1], 21)
-    plot_item0 = {
-        'data': perc_5,
-        'contour_fill_levels': linspace0,
-        'contour_line_levels': [1.2, 1.35],  #sorted(list(linspace0[::5])),
-        'contour_line_label_fmt': '%.2f',
-        'colorbar_ticks': linspace0[::5],
-        'colorbar_tick_fmt': '{:.2f}',
-        'colorbar_label': 'Power density ratio [-]',
-    }
-    linspace1 = np.linspace(plot_range[0], plot_range[1], 21)
-    plot_item1 = {
-        'data': perc_32,
-        'contour_fill_levels': linspace1,
-        'contour_line_levels': [1.2, 1.5],  # sorted(list(linspace1[::4])),
-        'contour_line_label_fmt': '%.2f',
-        'colorbar_ticks': linspace1[::4],
-        'colorbar_tick_fmt': '{:.2f}',
-        'colorbar_label': 'Power density ratio [-]',
-    }
-    linspace2 = np.linspace(plot_range[0], plot_range[1], 21)
-    plot_item2 = {
-        'data': perc_50,
-        'contour_fill_levels': linspace2,
-        'contour_line_levels': [1.2, 1.5, 1.8],  # sorted(list(linspace2[::4])),
-        'contour_line_label_fmt': '%.2f',
-        'colorbar_ticks': linspace2[::4],
-        'colorbar_tick_fmt': '{:.2f}',
-        'colorbar_label': 'Power density ratio [-]',
-    }
-
-    plot_items = [plot_item0, plot_item1, plot_item2]
-
-    eval_contour_fill_levels(plot_items)
-    plot_panel_1x3_seperate_colorbar(plot_items, column_titles)
 
 
 # FULL EVAL
 def eval_wind_speed_at_harvesting_height(config):
-
+    from ..utils.plotting_utils import match_loc_data_map_data
     # TODO split function
     print('Starting eval...')
     v_at_harvesting_height, backscaling = \
@@ -419,7 +329,7 @@ def eval_wind_speed_at_harvesting_height(config):
 
     # 5%, 32%, 50% percentiles of wind power density at harvesting altitude
     print('Plotting power density at harvesting height...')
-    from ..resource_analysis.process_data import calc_power
+    from ..utils.wind_resource_utils import calc_power
     # TODO need rho, density levels determined by height calculation...
 
     # Harvesting height
@@ -608,7 +518,7 @@ def eval_wind_speed_at_harvesting_height(config):
         loc_power = power[i_loc, :]
         # Plot timeline
         plot_timeline(hours, loc_power,
-                      ylabel='Power [W]',
+                      ylabel='Mean Cycle Power [W]',
                       # heights_of_interest, ceiling_id, floor_id,
                       # data_bounds=[50, 500],
                       show_n_hours=24*7)
