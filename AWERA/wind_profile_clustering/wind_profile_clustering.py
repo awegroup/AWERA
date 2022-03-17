@@ -22,10 +22,8 @@ from .read_requested_data import get_wind_data
 from .preprocess_data import preprocess_data
 
 # !!! from ..utils.convenience_utils import write_timing_info
-xlim_pc12 = [-1.1, 1.1]
-ylim_pc12 = [-1.1, 1.1]
-x_lim_profiles = [-0.8, 1.25]
-
+xlim_pc12 = [-1.6, 1.6]  # [-1.1, 1.1]
+ylim_pc12 = [-1.6, 1.6]  # [-1.1, 1.1]
 
 def cluster_normalized_wind_profiles_pca(training_data, n_clusters, n_pcs=5,
                                          reorder=None):
@@ -87,7 +85,9 @@ def cluster_normalized_wind_profiles_pca(training_data, n_clusters, n_pcs=5,
 
 def plot_wind_profile_shapes(config,
                              altitudes, wind_prl, wind_prp, wind_mag=None,
-                             n_rows=2, plot_info=""):
+                             n_rows=2,
+                             x_lim_profiles=[-2.2, 3.2],
+                             y_lim_profiles=[-1.7, 1.7]):
     n_profiles = len(wind_prl)
     x_label0 = r"$\tilde{v}$ [-]"
     x_label1 = r"$\tilde{v}_{\parallel}$ [-]"
@@ -125,9 +125,21 @@ def plot_wind_profile_shapes(config,
             ax[j, k].plot(wind_mag[i], altitudes, '--', label='Magnitude',
                           color='#2ca02c')
 
-        txt = '${}$'.format(i+1)
-        cmap = plt.get_cmap("tab10")
-        ax[j, k].plot(0.1, 0.1, 'o', mfc=cmap(i), alpha=1, ms=14, mec='k',
+        txt = '${}$'.format(int(i+1))
+        cmap = plt.get_cmap("gist_ncar")
+        if n_profiles > 25:
+            if i % 2 == 1:
+                if n_profiles % 2 == 1:
+                    shift = -1
+                else:
+                    shift = 0
+                i_c = -i + shift
+            else:
+                i_c = i
+        else:
+            i_c = i
+        clrs = cmap(np.linspace(0.03, 0.97, config.Clustering.n_clusters))
+        ax[j, k].plot(0.1, 0.1, 'o', mfc=clrs[i_c], alpha=1, ms=14, mec='k',
                       transform=ax[j, k].transAxes)  # "white"
         ax[j, k].plot(0.1, 0.1, marker=txt, alpha=1, ms=7, mec='k',
                       transform=ax[j, k].transAxes)
@@ -140,7 +152,7 @@ def plot_wind_profile_shapes(config,
         ax[j+1, k].plot([0, prl[0]], [0, prp[0]], ':', color='#7f7f7f')
         ax[j+1, k].grid(True)
         ax[j+1, k].axes.set_aspect('equal')
-        ax[j+1, k].set_ylim([-.7, .7])
+        ax[j+1, k].set_ylim(y_lim_profiles)
         ax[j+1, k].set_xlabel(x_label1)
 
         if k > 0:
@@ -153,6 +165,98 @@ def plot_wind_profile_shapes(config,
     if not config.Plotting.plots_interactive:
         plt.savefig(config.IO.training_plot_output
                     .format(title='cluster_wind_profile_shapes'))
+
+
+def plot_original_vs_cluster_wind_profile_shapes(
+        config,
+        altitudes, wind_prl, wind_prp,
+        cluster_prl, cluster_prp, i_profile,
+        wind_mag=None, cluster_mag=None,
+        x_lim=(-10, 10),
+        y_lim=(-10, 10),
+        loc_tag=''):
+    x_label0 = r"$v$ [m/s]"
+    x_label1 = r"$v_{\parallel}$ [m/s]"
+    y_label1 = r"$v_{\bot}$ [m/s]"
+
+    cm = 1/2.54
+    figsize = (7*cm, 13*cm)  # was: (n_cols*2+.8, n_rows*4.8+.4)
+    fig, ax = plt.subplots(nrows=2, figsize=figsize, sharex=True,
+                           gridspec_kw={'height_ratios': [1.8, 1]})
+
+    wspace = 0.2
+    plt.subplots_adjust(top=0.87, bottom=0.09, left=0.25, right=0.98,
+                        hspace=0.2, wspace=wspace)
+
+    ax[0].set_xlim(x_lim)
+    ax[0].set_ylabel("Height [m]")
+
+    ax[0].plot(wind_prl, altitudes, label="Parallel", color='#ff7f0e',
+               zorder=2)
+    ax[0].plot(wind_prp, altitudes, label="Perpendicular", color='#1f77b4',
+               zorder=2)
+
+    ax[0].plot(cluster_prl, altitudes, label="", color='#ff7f0e',
+               linestyle='dashdot', alpha=0.5, zorder=1)
+    ax[0].plot(cluster_prp, altitudes, label="", color='#1f77b4',
+               linestyle='dashdot', alpha=0.5, zorder=1)
+
+    if wind_mag is not None:
+        ax[0].plot(wind_mag, altitudes, '--', label='Magnitude',
+                   color='#2ca02c', zorder=2)
+    if cluster_mag is not None:
+        ax[0].plot(cluster_mag, altitudes, label='',
+                   color='#2ca02c', linestyle='dashdot', alpha=0.5,
+                   zorder=1)
+    txt = '${}$'.format(int(i_profile))
+    cmap = plt.get_cmap("gist_ncar")
+    i = i_profile - 1
+    if config.Clustering.n_clusters > 25:
+        if i % 2 == 1:
+            if config.Clustering.n_clusters % 2 == 1:
+                shift = -1
+            else:
+                shift = 0
+            i_c = -i + shift
+        else:
+            i_c = i
+    else:
+        i_c = i
+    clrs = cmap(np.linspace(0.03, 0.97, config.Clustering.n_clusters))
+    # TODO same color...all
+    ax[0].plot(0.1, 0.1, 'o', mfc=clrs[i_c], alpha=0.5, ms=14, mec='k',
+               transform=ax[0].transAxes)  # "white"
+    ax[0].plot(0.1, 0.1, marker=txt, alpha=0.5, ms=7, mec='k',
+               transform=ax[0].transAxes)
+    # TODO Add matching background color cluster name
+    # -> mfc to power curves colors
+
+    ax[0].grid(True)
+    ax[0].set_xlabel(x_label0)
+    # ax[1].axes.set_aspect('equal')
+    ax[1].plot(wind_prl, wind_prp, color='#7f7f7f', zorder=2)
+    ax[1].plot([0, wind_prl[0]], [0, wind_prp[0]], ':',
+               color='#7f7f7f', zorder=2)
+
+    ax[1].plot(cluster_prl, cluster_prp, color='#7f7f7f',
+               linestyle='dashdot', alpha=0.5, zorder=1)
+    ax[1].plot([0, cluster_prl[0]], [0, cluster_prp[0]], color='#7f7f7f',
+               linestyle='dashdot', alpha=0.5, zorder=1)
+
+    ax[1].grid(True)
+    ax[1].set_ylim(y_lim)
+    ax[1].set_xlabel(x_label1)
+    ax[1].set_ylabel(y_label1)
+
+    ax[0].legend(
+        bbox_to_anchor=(-0.3, 1.05, 1.3, 0.3),
+        loc="lower left", mode="expand",
+        borderaxespad=0, ncol=2)
+    fig.align_ylabels()
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.plot_output
+                    .format(title='original_vs_cluster_wind_profile_shapes{}'
+                            .format(loc_tag)))
 
 
 def plot_bars(array2d, bars_labels=None, ax=None, legend_title="",
@@ -174,6 +278,7 @@ def plot_bars(array2d, bars_labels=None, ax=None, legend_title="",
             ax = plt
         ax.bar(x, array2d[i_bar, :], width=w_bar, align='center', label=l)
     ax.grid(True)
+    ax.set_axisbelow(True)
     if plot_legend:
         if n_bars > 5:
             ncol = int(np.ceil(n_bars/4))
@@ -188,7 +293,7 @@ def plot_bars(array2d, bars_labels=None, ax=None, legend_title="",
 
 
 def visualise_patterns(config, wind_data, sample_labels,
-                       frequency_clusters, plot_info=""):
+                       frequency_clusters):
     n_clusters = config.Clustering.n_clusters
     wind_speed_100m = wind_data['reference_vector_speed']
     n_samples = len(wind_speed_100m)
@@ -196,7 +301,9 @@ def visualise_patterns(config, wind_data, sample_labels,
     # Create figure.
     plot_frame_cfg = {'top': 0.99, 'bottom': 0.060, 'left': 0.1,
                       'right': 0.695, 'hspace': 0.259, 'wspace': 0.2}
-    fig_bars, ax_bars = plt.subplots(5, 1, sharex=True, figsize=(10, 8.5))
+    width_scaling = config.Clustering.n_clusters/8
+    fig_bars, ax_bars = plt.subplots(5, 1, sharex=True,
+                                     figsize=(10*width_scaling, 8.5))
     fig_bars.subplots_adjust(**plot_frame_cfg)
     ax_bars[0].set_xticks(np.array(range(n_clusters)))
     ax_bars[0].set_xticklabels(range(1, n_clusters+1))
@@ -352,35 +459,52 @@ def visualise_patterns(config, wind_data, sample_labels,
               legend_title="Upwind direction 100 m bins")
     ax_bars[4].set_ylabel("Within-cluster\nfrequency [%]")
 
+    fig_bars.align_ylabels()
+
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'cluster_visualised_patterns'
-                    + plot_info
-                    + '.pdf')
+        # TODO should this be training or full with data?
+        plt.savefig(config.IO.plot_output
+                    .format(title='cluster_visualised_patterns'))
 
 
 def projection_plot_of_clusters(config,
                                 training_data_reduced,
                                 labels,
-                                clusters_pc,
-                                plot_info=""):
-    plt.figure(figsize=(4.2, 2.5))
-    plt.subplots_adjust(top=0.975, bottom=0.178, left=0.18, right=0.94)
+                                clusters_pc):
+    scaling = config.Clustering.n_clusters/8
+    # Max sclaing of 4
+    if scaling > 4:
+        scaling = 4
+    elif scaling > 2:
+        scaling = 2
+    plt.figure(figsize=(4.2*scaling, 2.5*scaling))
+    plt.subplots_adjust(top=1-0.025/scaling, bottom=0.178/scaling, left=0.18/scaling, right=1-0.06/scaling)
     if len(labels) > 5e4:
         alpha = .01
     else:
         alpha = .05
 
     n_clusters = len(clusters_pc)
-    cmap = plt.get_cmap('Dark2')
-    clrs = cmap(np.linspace(0., 1., n_clusters))
+    cmap = plt.get_cmap("gist_ncar")
 
+    clrs = cmap(np.linspace(0.03, 0.97, config.Clustering.n_clusters))
     for i, c in enumerate(clrs):
+        if config.Clustering.n_clusters > 25:
+            if i % 2 == 1:
+                if config.Clustering.n_clusters % 2 == 1:
+                    shift = -1
+                else:
+                    shift = 0
+                i_c = -i + shift
+            else:
+                i_c = i
+        else:
+            i_c = i
         # Draw all data points belonging to the respective cluster.
         mask_cluster = labels == i
         plt.scatter(training_data_reduced[mask_cluster, 0],
                     training_data_reduced[mask_cluster, 1], marker='.', s=15,
-                    c=[c]*np.sum(mask_cluster), alpha=alpha)
+                    c=[clrs[i_c]]*np.sum(mask_cluster), alpha=alpha)
 
         # Draw white circles at cluster centers
         plt.plot(clusters_pc[i, 0], clusters_pc[i, 1], 'o', mfc="white",
@@ -394,10 +518,9 @@ def projection_plot_of_clusters(config,
     plt.xlabel('PC1')
     plt.ylabel('PC2')
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'cluster_projection_plot_of_clusters'
-                    + plot_info
-                    + '.pdf')
+        plt.savefig(config.IO.plot_output
+                    .format(title='cluster_projection_plot_of_clusters')
+                    .replace('.pdf', '.png'))
 
 
 def predict_cluster(training_data, n_clusters, predict_fun, cluster_mapping):
@@ -434,16 +557,18 @@ def single_location_prediction(config, pipeline, cluster_mapping, loc,
         pipeline.predict,
         cluster_mapping)
     # Interpolate normalised wind speed at reference height 100m
-    # Backscaling for cluster profile to sample profile is given by the sample
+    # Backscaling for cluster profile to sample profile is given roughtly
+    # by the sample
     # wind speed at reference height - v_cluster(reference_height) = 1
-    # TODO improve this!!
-    backscaling = np.array([
-        np.interp(
-            config.General.ref_height,
-            processed_data_full['altitude'],
-            processed_data_full['wind_speed'][i_sample, :])
-        for i_sample in range(processed_data_full['wind_speed'].shape[0])])
-    return labels, backscaling
+    # TODO do like this - no original data but use reco via norm?
+    norm = processed_data_full['normalisation_value']
+    # np.array([
+    #     np.interp(
+    #         config.General.ref_height,
+    #         processed_data_full['altitude'],
+    #         processed_data_full['wind_speed'][i_sample, :])
+    #     for i_sample in range(processed_data_full['wind_speed'].shape[0])])
+    return labels, norm
 
 
 def export_wind_profile_shapes(heights, prl, prp,
@@ -472,7 +597,7 @@ def export_wind_profile_shapes(heights, prl, prp,
 
         scale_factors.append(sf)
     df.to_csv(output_file, index=False, sep=";")
-    return df
+    return df, scale_factors
 
 
 if __name__ == '__main__':
@@ -492,16 +617,14 @@ if __name__ == '__main__':
     prl, prp = (res['clusters_feature']['parallel'],
                 res['clusters_feature']['perpendicular'])
     plot_wind_profile_shapes(config, processed_data['altitude'], prl, prp,
-                             (prl ** 2 + prp ** 2) ** .5,
-                             plot_info=config.Data.data_info)
+                             (prl ** 2 + prp ** 2) ** .5)
     # TODO make visualise patterns optional for eval
     # visualise_patterns(config,
     #     processed_data, res['sample_labels'],
     #     res['frequency_clusters'], plot_info=config.Data.data_info)
     projection_plot_of_clusters(config, res['training_data_pc'],
                                 res['sample_labels'],
-                                res['clusters_pc'],
-                                plot_info=config.Data.data_info)
+                                res['clusters_pc'])
 
     processed_data_full = preprocess_data(config, wind_data,
                                           remove_low_wind_samples=False)
@@ -521,10 +644,8 @@ if __name__ == '__main__':
     for a in ax:
         a.set_ylabel('Cluster frequency [%]')
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'cluster_compare_filtered_and_full_data'
-                    + config.Data.data_info
-                    + '.pdf')
+        plt.savefig(config.IO.training_plot_output
+                    .format(title='cluster_compare_filtered_and_full_data'))
     # visualise_patterns(config,
     #     processed_data_full,
     #     labels, plot_info=config.Data.data_info)

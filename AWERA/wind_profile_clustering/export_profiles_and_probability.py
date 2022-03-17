@@ -45,7 +45,7 @@ def export_wind_profile_shapes(heights, prl, prp,
 
         scale_factors.append(sf)
     df.to_csv(output_file, index=False, sep=";")
-    return df
+    return df, scale_factors
 
 
 def get_cluster_profiles(config):
@@ -105,7 +105,7 @@ def get_cluster_profiles(config):
     pipeline = res['data_processing_pipeline']
     pickle.dump(pipeline, open(config.IO.cluster_pipeline, 'wb'))
 
-    wind_profile_shapes = export_wind_profile_shapes(
+    wind_profile_shapes, scale_factors = export_wind_profile_shapes(
             data['altitude'],
             prl, prp,
             config.IO.profiles,
@@ -184,7 +184,7 @@ def predict_cluster_labels(config):
         'n pcs': config.Clustering.n_pcs,
         'labels [-]': res_labels,
         'cluster_mapping': cluster_mapping,
-        'backscaling [m/s]': res_scale,
+        'norm [m/s]': res_scale,
         'training_data_info': training_labels_file['training_data_info'],
         'locations': locations,
         'n_samples_per_loc': n_samples_per_loc,

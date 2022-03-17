@@ -271,6 +271,8 @@ def estimate_wind_speed_operational_limits(config,
     n_profiles = int((input_profiles.shape[1]-1)/3)
     # TODO option to read arbitrary profile, n_prifles: len(profiles)
     for i_profile in range(1, n_profiles+1):
+        print('Estimating wind speed for profile {}/{}'
+              .format(i_profile, n_profiles))
         # TODO logging? / timing info print('Profile {}'.format(i_profile))
         env = create_environment(input_profiles, i_profile)
 
@@ -555,6 +557,7 @@ def load_power_curve_results_and_plot_trajectories(config, i_profile=1):
 def compare_kpis(config, power_curves):
     """Plot how performance indicators change with wind speed for all
         generated power curves."""
+        # TODO adapt label to config ref height
     fig_nums = [plt.figure().number for _ in range(5)]
     for idx, pc in enumerate(power_curves):
         sel_succ = [kpis['sim_successful']

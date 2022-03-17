@@ -160,7 +160,7 @@ def eval_single_loc_era5_input(data_config,
     v_req_alt_east_loc = np.zeros((n_per_loc, len(data_config.height_range)))
     v_req_alt_north_loc = np.zeros((n_per_loc, len(data_config.height_range)))
 
-    same = 0
+    # same = 0
     for i_hr in range(n_per_loc):
         if not np.all(level_heights[i_hr, 0] > data_config.height_range):
             raise ValueError("Requested height ({:.2f} m) is higher than \
@@ -173,26 +173,26 @@ def eval_single_loc_era5_input(data_config,
                                                  level_heights[i_hr, ::-1],
                                                  v_levels_north[i_hr, ::-1])
         # Sanity check height range oversampling
-        same_hr = sum(np.diff(np.round(np.interp(data_config.height_range,
-                              level_heights[i_hr, ::-1],
-                              np.arange(level_heights.shape[1])))) == 0)
-        same += same_hr
-    print('Height Level Ids: ',
-          np.round(np.interp(data_config.height_range,
-                             level_heights[i_hr, ::-1],
-                             np.arange(level_heights.shape[1]))))
-    print('Same level data used {} times.'.format(same))
+        # same_hr = sum(np.diff(np.round(np.interp(data_config.height_range,
+        #                       level_heights[i_hr, ::-1],
+        #                       np.arange(level_heights.shape[1])))) == 0)
+    #     same += same_hr
+    # print('Height Level Ids: ',
+    #       np.round(np.interp(data_config.height_range,
+    #                          level_heights[i_hr, ::-1],
+    #                          np.arange(level_heights.shape[1]))))
+    # print('Same level data used {} times.'.format(same))
     if use_memmap:
-        v_east = np.memmap('tmp/v_east.memmap', dtype='float32', mode='r+',
+        v_east = np.memmap('tmp/v_east.memmap', dtype='float64', mode='r+',
                            shape=(n_per_loc, len(data_config.height_range)),
                            offset=n_per_loc*i*len(data_config.height_range)
-                           * int(32/8))
+                           * int(64/8))
         v_east[:, :] = v_req_alt_east_loc
         del v_east
-        v_north = np.memmap('tmp/v_north.memmap', dtype='float32', mode='r+',
+        v_north = np.memmap('tmp/v_north.memmap', dtype='float64', mode='r+',
                             shape=(n_per_loc, len(data_config.height_range)),
                             offset=n_per_loc*i*len(data_config.height_range)
-                            * int(32/8))
+                            * int(64/8))
         v_north[:, :] = v_req_alt_north_loc
         del v_north
         return 0
@@ -217,11 +217,11 @@ def get_wind_data_era5(config,
         i_locs = [(0, 0) for lat, lon in locations]
 
     if config.General.use_memmap:
-        v_req_alt_east = np.memmap('tmp/v_east.memmap', dtype='float32',
+        v_req_alt_east = np.memmap('tmp/v_east.memmap', dtype='float64',
                                    mode='w+',
                                    shape=(n_per_loc*len(locations),
                                           len(config.Data.height_range)))
-        v_req_alt_north = np.memmap('tmp/v_north.memmap', dtype='float32',
+        v_req_alt_north = np.memmap('tmp/v_north.memmap', dtype='float64',
                                     mode='w+',
                                     shape=(n_per_loc*len(locations),
                                            len(config.Data.height_range)))
@@ -286,11 +286,11 @@ def get_wind_data_era5(config,
     if config.General.use_memmap:
         del v_req_alt_east
         del v_req_alt_north
-        v_req_alt_east = np.memmap('tmp/v_east.memmap', dtype='float32',
+        v_req_alt_east = np.memmap('tmp/v_east.memmap', dtype='float64',
                                    mode='r',
                                    shape=(n_per_loc*len(locations),
                                           len(config.Data.height_range)))
-        v_req_alt_north = np.memmap('tmp/v_north.memmap', dtype='float32',
+        v_req_alt_north = np.memmap('tmp/v_north.memmap', dtype='float64',
                                     mode='r',
                                     shape=(n_per_loc*len(locations),
                                            len(config.Data.height_range)))

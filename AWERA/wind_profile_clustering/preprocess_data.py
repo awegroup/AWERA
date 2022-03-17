@@ -9,7 +9,7 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
     # CCW w.r.t. East
     if use_memmap:
         wind_direction = np.memmap('tmp/wind_direction.memmap',
-                                   dtype='float32', mode='w+',
+                                   dtype='float64', mode='w+',
                                    shape=data['wind_speed_north'].shape)
         wind_direction[:] = np.arctan2(data['wind_speed_north'],
                                        data['wind_speed_east'])
@@ -20,10 +20,10 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
     # TODO: check if interpolation can be done without the loop
     if use_memmap:
         wind_speed_ref = np.memmap('tmp/wind_speed_ref.memmap',
-                                   dtype='float32', mode='w+',
+                                   dtype='float64', mode='w+',
                                    shape=(data['n_samples']))
         ref_dir = np.memmap('tmp/ref_dir.memmap',
-                            dtype='float32', mode='w+',
+                            dtype='float64', mode='w+',
                             shape=(data['n_samples']))
     else:
         wind_speed_ref = np.zeros(data['n_samples'])
@@ -40,10 +40,10 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
         del wind_speed_ref
         del ref_dir
         wind_speed_ref = np.memmap('tmp/wind_speed_ref.memmap',
-                                   dtype='float32', mode='r',
+                                   dtype='float64', mode='r',
                                    shape=(data['n_samples']))
         ref_dir = np.memmap('tmp/ref_dir.memmap',
-                            dtype='float32', mode='r',
+                            dtype='float64', mode='r',
                             shape=(data['n_samples']))
     data['reference_vector_speed'] = wind_speed_ref
     data['reference_vector_direction'] = ref_dir
@@ -62,14 +62,14 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
     if use_memmap:
         del wind_direction
         data['wind_direction'] = np.memmap('tmp/wind_direction.memmap',
-                                           dtype='float32', mode='r',
+                                           dtype='float64', mode='r',
                                            shape=data['wind_speed'].shape)
     else:
         data['wind_direction'] = wind_direction
 
     if use_memmap:
         wind_speed_parallel = np.memmap('tmp/wind_speed_parallel.memmap',
-                                        dtype='float32', mode='w+',
+                                        dtype='float64', mode='w+',
                                         shape=data['wind_speed'].shape)
         wind_speed_parallel[:, :] = \
             data['wind_speed_east']*np.cos(ref_dir).reshape((-1, 1)) \
@@ -77,12 +77,12 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
         del wind_speed_parallel
         data['wind_speed_parallel'] = np.memmap(
             'tmp/wind_speed_parallel.memmap',
-            dtype='float32', mode='r',
+            dtype='float64', mode='r',
             shape=data['wind_speed'].shape)
 
         wind_speed_perpendicular = np.memmap(
             'tmp/wind_speed_perpendicular.memmap',
-            dtype='float32', mode='w+',
+            dtype='float64', mode='w+',
             shape=data['wind_speed'].shape)
         wind_speed_perpendicular[:, :] = \
             -data['wind_speed_east']*np.sin(ref_dir).reshape((-1, 1)) + \
@@ -90,7 +90,7 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
         del wind_speed_perpendicular
         data['wind_speed_perpendicular'] = np.memmap(
             'tmp/wind_speed_perpendicular.memmap',
-            dtype='float32', mode='r',
+            dtype='float64', mode='r',
             shape=data['wind_speed'].shape)
     else:
         data['wind_speed_parallel'] = \
@@ -112,7 +112,8 @@ def reduce_wind_data(data, mask_keep, return_copy=False,
         n_samples_after_filter/data['n_samples'] * 100.,
         n_samples_after_filter))
     skip_filter = ['altitude', 'n_samples', 'n_locs',
-                   'years', 'n_samples_per_loc', 'locations']
+                   'years', 'n_samples_per_loc', 'locations',
+                   'datetime_full']
     if len(data['locations']) > 1:
         skip_filter += ['datetime']
         # TODO datetime for all locations the same
@@ -128,12 +129,12 @@ def reduce_wind_data(data, mask_keep, return_copy=False,
             if use_memmap and k in ['wind_speed_east',
                                     'wind_speed_north']:
                 new_memmap = np.memmap('tmp/{}_copy.memmap'.format(k),
-                                       dtype='float32', mode='w+',
+                                       dtype='float64', mode='w+',
                                        shape=shape)
                 new_memmap[:, :] = val[mask_keep]
                 del new_memmap
                 data[k] = np.memmap('tmp/{}_copy.memmap'.format(k),
-                                    dtype='float32', mode='r',
+                                    dtype='float64', mode='r',
                                     shape=shape)
 
             else:
@@ -154,14 +155,18 @@ def remove_lt_mean_wind_speed_value(data, min_mean_wind_speed,
 def normalize_data(data, use_memmap=False):
     if use_memmap:
         norm_ref = np.memmap('tmp/norm_ref.memmap',
-                             dtype='float32', mode='w+',
+                             dtype='float64', mode='w+',
                              shape=(data['n_samples']))
         norm_ref[:] = np.percentile(data['wind_speed'], 90., axis=1)
+        if np.sum(norm_ref == 0) > 0:
+            print('Non-Normalised components (zero 90th percentile): ',
+                  np.sum(norm_ref == 0))
+        norm_ref[norm_ref == 0] = 1
         # TODO need this? .reshape((-1, 1))
         # print('shape_single', data['wind_speed_parallel'].shape)
         # print('shape_norm', norm_ref.shape)
         training_data = np.memmap('tmp/training_data.memmap',
-                                  dtype='float32', mode='w+',
+                                  dtype='float64', mode='w+',
                                   shape=(data['n_samples'],
                                          data['wind_speed'].shape[1]*2))
 
@@ -172,11 +177,11 @@ def normalize_data(data, use_memmap=False):
         del training_data
         del norm_ref
         training_data = np.memmap('tmp/training_data.memmap',
-                                  dtype='float32', mode='r',
+                                  dtype='float64', mode='r',
                                   shape=(data['n_samples'],
                                          data['wind_speed'].shape[1]*2))
         norm_ref = np.memmap('tmp/norm_ref.memmap',
-                             dtype='float32', mode='r',
+                             dtype='float64', mode='r',
                              shape=(data['n_samples']))
         data['normalisation_value'] = norm_ref
         data['training_data'] = training_data
@@ -184,6 +189,10 @@ def normalize_data(data, use_memmap=False):
         print('shape_single', data['training_data'].shape)
     else:
         norm_ref = np.percentile(data['wind_speed'], 90., axis=1).reshape((-1, 1))
+        if np.sum(norm_ref == 0) > 0:
+            print('Non-Normalised components (zero 90th percentile): ',
+                  np.sum(norm_ref == 0))
+        norm_ref[norm_ref == 0] = 1
         # print('shape_single', data['wind_speed_parallel'].shape)
         # print('shape_norm', norm_ref.shape)
         training_data_prl = data['wind_speed_parallel']/norm_ref
@@ -191,6 +200,7 @@ def normalize_data(data, use_memmap=False):
 
         data['training_data'] = np.concatenate((training_data_prl,
                                                 training_data_prp), 1)
+        data['training_data'] = data['training_data'].astype(np.double)  # TODO is this astype necessary? no...?
         data['normalisation_value'] = norm_ref.reshape(-1)
         # print('shape_single', data['training_data'].shape)
     return data
@@ -202,19 +212,29 @@ def preprocess_data(config,
                     return_copy=True,
                     normalize=True):
     if config.General.use_memmap:
-        data['wind_speed_east'] = np.memmap(
-            'tmp/v_east.memmap', dtype='float32', mode='r',
-            shape=(data['n_samples'], len(config.Data.height_range)))
-        data['wind_speed_north'] = np.memmap(
-            'tmp/v_north.memmap', dtype='float32', mode='r',
-            shape=(data['n_samples'], len(config.Data.height_range)))
+        if return_copy:
+            # Copy data info that isn't kept in a memmap
+            data['datetime_full'] = copy(data['datetime'])
+        else:
+            if 'datetime_full' in data:
+                data['datetime'] = copy(data['datetime_full'])
+            data['n_samples'] = \
+                data['n_samples_per_loc']*len(data['locations'])
+            data['wind_speed_east'] = np.memmap(
+                'tmp/v_east.memmap', dtype='float64', mode='r',
+                shape=(data['n_samples'],
+                       len(config.Data.height_range)))
+            data['wind_speed_north'] = np.memmap(
+                'tmp/v_north.memmap', dtype='float64', mode='r',
+                shape=(data['n_samples'],
+                       len(config.Data.height_range)))
 
-        wind_speed = np.memmap('tmp/v.memmap', dtype='float32', mode='w+',
+        wind_speed = np.memmap('tmp/v.memmap', dtype='float64', mode='w+',
                                shape=data['wind_speed_east'].shape)
         wind_speed[:, :] = (data['wind_speed_east']**2
                             + data['wind_speed_north']**2)**.5
         del wind_speed
-        wind_speed = np.memmap('tmp/v.memmap', dtype='float32', mode='r+',
+        wind_speed = np.memmap('tmp/v.memmap', dtype='float64', mode='r+',
                                shape=data['wind_speed_east'].shape)
         data['wind_speed'] = wind_speed
     else:

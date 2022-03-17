@@ -3,21 +3,22 @@ from itertools import accumulate
 import numpy as np
 
 import matplotlib as mpl
+if __name__ != '__main__':
+    import matplotlib.pyplot as plt
 
 from .read_requested_data import get_wind_data
 
 from matplotlib.colors import ListedColormap, LogNorm
 
-xlim_pc12 = [-1.1, 1.1]
-ylim_pc12 = [-1.1, 1.1]
+xlim_pc12 = [-1.6, 1.6]  # [-1.1, 1.1]
+ylim_pc12 = [-1.6, 1.6]  # [-1.1, 1.1]
 x_lim_profiles = [-0.8, 1.25]
 
 
 def plot_mean_and_pc_profiles(config,
                               altitudes,
                               var,
-                              get_profile,
-                              plot_info=""):
+                              get_profile):
     plot_n_pcs = 2
     n_cols = 3
     n_rows = plot_n_pcs
@@ -58,7 +59,7 @@ def plot_mean_and_pc_profiles(config,
     y0 = ax[1, 0]._position.y0 + .05
     ax_tv = fig.add_axes([x0-w*(1.5), y0, w, h])
     ax_tv.plot(prl, prp, color='#7f7f7f')
-    ax_tv.plot([0, prl[0]], [0, prp[0]], 'b:', color='#7f7f7f')
+    ax_tv.plot([0, prl[0]], [0, prp[0]], ':', color='#7f7f7f')
     ax_tv.grid(True)
     ax_tv.axes.set_aspect('equal')
     ax_tv.set_xlabel(r"$\tilde{v}_{\parallel}$ [-]")
@@ -115,13 +116,11 @@ def plot_mean_and_pc_profiles(config,
         else:
             ax[-1, i_col].set_xlabel(x_label)
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'pc_mean_and_pc_profiles'
-                    + plot_info
-                    + '.pdf')
+        plt.savefig(config.IO.training_plot_output
+                    .format(title='pc_mean_and_pc_profiles'))
 
 
-def plot_pc_profiles(config, altitudes, get_profile, plot_info=""):
+def plot_pc_profiles(config, altitudes, get_profile):
     x_label = r"$\tilde{v}$ [-]"
 
     # Plot PCs
@@ -145,35 +144,66 @@ def plot_pc_profiles(config, altitudes, get_profile, plot_info=""):
         ax.plot(mag, altitudes, '--', label='Magnitude', ms=3, color='#2ca02c')
 
         if not config.Plotting.plots_interactive:
-            plt.savefig(config.IO.result_dir
-                        + 'pc_profile_{}'.format(i_pc+1)
-                        + plot_info
-                        + '.pdf')
+            plt.savefig(config.IO.training_plot_output
+                        .format(title=('pc_profile_{}'.format(i_pc+1))))
+
+    fig = plt.figure(figsize=(15*cm, 20*cm))
+    ax = fig.add_subplot(111)
+
+    ax.set_ylabel("Height [m]")
+    ax.set_xlim(xlim_pc12)
+    ax.set_title("Sample Mean")
+    ax.grid(True)
+    ax.set_xlabel(x_label)
+
+    prl, prp = get_profile()
+    ax.plot(prl, altitudes, label="Parallel", color='#ff7f0e')
+    ax.plot(prp, altitudes, label="Perpendicular", color='#1f77b4')
+
+    mag = np.sqrt((prl**2 + prp**2))
+    ax.plot(mag, altitudes, '--', label='Magnitude', ms=3, color='#2ca02c')
+
+    if not config.Plotting.plots_interactive:
+        plt.savefig(config.IO.plot_output
+                .format(title=('pc_profile_mean')))
 
 
-def plot_frequency_projection(config, data_pc, plot_info=""):
-    plt.figure(figsize=(5, 2.5))
+def plot_frequency_projection(config, data_pc):
+    fig, ax = plt.subplots(1, 1, figsize=(5, 2.5))
     plt.subplots_adjust(top=0.975, bottom=0.178, left=0.15, right=0.94)
 
     # Create color map that yields more contrast for
     # lower values than the baseline colormap.
-    cmap_baseline = plt.get_cmap('bone_r')
-    frac = .7
-    clrs_low_values = cmap_baseline(np.linspace(0., .5, int(256*frac)))
-    clrs_low_values[0, :] = 0.
-    clrs_high_values = cmap_baseline(np.linspace(.5, 1., int(256*(1-frac))))
-    cmap = ListedColormap(np.vstack((clrs_low_values, clrs_high_values)))
+    # cmap_baseline = plt.get_cmap('bone_r')
+    # frac = .7
+    # clrs_low_values = cmap_baseline(np.linspace(0., .5, int(256*frac)))
+    # clrs_low_values[0, :] = 0.
+    # clrs_high_values = cmap_baseline(np.linspace(.5, 1., int(256*(1-frac))))
+    # cmap = ListedColormap(np.vstack((clrs_low_values, clrs_high_values)))
+    # TODO reimplement Logscale...
+    cmap = plt.get_cmap('bone_r')
+    # cmap.set_bad('white', 1.)
     n_bins = 120
-    vmax = 1200
+    vmax = 5000
+    # norm = LogNorm()  # vmin=1, vmax=vmax)
     h, _, _, im = plt.hist2d(data_pc[:, 0], data_pc[:, 1], bins=n_bins,
-                             cmap=cmap, norm=LogNorm(vmin=1, vmax=vmax))
-    h_max = np.amax(h)
+                             cmap=cmap)  # norm=norm)  # cmin=1)
+    print(np.sum(h == 0), np.sum(np.isnan(h)))
+    h_max = np.nanmax(h)
     print("Max occurences in hist2d bin:", str(h_max))
     if vmax is not None and h_max > vmax:
-        print("Higher density occurring than anticipated.")
+        print("Higher density occurring than anticipated. Replotting...")
+        # norm = LogNorm(vmin=1, vmax=h_max)
+        # h, _, _, im = plt.hist2d(data_pc[:, 0], data_pc[:, 1], bins=n_bins,
+        #                          cmap=cmap, norm=norm, cmin=1)
 
+    #cbar_ax, _ = mpl.colorbar.make_axes(ax)
+    # TODO fix log norm colorbar error because of empty bins?
+    #np.seterr(all='raise', under='ignore')
     cbar = plt.colorbar(im)
-    cbar.set_label("Occurrences [-]")
+    #np.seterr(all='raise')
+    #cbar = mpl.colorbar.ColorbarBase(cbar_ax, norm=norm, cmap=cmap)
+    #cbar.set_label("Occurrences [-]")
 
     plt.xlim(xlim_pc12)
     plt.ylim(ylim_pc12)
@@ -181,46 +211,46 @@ def plot_frequency_projection(config, data_pc, plot_info=""):
     plt.xlabel('PC1')
     plt.ylabel('PC2')
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'pc_frequency_projection'
-                    + plot_info
-                    + '.pdf')
+        plt.savefig(config.IO.plot_output
+                    .format(title='pc_frequency_projection'))
 
 
 
-def analyse_pc(config, wind_data, loc_info="", n_pcs=5):
+def analyse_pc(config, wind_data, loc_info="", pipeline=None, n_pcs=5):
+    # TODO config plot output, remove loc info
     altitudes = wind_data['altitude']
     normalized_data = wind_data['training_data']
     # Perform principal component analyis.
-    n_features = n_pcs
-    pca = PCA(n_components=n_features)
-    pipeline = pca
+    if pipeline is None:
+        n_features = n_pcs
+        pca = PCA(n_components=n_features)
+        pipeline = pca
 
     # print("{} features reduced to {} components.".format(
     #     n_features, n_components))
     data_pc = pipeline.fit_transform(normalized_data)
     print("{:.1f}% of variance retained ".format(
-        np.sum(pca.explained_variance_ratio_[:2])*100)
+        np.sum(pipeline.explained_variance_ratio_[:2])*100)
         + "using first two principal components.")
-    cum_var_exp = list(accumulate(pca.explained_variance_ratio_*100))
+    cum_var_exp = list(accumulate(pipeline.explained_variance_ratio_*100))
     print("Cumulative variance retained: " + ", ".join(["{:.2f}".format(var)
                                                         for var in cum_var_exp]
                                                        ))
-    var = pca.explained_variance_
+    var = pipeline.explained_variance_
 
     # Plot results.
-    plot_frequency_projection(config, data_pc, plot_info=loc_info)
+    # TODO same here config, loc info
+    plot_frequency_projection(config, data_pc)
     markers_pc1, markers_pc2 = [-var[0]**.5, var[0]**.5, 0, 0], \
         [0, 0, -var[1]**.5, var[1]**.5]
+        # TODO what is this?
     plt.plot(markers_pc1, markers_pc2, 's', mfc="white",
              alpha=1, ms=12, mec='k')
     for i, (pc1, pc2) in enumerate(zip(markers_pc1, markers_pc2)):
         plt.plot(pc1, pc2, marker='${}$'.format(i+1), alpha=1, ms=7, mec='k')
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'pc_frequency_projection'
-                    + loc_info
-                    + '_markers.pdf')
+        plt.savefig(config.IO.plot_output
+                    .format(title='pc_frequency_projection_markers'))
 
     def get_pc_profile(i_pc=-1, multiplier=1., plot_pc=False):
         # Determine profile data by transforming data
@@ -242,15 +272,15 @@ def analyse_pc(config, wind_data, loc_info="", n_pcs=5):
     plot_mean_and_pc_profiles(config,
                               altitudes,
                               var,
-                              get_pc_profile,
-                              plot_info=loc_info)
+                              get_pc_profile)
 
 
 def plot_sample_profile_pc_sum(config,
                                sample_profile,
                                altitudes,
                                get_profile,
-                               plot_info=""):
+                               plot_cluster_profile=None,
+                               loc_tag=''):
     plot_n_pcs = 2
     n_cols = 3
     n_rows = plot_n_pcs
@@ -274,10 +304,40 @@ def plot_sample_profile_pc_sum(config,
     ax_mean = fig.add_axes([x0-w*(1.5), y0, w, h])
 
     prl, prp = sample_profile[:len(altitudes)], sample_profile[len(altitudes):]
-    ax_mean.plot(prl, altitudes, label="Parallel", color='#ff7f0e')
-    ax_mean.plot(prp, altitudes, label="Perpendicular", color='#1f77b4')
+    ax_mean.plot(prl, altitudes, label="Parallel", color='#ff7f0e', zorder=2)
+    ax_mean.plot(prp, altitudes, label="Perpendicular", color='#1f77b4',
+                 zorder=2)
     ax_mean.plot((prl**2 + prp**2)**.5, altitudes, '--', label='Magnitude',
-                 ms=3, color='#2ca02c')
+                 ms=3, color='#2ca02c', zorder=2)
+    if plot_cluster_profile is not None:
+        prl, prp, i_cluster = plot_cluster_profile
+        ax_mean.plot(prl, altitudes, label="", color='#ff7f0e',
+                     linestyle='dashdot', alpha=0.5, zorder=1)
+        ax_mean.plot(prp, altitudes, label="", color='#1f77b4',
+                     linestyle='dashdot', alpha=0.5, zorder=1)
+        ax_mean.plot((prl**2 + prp**2)**.5, altitudes, label='',
+                     ms=3, color='#2ca02c', linestyle='dashdot', alpha=0.5,
+                     zorder=1)
+        txt = '${}$'.format(int(i_cluster+1))
+        cmap = plt.get_cmap("gist_ncar")
+        i = i_cluster
+        if config.Clustering.n_clusters > 25:
+            if i % 2 == 1:
+                if config.Clustering.n_clusters % 2 == 1:
+                    shift = -1
+                else:
+                    shift = 0
+                i_c = -i + shift
+            else:
+                i_c = i
+        else:
+            i_c = i
+        clrs = cmap(np.linspace(0.03, 0.97, config.Clustering.n_clusters))
+        ax_mean.plot(0.1, 0.1, 'o', mfc=clrs[i_c],
+                     ms=14, mec='k', alpha=0.5, zorder=2,
+                     transform=ax_mean.transAxes)  # "white"
+        ax_mean.plot(0.1, 0.1, marker=txt, ms=7, mec='k',
+                     transform=ax_mean.transAxes, alpha=0.5, zorder=2)
     ax_mean.set_title("Sample Profile")
     ax_mean.grid(True)
     ax_mean.set_ylabel("Height [m]")
@@ -330,28 +390,49 @@ def plot_sample_profile_pc_sum(config,
                                  alpha=1, ms=7,
                                  mec='k', transform=ax[i_pc, i_col].transAxes)
             ax[i_pc, i_col].grid(True)
+    if plot_cluster_profile is not None:
+        prl, prp, i_cluster = plot_cluster_profile
+        ax[i_pc, i_col].plot(prl, altitudes, label="Parallel", color='#ff7f0e',
+                             linestyle='dashdot', alpha=0.5, zorder=1)
+        ax[i_pc, i_col].plot(prp, altitudes, label="Perpendicular",
+                             color='#1f77b4', linestyle='dashdot',
+                             alpha=0.5, zorder=1)
+        ax[i_pc, i_col].plot((prl**2 + prp**2)**.5, altitudes,
+                             label='Magnitude', ms=3, color='#2ca02c',
+                             linestyle='dashdot', alpha=0.5, zorder=1)
 
     # Add labels on x-axes.
     for i_col in range(shape_map[1]):
         ax[-1, i_col].set_xlabel(x_label)
     if not config.Plotting.plots_interactive:
-        plt.savefig(config.IO.result_dir
-                    + 'pc_sample_mean_and_pc_contrib'
-                    + plot_info
-                    + '.pdf')
+        if plot_cluster_profile is None:
+            plt.savefig(config.IO.plot_output
+                        .format(title='pc_sample_mean_and_pc_contrib'))
+        else:
+            plt.savefig(config.IO.plot_output
+                        .format(
+                            title='pc_sample_mean_and_pc_contrib_vs_cluster{}'
+                            .format(loc_tag)))
 
 
-def sample_profile_pc_sum(wind_data, loc_info="", n_pcs=5, i_sample=0):
+def sample_profile_pc_sum(config,
+                          wind_data, n_pcs=5, i_sample=0,
+                          pca_pipeline=None,
+                          plot_cluster_profile=None,
+                          loc_tag=''):
     altitudes = wind_data['altitude']
     normalized_data = wind_data['training_data']
     # Perform principal component analyis.
     n_features = n_pcs
-    pca = PCA(n_components=n_features)
-    pipeline = pca
-
-    # print("{} features reduced to {} components.".format(
-    #     n_features, n_components))
-    data_pc = pipeline.fit_transform(normalized_data)
+    if pca_pipeline is None:
+        pca = PCA(n_components=n_features)
+        pipeline = pca
+        # print("{} features reduced to {} components.".format(
+        #     n_features, n_components))
+        data_pc = pipeline.fit_transform(normalized_data)
+    else:
+        pipeline = pca_pipeline
+        data_pc = pipeline.transform(normalized_data)
 
     # Plot results.
     def get_pc_profile(i_pc=-1, multiplier=1., plot_pc=False, sum_step=1):
@@ -362,7 +443,7 @@ def sample_profile_pc_sum(wind_data, loc_info="", n_pcs=5, i_sample=0):
             profile = mean_profile
         elif i_pc == -2:
             # sequential sum of pca profile
-            sample_pca_profile_factors = data_pc[i_sample,:]
+            sample_pca_profile_factors = data_pc[i_sample, :]
             profile_cmp = np.zeros(n_features)
             for i in range(sum_step):
                 profile_cmp[i] = sample_pca_profile_factors[i]
@@ -378,12 +459,13 @@ def sample_profile_pc_sum(wind_data, loc_info="", n_pcs=5, i_sample=0):
         prp = profile[len(altitudes):]
         return prl, prp
 
-    plot_pc_profiles(config, altitudes, get_pc_profile, plot_info=loc_info)
+    plot_pc_profiles(config, altitudes, get_pc_profile)
     plot_sample_profile_pc_sum(config,
                                normalized_data[i_sample, :],
                                altitudes,
                                get_pc_profile,
-                               plot_info=loc_info)
+                               plot_cluster_profile=plot_cluster_profile,
+                               loc_tag=loc_tag)
 
 
 if __name__ == '__main__':
@@ -414,7 +496,7 @@ if __name__ == '__main__':
     analyse_pc(config, wind_data,
                loc_info=config.Data.data_info,
                n_pcs=config.Clustering.n_pcs)
-    sample_profile_pc_sum(wind_data, i_sample=100,
+    sample_profile_pc_sum(config, wind_data, i_sample=100,
                           loc_info=config.Data.data_info,
                           n_pcs=config.Clustering.n_pcs)
 

@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import cartopy
 import cartopy.crs as ccrs
 
+from ..utils.plotting_utils import plot_map
+
 def get_mask_discontinuities(df):
     """Identify discontinuities in the power curves. The provided approach is
     obtained by trial and error and should be checked carefully when applying
@@ -138,10 +140,10 @@ def evaluate_aep(config):
 def plot_aep_map(p_loc, aep_loc, c_f_loc,
                  plots_interactive=True,
                  file_name='aep_p_cf_contour_maps.pdf',
-                 file_name_aep='aep_conour_map.pdf'):
+                 file_name_aep='aep_contour_map.pdf'):
     from ..resource_analysis.plot_maps import eval_contour_fill_levels, \
         plot_panel_1x3_seperate_colorbar
-    column_titles = ['Power', 'AEP', 'capacity factor']
+    column_titles = ['Mean Cycle Power', 'AEP', r'$c_f$']
     linspace00 = np.linspace(0, 6, 21)
     plot_item00 = {
         'data': p_loc,
@@ -298,6 +300,16 @@ def aep_map(config):
                      file_name_aep=config.IO.plot_output.format(
                          title='aep_contour_map')
                      )
+        plot_map(config, c_f_loc*100,
+                 title=r'$c_f$',
+                 label=r'$c_f$ [%]',
+                 log_scale=False,
+                 n_decimals=0,
+                 output_file_name=config.IO.plot_output.format(
+                         title='cf_map'),
+                 line_levels=[20., 40., 60.],
+                 fill_range=[0, 60],
+                 overflow=None)
     else:
         plot_discrete_map(config,
                           aep_loc,
@@ -308,7 +320,6 @@ def aep_map(config):
                           file_name=config.IO.plot_output.format(
                               title='aep_discrete_map')
                           )
-
         # plot_discrete_map(config,
         #                   c_f_loc,
         #                   title="Capacity factor for {} clusters".format(

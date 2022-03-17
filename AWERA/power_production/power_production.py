@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 import copy
 from .qsm import TractionPhase, TractionPhaseHybrid, NormalisedWindTable1D,\
-    SteadyStateError, OperationalLimitViolation, PhaseError
+    SteadyStateError, OperationalLimitViolation, PhaseError, LogProfile, \
+    SystemProperties
 
 from .kitepower_kites import sys_props_v3
 from .cycle_optimizer import OptimizerCycle, OptimizerError
@@ -41,8 +42,9 @@ class SingleProduction:
                              ref_wind_speed=1,
                              oc=None,
                              return_optimizer=False,
-                             raise_errors=True):
-        # ref wind speed = 1 - No backscaling of non-normalised wind profiles
+                             raise_errors=True,
+                             sys_props=sys_props_v3, cycle_sim_settings=None):
+        # ref wind speed = 1 - No scaling of non-normalised wind profiles
         # Starting control parameters from mean of ~180k optimizations
         # unbiased (starting controls independent of clustering)
 
@@ -51,7 +53,9 @@ class SingleProduction:
             env_state = self.create_environment(wind_u, wind_v, heights)
             env_state.set_reference_wind_speed(ref_wind_speed)
             ref_wind_speed = env_state.calculate_wind(self.ref_height)
-            oc = self.create_optimizer(env_state, ref_wind_speed)
+            oc = self.create_optimizer(env_state, ref_wind_speed,
+                                       sys_props=sys_props,
+                                       cycle_sim_settings=cycle_sim_settings)
 
         # Optimize individual profile
         try:
@@ -81,34 +85,39 @@ class SingleProduction:
         return env
 
 
-    def create_optimizer(self, env_state, ref_wind_speed):
+    def create_optimizer(self, env_state, ref_wind_speed,
+                         sys_props=sys_props_v3, cycle_sim_settings=None):
         # TODO use this in power_curves
         phi_ro = 13 * np.pi / 180.
         chi_ro = 100 * np.pi / 180.
-        # Cycle simulation settings for different phases of the power curves.
-        cycle_sim_settings_pc = {
-            'cycle': {
-                'traction_phase': TractionPhase,
-                'include_transition_energy': False,
-            },
-            'retraction': {},
-            'transition': {
-                'time_step': 0.25,
-            },
-            'traction': {
-                'azimuth_angle': phi_ro,
-                'course_angle': chi_ro,
-            },
-        }
+        if cycle_sim_settings is None:
+            # Cycle simulation settings for different phases of the power curves.
+            cycle_sim_settings = {
+                'cycle': {
+                    'traction_phase': TractionPhase,
+                    'include_transition_energy': False,
+                },
+                'retraction': {},
+                'transition': {
+                    'time_step': 0.25,
+                },
+                'traction': {
+                    'azimuth_angle': phi_ro,
+                    'course_angle': chi_ro,
+                },
+            }
+            # Modify settings in accordance with clustering settings
+            # TODO test what happen if always use Hybrid?
+            # TODO this refers to the clustering v_100m classification of
+            # settings, change/ remove difference?
+            if ref_wind_speed > 7:
+                cycle_sim_settings['cycle']['traction_phase'] = \
+                    TractionPhaseHybrid
 
-        # Modify settings in accordance with clustering settings
-        # TODO test what happen if always use Hybrid?
-        # TODO this refers to the clustering v_100m classification of
-        # settings, change/ remove difference?
-        if ref_wind_speed > 7:
-            cycle_sim_settings_pc['cycle']['traction_phase'] = \
-                TractionPhaseHybrid
-        oc = OptimizerCycle(cycle_sim_settings_pc, sys_props_v3,
+        if not isinstance(sys_props, SystemProperties):
+            sys_props = SystemProperties(sys_props)
+
+        oc = OptimizerCycle(cycle_sim_settings, sys_props,
                             env_state, reduce_x=np.array([0, 1, 2, 3]))
         # !!! optional reduce_x, settingsm ref wind speed -> also in class?
         if ref_wind_speed <= 7:
@@ -124,13 +133,57 @@ class PowerProduction(SingleProduction):
         super().__init__(ref_height=config.General.ref_height)
         setattr(self, 'config', config)
 
+    def single_power_curve(self,
+                           wind_speeds,
+                           x0=[4100., 850., 0.5, 240., 200.0],
+                           sys_props=sys_props_v3,
+                           cycle_sim_settings=None,
+                           plot_output_file=None,
+                           env_state=None,
+                           ref_height=10,
+                           ref_wind_speed=10,
+                           return_optimizer=False):
+        # Define optimizer
+        if env_state is None:
+            # Create environment object.
+            env_state = LogProfile()
+            env_state.set_reference_height(ref_height)
+            env_state.set_reference_wind_speed(ref_wind_speed)
+
+        oc = self.create_optimizer(env_state, ref_wind_speed,
+                                   sys_props=sys_props,
+                                   cycle_sim_settings=cycle_sim_settings)
+
+        # Configuration of the sequential optimizations for which is
+        # differentiated between the wind speed ranges
+        # bounded above by the wind speed of the dictionary key. If dx0
+        # does not contain only zeros, the starting point
+        # of the new optimization is not the solution of the
+        # preceding optimization.
+        op_seq = {
+            np.inf: {'power_optimizer': oc,
+                     'dx0': np.array([0., 0., 0., 0., 0.])}}
+        # Start optimizations.
+        pc = PowerCurveConstructor(wind_speeds)
+        setattr(pc, 'plots_interactive',
+                self.config.Plotting.plots_interactive)
+        if plot_output_file is None:
+            plot_output_file = self.config.IO.training_plot_output
+        setattr(pc, 'plot_output_file', plot_output_file)
+
+        pc.run_predefined_sequence(op_seq, x0)
+        if return_optimizer:
+            return pc, oc
+        else:
+            return pc
+
     def as_input_profile(self, heights, u, v,
                          do_scale=True):
         if self.config.General.write_output:
             output_file = self.config.IO.profiles
         else:
             output_file = None
-        profile = export_wind_profile_shapes(
+        profile, scale_factors = export_wind_profile_shapes(
             heights,
             u, v,
             output_file=output_file,
@@ -149,6 +202,7 @@ class PowerProduction(SingleProduction):
             self.config,
             export_operational_limits=self.config.General.write_output,
             input_profiles=input_profiles)
+        print('Operational limits estimated.')
         return res
 
     def make_power_curves(self,
@@ -275,7 +329,10 @@ class PowerProduction(SingleProduction):
             plot_info = 'single_profile'
         else:
             plot_info = '_profile_{}'.format(i_profile)
-        pc.plot_optimal_trajectories(wind_speed_ids=[0, 9, 18, 33, 48, 64],
+        i_v_max = len(pc.wind_speeds) - 1
+        wind_speed_ids = [i for i in [0, 9, 18, 33, 48, 64] if i <= i_v_max]
+
+        pc.plot_optimal_trajectories(wind_speed_ids=wind_speed_ids,
                                      plot_info=plot_info)
         plt.gcf().set_size_inches(5.5, 3.5)
         plt.subplots_adjust(top=0.99, bottom=0.1, left=0.12, right=0.65)
@@ -285,7 +342,8 @@ class PowerProduction(SingleProduction):
                           pcs=None,
                           n_profiles=None,
                           labels=None,
-                          lim=[5, 21]):
+                          lim=[5, 21],
+                          save_plot=True):
         """Plot power curve(s) of previously generated power curve(s)."""
         fig, ax_pcs = plt.subplots(1, 1)
         ax_pcs.grid()
@@ -302,35 +360,56 @@ class PowerProduction(SingleProduction):
             except AttributeError:
                 raise ValueError('No valid option to get '
                                  'power curve input found.')
-
-        for i_profile in range(n_profiles):
-            if pcs is None:
-                df_profile = pd.read_csv(self.config.IO.power_curve.format(
-                    i_profile=i_profile+1, suffix='csv'), sep=";")
-                wind_speeds = df_profile['v_100m [m/s]']
-                power = df_profile['P [W]']
-            else:
-                # Get power and wind speeds from pc input
-                pc = pcs[i_profile]
-                if isinstance(pc, PowerCurveConstructor):
-                    wind_speeds, power = pc.curve()
+        loss_factor = [1, 0.9]
+        loss_labels = ['Mechanical Power', 'Electrical Power']
+        loss_styles = ['solid', 'dashdot']
+        for loss_i, loss_f in enumerate(loss_factor):
+            plt.gca().set_prop_cycle(None)
+            for i_profile in range(n_profiles):
+                if pcs is None:
+                    df_profile = pd.read_csv(self.config.IO.power_curve.format(
+                        i_profile=i_profile+1, suffix='csv'), sep=";")
+                    # TODO '100m' hard coded is not good
+                    wind_speeds = df_profile['v_100m [m/s]']
+                    power = df_profile['Mean Cycle Power [W]']
                 else:
-                    wind_speeds, power = pc[0], pc[1]
-            # Plot power
-            if labels is None:
-                label = i_profile+1
-            elif isinstance(labels, list):
-                label = labels[i_profile]
-            else:
-                label = labels
-
-            ax_pcs.plot(wind_speeds, power/1000, label=label)
+                    # Get power and wind speeds from pc input
+                    pc = pcs[i_profile]
+                    if isinstance(pc, PowerCurveConstructor):
+                        wind_speeds, power = pc.curve()
+                    else:
+                        wind_speeds, power = pc[0], pc[1]
+                # Plot power
+                if labels is None:
+                    label = str(i_profile+1)
+                elif isinstance(labels, list):
+                    label = labels[i_profile]
+                else:
+                    label = labels
+                if n_profiles == 1:
+                    # Single labeling
+                    label = loss_labels[loss_i] + ' ' + label
+                elif loss_f < 1:
+                    # No labels - no legend entries for multple profile plots
+                    label = ''
+                    # TODO is this needed? :
+                    # ax_pcs.plot(wind_speeds[0], power[0]/1000*loss_f,
+                    #             label=loss_labels[loss_i],
+                    #             linestyle=loss_styles[loss_i], marker='.')
+                ax_pcs.plot(wind_speeds, power/1000*loss_f, label=label,
+                            linestyle=loss_styles[loss_i], zorder=2)
 
         ax_pcs.set_xlabel(('$v_{w,' +
                            str(self.config.General.ref_height) + 'm}$ [m/s]'))
-        ax_pcs.set_ylabel('Mean cycle Power [kW]')
+        ax_pcs.set_ylabel('Power [kW]')
 
         ax_pcs.set_xlim(lim)
+        print(lim)
+        if save_plot:
+            plt.legend()
+            # Save plot
+            title = 'power_curve'
+            plt.savefig(self.config.IO.plot_output.format(title=title))
         # TODO automatise limits: min, round, ...?, make optional
         # plt.show()
 

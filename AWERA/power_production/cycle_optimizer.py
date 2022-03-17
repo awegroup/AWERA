@@ -492,7 +492,7 @@ class Optimizer:
                 duty_cycle.append(None), pumping_eff.append(None)
                 g.append(None), active_g.append(False)
 
-        fig, ax = plt.figure()
+        fig, ax = plt.subplots()
         ax.plot(xi_sweep, power_cycle_norm, '--', label='normalized cycle power')
         ax.plot(xi_sweep, power_out_norm, '--', label='normalized traction power')
         ax.plot(xi_sweep, duty_cycle, label='duty cycle')
