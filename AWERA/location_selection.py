@@ -46,6 +46,9 @@ def abs_of_neg_zero(a):
     return a
 
 
+# define new different from init locs:
+# first random_locations with init locs
+# then list comprehension not in init_locs
 def random_locations(n=10,
                      lat_range=[65.0, 30],
                      lon_range=[-20, 20],
@@ -92,11 +95,11 @@ def random_locations(n=10,
 
 
 def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
+                  all_lats, all_lons,
                   grid_size, init_locs=[]):
     # TODO fix BAF error random generation xmax < xmin?
-    n_max_loc = (((lat_range[1]-lat_range[0])/grid_size + 1)
-                 * ((lon_range[1]-lon_range[0])/grid_size + 1))
-    if n_locs == -1 or n_locs == n_max_loc:
+    n_max_locs = len(all_lats)*len(all_lons)
+    if n_locs == -1 or n_locs == n_max_locs:
         locations_file = file_name.format(
                 location_type=location_type,
                 n_locs='all')
@@ -131,18 +134,6 @@ def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
                                          base=grid_size)
         else:
             # Select all locations
-            if lat_range[0] > lat_range[1]:
-                all_lats = list(np.arange(lat_range[0], lat_range[1]-grid_size,
-                                          -grid_size))
-            else:
-                all_lats = list(np.arange(lat_range[0], lat_range[1]+grid_size,
-                                          grid_size))
-            if lon_range[0] > lon_range[1]:
-                all_lons = list(np.arange(lon_range[0], lon_range[1]-grid_size,
-                                          -grid_size))
-            else:
-                all_lons = list(np.arange(lon_range[0], lon_range[1]+grid_size,
-                                          grid_size))
             locations = [(lat, lon) for lat in all_lats for lon in all_lons]
         res = {'n_locs': n_locs,
                'location_type': location_type,

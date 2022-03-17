@@ -71,4 +71,4 @@ def export_wind_profile_shapes(heights,
         assert output_file[-4:] == ".csv"
         df.to_csv(output_file, index=False, sep=";")
 
-    return df
+    return df, scale_factors

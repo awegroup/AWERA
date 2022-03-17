@@ -18,3 +18,5 @@ from . import eval
 from . import utils
 from . import validation
 from .awera import ChainAWERA
+from .location_selection import reference_locs
+# TODO make ref locs into config?

@@ -96,6 +96,8 @@ class Config:
             self.Data.n_locs,
             self.Data.lat_range,
             self.Data.lon_range,
+            self.Data.all_lats,
+            self.Data.all_lons,
             self.Data.grid_size
             ))
         # Get loction indices w.r.t. to full dataset
@@ -129,6 +131,8 @@ class Config:
                                   self.Clustering.training.n_locs,
                                   self.Data.lat_range,
                                   self.Data.lon_range,
+                                  self.Data.all_lats,
+                                  self.Data.all_lons,
                                   self.Data.grid_size
                                   ))
         # Set correct n_locs
@@ -266,23 +270,31 @@ class Config:
                                 # Remove cluster info from pca output
                                 settings_info=settings_info_pca))
             elif key in ['sample_power',
-                         'sample_vs_cluster_power']:
+                         'sample_vs_cluster_power',
+                         'sample_power_old']:
                 if 'cluster' in key:
                     setattr(self.IO, key,
                             self.IO.result_dir
                             + getattr(self.IO.format, key).format(
                                 sample_type=
                                 self.Validation_Data.sample_type,
-                                data_info=data_info,
                                 data_info_training=data_info_training,
+                                settings_info=settings_info))
+                elif 'old' in key:
+                    setattr(self.IO, key,
+                            self.IO.result_dir
+                            + getattr(self.IO.format, key).format(
+                                sample_type=
+                                self.Validation_Data.sample_type,
+                                data_info=data_info,
                                 settings_info=settings_info))
                 else:
                     setattr(self.IO, key,
                             self.IO.result_dir
                             + getattr(self.IO.format, key).format(
                                 sample_type=
-                                self.Validation_Data.sample_type,
-                                data_info=data_info))
+                                self.Validation_Data.sample_type))
+                                # data_info=data_info))
             elif key in ['plot_output_data']:
                 setattr(self.IO, key,
                         self.IO.result_dir +
