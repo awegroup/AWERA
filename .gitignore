@@ -1,4 +1,5 @@
 __*__
 .spyproject
 *.pdf
+*.log
 *.svg
