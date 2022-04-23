@@ -16,6 +16,7 @@ from .wind_profile_clustering import cluster_normalized_wind_profiles_pca, \
 from .cluster_frequency import \
     location_wise_frequency_distribution
 from .plot_location_maps import plot_cluster_freq_maps
+from .plot_cluster_frequency import plot_frequency
 from .principal_component_analysis import plot_frequency_projection, \
     plot_mean_and_pc_profiles
 from sklearn.decomposition import PCA
@@ -381,6 +382,9 @@ class Clustering:
                                  x_lim_profiles=x_lim_profiles,
                                  y_lim_profiles=y_lim_profiles)
 
+    def plot_cluster_frequency(self):
+        plot_frequency(self.config)
+
     def analyse_pc(self, data=None, pipeline=None,
                    remove_low_wind_samples=True,
                    return_data=False):
@@ -506,7 +510,9 @@ class Clustering:
         freq = np.zeros(self.config.Clustering.n_clusters)
         n_samples = len(labels)
         # Labels: Index of the cluster each sample belongs to.
+        print(labels)
         for l in labels:
+            print(l, type(l))
             freq[l] += 100. / n_samples
 
         # Full datetime information

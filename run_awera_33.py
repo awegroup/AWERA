@@ -217,18 +217,18 @@ if __name__ == '__main__':
     awera = ChainAWERA(config)
     # awera.predict_labels()
     val_chain = ValidationChain(config)
-    val = ValidationProcessingPowerProduction(config)
+    # val = ValidationProcessingPowerProduction(config)
 
-    val.power_curve_spread(overwrite=True)
+    # val.power_curve_spread(overwrite=True)
     # val.plot_power_diff_maps()
 
-    # val_chain.aep_vs_n_locs(
-    #     prediction_settings=prediction_settings,
-    #     data_settings=data_settings[0],
-    #     # Training settings organised in the same way as the data settings
-    #     i_ref=0,
-    #     set_labels=None
-    #     )
+    val_chain.aep_vs_n_locs(
+        prediction_settings=prediction_settings,
+        data_settings=data_settings[0],
+        # Training settings organised in the same way as the data settings
+        i_ref=0,
+        set_labels=None
+        )
 
     #plt.show()
 

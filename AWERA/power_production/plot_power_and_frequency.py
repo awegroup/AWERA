@@ -19,13 +19,30 @@ def plot_power_and_frequency(config):
     wind_speed_bin_limits = freq_distr['wind_speed_bin_limits']
 
     for i_profile in range(n_profiles):
+        if n_profiles > 1:
+            cmap = plt.get_cmap("gist_ncar")
+            if n_profiles > 25:
+                if i_profile % 2 == 1:
+                    if n_profiles % 2 == 1:
+                        shift = -1
+                    else:
+                        shift = 0
+                    i_c = - i_profile + shift
+                else:
+                    i_c = i_profile
+            else:
+                i_c = i_profile
+            clrs = cmap(np.linspace(0.03, 0.97, n_profiles))
+            color = clrs[i_c]
+        else:
+            color = 'orangered'
         df_profile = pd.read_csv(config.IO.power_curve.format(
             i_profile=i_profile+1, suffix='csv'), sep=";")
         wind_speeds = df_profile['v_100m [m/s]']
         power = df_profile['P [W]']
 
         # Plot power
-        ax_pcs[0].plot(wind_speeds, power/1000, label=i_profile+1)
+        ax_pcs[0].plot(wind_speeds, power/1000, label=i_profile+1, color=color)
 
         # Frequency Plot for profile
         sel_loc_id = -1  # 343  # TODO make optional
@@ -50,14 +67,16 @@ def plot_power_and_frequency(config):
             freq_step[i] = np.sum(freq[i*4:i*4+4])
         wind_speed_step = wind_speed_bins[::4]
         # Plot frequency
-        ax_pcs[1].step(wind_speed_step, freq_step, label=i_profile+1)
+        ax_pcs[1].step(wind_speed_step, freq_step, label=i_profile+1,
+                       color=color)
         freq_sum += sum(freq)
 
     print('Sum of frequencies: ', freq_sum)
 
     ax_pcs[1].legend()
     ax_pcs[0].tick_params(labelbottom=False)
-    ax_pcs[1].set_xlabel('$v_{w,100m}$ [m/s]')
+    x_label = '$v_{w,' + str(config.General.ref_height) + 'm}$ [m/s]'
+    ax_pcs[1].set_xlabel(x_label)
     ax_pcs[0].set_ylabel('Mean cycle Power [kW]')
     ax_pcs[1].set_ylabel('Cluster frequency [%]')
     # TODO paper: nomalised frequency?
@@ -67,7 +86,6 @@ def plot_power_and_frequency(config):
         plt.savefig(config.IO.plot_output.format(
                 title='power_curves_and_freq'))
     # plt.show()
-
 
 def plot_optimization_parameter_scatter(config, param_ids=[1, 2, 3]):
     n_profiles = config.Clustering.n_clusters

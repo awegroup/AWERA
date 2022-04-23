@@ -637,7 +637,11 @@ def plot_abs_rel_step_wise(x_vals, abs_res, rel_res, **plot_config):
     None.
 
     """
-    fig, ax1 = plt.subplots(figsize=(5.5, 3.7))
+    if 'figsize' in plot_config.keys():
+        figsize = plot_config['figsize']
+    else:
+        figsize = (5.5, 3.7)
+    fig, ax1 = plt.subplots(figsize=figsize)
 
     # Adding title
     plt.title(plot_config['title'])

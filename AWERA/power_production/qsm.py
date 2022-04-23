@@ -224,10 +224,10 @@ class NormalisedWindTable1D(EnvAtmosphericPressure):
         self.wind_speed = v
         return v
 
-    def plot_wind_profile(self, label=None):
+    def plot_wind_profile(self, label=None, color=None):
         """Plot the wind speed versus the height above ground."""
         wind_speeds = np.array(self.normalised_wind_speeds) * self.wind_speed_ref
-        plt.plot(wind_speeds, self.heights, label=label)
+        plt.plot(wind_speeds, self.heights, label=label, color=color)
         plt.xlabel('Wind speed [m s$^{-1}$]')
         plt.ylabel('Height [m]')
         plt.grid(True)
@@ -788,8 +788,9 @@ class SteadyState:
                 rf = self.control_settings[1]/v_wind
             else:
                 raise ValueError("Invalid control setting.")
-
+            # print(v_wind, self.control_settings, theta, phi, rf)
             if np.sin(theta) * np.cos(phi) < rf:
+                # print('reeling factor error')
                 error_message = "Reeling factor of {} is not feasible.".format(rf)
                 if np.sin(theta) < 0.:
                     error_message += " Elevation angle is larger than 90 degrees."
@@ -1275,7 +1276,6 @@ class Phase(TimeSeries):
         self.time.append(self.timer)
         self.kinematics.append(self.kinematics_start)
         self.steady_states.append(steady_state_start)
-
         # Monitor stopping criteria in case of infinite loop.
         end_phase = False
         while not end_phase:
@@ -1403,11 +1403,13 @@ class Phase(TimeSeries):
                 setpoint_speed = None
 
                 if max_speed is not None and abs(new_state.reeling_speed) > max_speed:
+                    # print('greater')
                     if self.__class__.__name__ == "RetractionPhase":
                         setpoint_speed = -max_speed
                     else:
                         setpoint_speed = max_speed
                 elif min_speed is not None and abs(new_state.reeling_speed) < min_speed:
+                    # print(new_state.reeling_speed, 'smaller')
                     if self.__class__.__name__ == "RetractionPhase":
                         setpoint_speed = -min_speed
                     else:
@@ -1443,7 +1445,7 @@ class Phase(TimeSeries):
                                 "minimum limit.".format(new_state.reeling_speed, min_speed)
                 error_code = 2
             elif max_force is not None and new_state.tether_force_ground > max_force + 1e-3:
-                error_message = "The tether force: {:.1f} N is exceeding the {:.1f} N " \
+                error_message = "The tether force: {:.3f} N is exceeding the {:.3f} N " \
                                 "maximum limit.".format(new_state.tether_force_ground, max_force)
                 error_code = 3
             elif min_force is not None and new_state.tether_force_ground < min_force - 1e-3:
@@ -1886,6 +1888,15 @@ class TractionPhaseHybrid(TractionPhase):
         avg_pattern_duration = np.mean(pattern_durations)
         phase_duration_aim = (self.tether_length_end - self.tether_length_start_aim)/np.mean(reeling_speeds)
         self.n_crosswind_patterns = phase_duration_aim/avg_pattern_duration
+        # print('tangetial speed factor, tangential speed, apparent wind speed',
+        #       'pattern duration, phase duration aim',
+        #       np.mean(np.array([(ss.tangential_speed_factor,
+        #                          ss.kite_tangential_speed,
+        #                          ss.apparent_wind_speed)
+        #                         for ss in self.steady_states]), axis=0),
+        #       pattern_durations, phase_duration_aim)
+
+
 
 
 class LissajousPattern:
@@ -2106,7 +2117,7 @@ class EvaluatePattern(Phase):  # Determine performance along cross wind pattern 
                 if ss.kite_tangential_speed > 0:
                     dt = ds * pattern_length / ss.kite_tangential_speed
                 else:
-                    dt = 1e1  # Some optimizations where not converging when setting this value to 1e2.
+                    dt = 1e1  # Some optimizations were not converging when setting this value to 1e2.
                     valid_pattern = False
                 next_time = self.time[-1] + dt
 
@@ -2181,6 +2192,7 @@ class Cycle(TimeSeries):
             w.r.t. wind reference frame if True, or ground reference frame if False.
 
     """
+    # TODO add all attributes that are/will be set?
     def __init__(self, settings=None, impose_operational_limits=True):
         """
         Args:
@@ -2226,6 +2238,9 @@ class Cycle(TimeSeries):
         self.duty_cycle = None
         self.pumping_efficiency = None
 
+        self.avg_traction_height = None
+        self.wind_speed_at_avg_traction_height = None
+
     def run_simulation(self, system_properties, environment_state, steady_state_config={},
                        enable_limit_violation_error=False, print_summary=False):
         """Consecutively run the simulations of the 3 phases.
@@ -2248,6 +2263,7 @@ class Cycle(TimeSeries):
             env_retr, env_trans, env_trac = environment_state
         else:
             env_retr, env_trans, env_trac = environment_state, environment_state, environment_state
+
         error_in_phase = None
         reorder = True
 
@@ -2261,7 +2277,7 @@ class Cycle(TimeSeries):
         retr.tether_length_end = self.tether_length_end_retraction
         retr.elevation_angle_start = self.elevation_angle_traction
         retr.finalize_start_and_end_kite_obj()
-
+        print('Retraction')
         try:
             retr.run_simulation(system_properties, env_retr, steady_state_config, 0.)
             last_straight_tether_length = retr.kinematics[-1].straight_tether_length
@@ -2276,6 +2292,7 @@ class Cycle(TimeSeries):
         last_time = retr.time[-1]
 
         # Second, run the transition phase.
+        print('Transition')
         trans = self.transition_phase
         trans.follow_wind = self.follow_wind
         trans.enable_limit_violation_error = False
@@ -2297,6 +2314,7 @@ class Cycle(TimeSeries):
         # trans.energy = 0
 
         # Third, run the traction phase.
+        print('Traction')
         trac = self.traction_phase
         trac.follow_wind = self.follow_wind
         trac.enable_limit_violation_error = enable_limit_violation_error
@@ -2316,6 +2334,7 @@ class Cycle(TimeSeries):
         try:
             trac.run_simulation(system_properties, env_trac, steady_state_config, last_time)
         except PhaseError as e:
+            print('phase Error in traction')
             if e.code not in [1, 2]:  # Simulation does not seem to reach end criteria.
                 raise
             trac.energy = -1e2
@@ -2337,6 +2356,8 @@ class Cycle(TimeSeries):
             self.energy += trans.energy
         self.duration = self.time[-1]
         self.average_power = self.energy / self.time[-1]
+        self.avg_traction_height = np.mean((trac.kinematics[0].z, trac.kinematics[-1].z))
+        self.wind_speed_at_avg_traction_height = env_trac.calculate_wind(self.avg_traction_height)
 
         if print_summary:
             print("Total cycle: {:.1f} seconds in which {:.0f}J energy produced.".format(self.time[-1], self.energy))

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 
 class PowerCurveConstructor:
-    def __init__(self, wind_speeds):
+    def __init__(self, wind_speeds, print_details=False):
         self.wind_speeds = wind_speeds
 
         self.x_opts = []
@@ -24,6 +24,8 @@ class PowerCurveConstructor:
         self.optimization_details = []
         self.constraints = []
         self.performance_indicators = []
+
+        self.print_details = print_details
 
         self.plots_interactive = False
         self.plot_output_file = '{title}.pdf'
@@ -36,6 +38,9 @@ class PowerCurveConstructor:
         failed_wind_speeds = []
         n_wind_speeds = len(self.wind_speeds)
         for i, vw in enumerate(self.wind_speeds):
+            if self.print_details:
+                print('================')
+                print('{}: wind speed {}m/s...'.format(i, vw))
             i = i - len(failed_wind_speeds)
             if vw > vw_switch:
                 vw_switch = next(wind_speed_tresholds)
@@ -50,7 +55,8 @@ class PowerCurveConstructor:
 
             # TODO log? print("[{}] Processing v={:.2f}m/s".format(i, vw))
             power_optimizer.environment_state.set_reference_wind_speed(vw)
-
+            if self.print_details:
+                print('Real scale bounds: ', power_optimizer.bounds_real_scale)
             if i+1 == len(self.wind_speeds):
                 dv = 1e-2
             else:
@@ -59,13 +65,16 @@ class PowerCurveConstructor:
                 x0_opt, x_opt, op_res, cons, kpis = \
                     power_optimizer.run_optimization(x0_next)
             except (OperationalLimitViolation, SteadyStateError,
-                    PhaseError, OptimizerError, FloatingPointError):
+                    PhaseError, OptimizerError, FloatingPointError) as e:
                 # Include FloatingPointError in except
                 # - QSM simulation sometimes runs into this
                 # File qsm.py", line 2339, in run_simulation:
                 # self.average_power = self.energy / self.time[-1]
                 # FloatingPointError: divide by zero encountered
                 # in double_scalars
+                if self.print_details:
+                    print('Error msg in power curve constructor:\n', e)
+                    print('-----------------------')
                 try:  # Retry for a slightly different wind speed.
                     # TODO log? print('first optimization/simulation ended
                     # in error: {}'.format(e))
@@ -76,11 +85,16 @@ class PowerCurveConstructor:
                         vw)
                     x0_opt, x_opt, op_res, cons, kpis = \
                         power_optimizer.run_optimization(x0_next,
-                                                         n_x_test=4,
+                                                         # n_x_test=4,
                                                          second_attempt=True)
                     self.wind_speeds[i] = vw
                 except (OperationalLimitViolation, SteadyStateError,
-                        PhaseError, OptimizerError, FloatingPointError):
+                        PhaseError, OptimizerError, FloatingPointError) as e:
+                    if self.print_details:
+                        print('{}: wind speed {}m/s...'
+                              .format(i + len(failed_wind_speeds), vw))
+                        print('Error msg in power curve constructor:\n', e)
+                        print('-----------------------')
                     try:  # Retry for a slightly different wind speed.
                         # TODO log? print('first optimization/simulation ended
                         # in error: {}'.format(e))
@@ -92,12 +106,17 @@ class PowerCurveConstructor:
                         x0_opt, x_opt, op_res, cons, kpis = \
                             power_optimizer.run_optimization(
                                 x0_next,
-                                n_x_test=4,
+                                # n_x_test=4,
                                 second_attempt=True)
                         self.wind_speeds[i] = vw
                     except (OperationalLimitViolation, SteadyStateError,
                             PhaseError, OptimizerError, FloatingPointError
                             ) as e:
+                        if self.print_details:
+                            print('{}: wind speed {}m/s...'
+                                  .format(i + len(failed_wind_speeds), vw))
+                            print('Error msg in power curve constructor:\n', e)
+                            print('-----------------------')
                         err = e
                         if len(failed_wind_speeds) == n_wind_speeds:
                             self.wind_speeds = []
@@ -113,7 +132,8 @@ class PowerCurveConstructor:
                             break
                         else:
                             failed_wind_speeds.append(vw)
-                            self.wind_speeds = np.delete(self.wind_speeds, i)
+                            self.wind_speeds = list(np.delete(self.wind_speeds,
+                                                              i))
                             continue
             self.x0.append(x0_opt)
             self.x_opts.append(x_opt)
@@ -149,28 +169,28 @@ class PowerCurveConstructor:
         # Mask power discontinuities #TODO still necessary?
         p_cycle = np.array([kpis['average_power']['cycle']
                             for kpis in all_kpis])
-        mask_power = p_cycle > 0
+        # mask_power = p_cycle > 0
         # TODO  mask negative jumps in power
         # - check reason for negative power/ strong jumps
-        p_cycle = p_cycle[mask_power]
-        all_kpis = [kpi for i, kpi in enumerate(all_kpis) if mask_power[i]]
-        wind_speeds = self.wind_speeds[mask_power]
+        # p_cycle = p_cycle[mask_power]
+        all_kpis = [kpi for i, kpi in enumerate(all_kpis)]  # if mask_power[i]]
+        wind_speeds = self.wind_speeds  # [mask_power]
 
-        masking_counter = 0
+        # masking_counter = 0
         # TODO resolve source of problems
-        while True:
-            mask_power_disc = [True] + list((np.diff(p_cycle) > -1000))
-            if sum(mask_power_disc) == len(mask_power_disc):
-                # No more discontinuities
-                break
-            print('Masking {} power runs'.format(len(mask_power_disc)
-                                                 - sum(mask_power_disc)))
-            p_cycle = p_cycle[mask_power_disc]
-            all_kpis = [kpi
-                        for i, kpi in enumerate(all_kpis)
-                        if mask_power_disc[i]]
-            wind_speeds = wind_speeds[mask_power_disc]
-            masking_counter += 1
+        # while True:
+        #     mask_power_disc = [True] + list((np.diff(p_cycle) > -1000))
+        #     if sum(mask_power_disc) == len(mask_power_disc):
+        #         # No more discontinuities
+        #         break
+        #     print('Masking {} power runs'.format(len(mask_power_disc)
+        #                                          - sum(mask_power_disc)))
+        #     p_cycle = p_cycle[mask_power_disc]
+        #     all_kpis = [kpi
+        #                 for i, kpi in enumerate(all_kpis)
+        #                 if mask_power_disc[i]]
+        #     wind_speeds = wind_speeds[mask_power_disc]
+        #     masking_counter += 1
         # TODO drop?print('TotalMasking {} power runs'.format(masking_counter))
 
         if wind_speed_ids is None:
@@ -196,8 +216,9 @@ class PowerCurveConstructor:
             # except AttributeError:
             #     z_traj = [np.sin(kp.elevation_angle)*kp.straight_
             # tether_length for kp in kite_positions['trajectory']] #???
+            # TODO v_100m or v_ref
             ax.plot(x_kite, z_kite,
-                    label="$v_{100m}$="+"{:.1f} ".format(v) + "m s$^{-1}$")
+                    label="$v_{ref}$="+"{:.1f} ".format(v) + "m s$^{-1}$")
 
         # Plot semi-circle at constant tether length bound.
         phi = np.linspace(0, 2*np.pi/3, 40)
@@ -242,7 +263,8 @@ class PowerCurveConstructor:
         cons = [c for i, c in enumerate(self.constraints) if mask[i]]
 
         n_opt_vars = len(xf[0])
-        fig, ax = plt.subplots(max([n_opt_vars, 6]), 2, sharex=True)
+        fig, ax = plt.subplots(max([n_opt_vars, 6]), 2, sharex=True,
+                               figsize=(15, 15))
         # TODO fig size in pdf too small
 
         # In the left column plot each optimization variable
@@ -425,7 +447,7 @@ class PowerCurveConstructor:
     def curve(self):
         wind_speeds = self.wind_speeds
         power = np.array([kpis['average_power']['cycle']
-                                  for kpis in self.performance_indicators])
+                          for kpis in self.performance_indicators])
         return wind_speeds, power
 
     def export_results(self, file_name):

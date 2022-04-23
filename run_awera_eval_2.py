@@ -16,7 +16,7 @@ if __name__ == '__main__':
         'Data': {'n_locs': -1,
                  'location_type': 'europe'},
         'Clustering': {
-            'n_clusters': 80,  # TODO choose before predict labels...
+            'n_clusters': 8,  # TODO choose before predict labels...
             'training': {
                 'n_locs': 5000,
                 'location_type': 'europe'
@@ -35,14 +35,16 @@ if __name__ == '__main__':
     e = evalAWERA(config)
     # working_title = 'sliding_window_eval'
     # e.sliding_window_power(time_window=24,  # Hours for hourly data
-    #                         power_lower_bar=None,
-    #                         power_lower_perc=15,
-    #                         read_if_possible=True, # False,
-    #                         locs_slice=None, # (loc_id, 1000),
-    #                         read_from_slices=(23, 1000))  #
+    #                        at_night=False,  # True,
+    #                        power_lower_bar=None,
+    #                        power_lower_perc=15,
+    #                        read_if_possible=True,
+    #                        locs_slice=None,  # (loc_id, 1000)) # ,
+    #                        read_from_slices=(23, 1000))  #
+
     e.aep_map()
-    print('Map plotted.')
-    e.power_freq()
+    # print('Map plotted.')
+    # e.power_freq()
 
     # profiler.disable()
     # # # Write profiler output

@@ -218,25 +218,59 @@ if __name__ == '__main__':
     # config.update({'Data': data_settings[i_data],
     #                'Clustering': {'n_clusters': 8,
     #                               'training': data_settings[0]}})  # prediction_settings[0]})
-    config.update({'Data': data_settings[-2],
-                    'Clustering': {'n_clusters': 80,
-                                  'training': data_settings[-1]}})  # prediction_settings[0]})
-    print(config)
-    awera = ChainAWERA(config)
+    # config.update({'Data': data_settings[-2],
+    #                 'Clustering': {'n_clusters': 80,
+    #                               'training': data_settings[-1]}})  # prediction_settings[0]})
+    # print(config)
+    # awera = ChainAWERA(config)
     # awera.predict_labels()
-    val_chain = ValidationChain(config)
-    val = ValidationProcessingPowerProduction(config)
+
+    # val = ValidationProcessingPowerProduction(config)
 
     #val.power_curve_spread(overwrite=False)
-    val.plot_power_diff_maps()
+    # val.plot_power_diff_maps()
 
-    # val_chain.aep_vs_n_locs(
-    #     prediction_settings=training_settings,
-    #     data_settings=data_settings[0],
-    #     # Training settings organised in the same way as the data settings
-    #     i_ref=0,
-    #     set_labels=None
-    #     )
-
-    #plt.show()
+    config.update({'Processing': {'parallel': False}})  # prediction_settings[0]})
+    val_chain = ValidationChain(config)
+    ref = 0
+    val_chain.aep_vs_n_locs(
+        prediction_settings=training_settings,
+        data_settings=data_settings[ref],
+        # Training settings organised in the same way as the data settings
+        i_ref=0,
+        set_labels=None
+        )
+    ref = 1
+    val_chain.aep_vs_n_locs(
+        prediction_settings=training_settings,
+        data_settings=data_settings[ref],
+        # Training settings organised in the same way as the data settings
+        i_ref=0,
+        set_labels=None
+        )
+    ref = 2
+    val_chain.aep_vs_n_locs(
+        prediction_settings=training_settings,
+        data_settings=data_settings[ref],
+        # Training settings organised in the same way as the data settings
+        i_ref=0,
+        set_labels=None
+        )
+    ref = 3
+    val_chain.aep_vs_n_locs(
+        prediction_settings=training_settings,
+        data_settings=data_settings[ref],
+        # Training settings organised in the same way as the data settings
+        i_ref=0,
+        set_labels=None
+        )
+    ref = 4
+    val_chain.aep_vs_n_locs(
+        prediction_settings=training_settings,
+        data_settings=data_settings[ref],
+        # Training settings organised in the same way as the data settings
+        i_ref=0,
+        set_labels=None
+        )
+    # plt.show()
 

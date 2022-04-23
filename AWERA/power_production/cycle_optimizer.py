@@ -154,7 +154,7 @@ class Optimizer:
     def eval_fun_pyopt(self, x, *args):
         """PyOpt's implementation of SLSQP can produce NaN's in the optimization vector or contain values that violate
         the bounds. true for pyoptsparse? #TODO"""
-        x_vals = [v for k,v in x.items()]
+        x_vals = [v for k, v in x.items()]
         if np.isnan(x_vals).any():
             raise OptimizerError("Optimization vector contains NaN's.")
 
@@ -164,13 +164,16 @@ class Optimizer:
         else:
             x_full = x_vals
 
-        bounds_adhered = (x_full - self.bounds_real_scale[:, 0]*self.scaling_x >= -1e6).all() and \
-                         (x_full - self.bounds_real_scale[:, 1]*self.scaling_x <= 1e6).all()
+        bounds_adhered = (x_full - self.bounds_real_scale[:, 0]*self.scaling_x >= -1e-3).all() and \
+                         (x_full - self.bounds_real_scale[:, 1]*self.scaling_x <= 1e-3).all()
         if not bounds_adhered:
-            #raise OptimizerError("Optimization bounds violated.") #TODO keep this y/n?
-            print('Optimization bounds VIOLATED. Diff to bounds:')
-            print('lower:', (x_full - self.bounds_real_scale[:, 0]*self.scaling_x >= -1e6))
-            print('upper:', (x_full - self.bounds_real_scale[:, 1]*self.scaling_x <= 1e6))
+
+            print('Within-Opt Optimization bounds violated, precision 1e-3.'
+                  ' Diff to bounds:')
+            lower = (x_full - self.bounds_real_scale[:, 0]*self.scaling_x >= -1e-3)
+            upper = (x_full - self.bounds_real_scale[:, 1]*self.scaling_x <= 1e-3)
+            print('lower:', lower, 'upper:', upper)
+            raise OptimizerError("Optimization bounds violated.")
 
         obj, ineq_cons = self.eval_fun(x_full, *args)
         #print(x_full, ineq_cons)
@@ -268,10 +271,11 @@ class Optimizer:
             else:
                 x_range = self.reduce_x
             for i_x, xi0, b in zip(x_range, starting_point, bounds):
-                op_problem.addVar('x{}'.format(i_x), 'c', lower=b[0], upper=b[1], value=xi0)
+                op_problem.addVar('x{}'.format(i_x), 'c', lower=b[0],
+                                  upper=b[1], value=xi0)
 
             for i_c in self.reduce_ineq_cons:
-                op_problem.addCon('g{}'.format(i_c), lower=0)
+                op_problem.addCon('g{}'.format(i_c), lower=0, upper=1e10)
                 # force_out_setpoint_min, force_in_setpoint_max, ineq_cons_traction_max_force, ineq_cons_cw_patterns
             if self.use_parallel_processing:
                 sens_mode = 'pgc'  # TODO pyOptSparse implementation?
@@ -526,16 +530,30 @@ class OptimizerCycle(Optimizer):
         [np.nan, np.nan],
         [25*np.pi/180, 60.*np.pi/180.],
         [150, 250],
-        [150, 250],
+        [200, 250],
     ])
 
-    def __init__(self, cycle_settings, system_properties, environment_state, reduce_x=None, reduce_ineq_cons=None):
+    def __init__(self, cycle_settings, system_properties,
+                 environment_state, reduce_x=None,
+                 reduce_ineq_cons=None,
+                 bounds=[None],
+                 print_details=False):
         # Initiate attributes of parent class.
-        bounds = self.BOUNDS_REAL_SCALE_DEFAULT.copy()
-        bounds[0, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
-        bounds[1, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
+        if bounds is None:
+            bounds = self.BOUNDS_REAL_SCALE_DEFAULT.copy()
+        else:
+            default_bounds = self.BOUNDS_REAL_SCALE_DEFAULT.copy()
+            for i in range(len(bounds)):
+                if bounds[i] is not None:
+                    default_bounds[i] = bounds[i]
+            bounds = default_bounds
+
+        if np.any(np.isnan(bounds[0, :])):
+            bounds[0, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
+        if np.any(np.isnan(bounds[1, :])):
+            bounds[1, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
         if reduce_ineq_cons is None:
-            reduce_ineq_cons = np.arange(4)
+            reduce_ineq_cons = np.arange(6)  # Inequality constraints
         super().__init__(self.X0_REAL_SCALE_DEFAULT.copy(), bounds, self.SCALING_X_DEFAULT.copy(),
                          reduce_x, reduce_ineq_cons, system_properties, environment_state)
 
@@ -562,6 +580,7 @@ class OptimizerCycle(Optimizer):
                                     'second_wind_speed_test': [],
                                     'optimizer_error_starting_vals': [],
                                     'optimizer_error_wind_speed': []}
+        self.print_details = print_details
 
     def eval_fun(self, x, scale_x=True, **kwargs):
         """Method calculating the objective and constraint functions from the eval_performance_indicators method output.
@@ -585,15 +604,19 @@ class OptimizerCycle(Optimizer):
         # iterations and drives the variables towards an extremum value of the force during the respective phase.
         if res['min_tether_force']['out'] == np.inf:
             res['min_tether_force']['out'] = 0.
-        force_out_setpoint_min = (res['min_tether_force']['out'] - x_real_scale[0])*1e-2 + 1e-6
-        force_in_setpoint_max = (res['max_tether_force']['in'] - x_real_scale[1])*1e-2 + 1e-6
+        if res['min_tether_force']['in'] == np.inf:
+            res['min_tether_force']['in'] = 0.
+        force_out_setpoint_max = (res['max_tether_force']['out'] - x_real_scale[0])*1e-3 + 1e-6 # was *e-2
+        force_out_setpoint_min = (-res['min_tether_force']['out'] + x_real_scale[0])*1e-3 + 1e-6 # was *e-2
+        force_in_setpoint_max = (res['max_tether_force']['in'] - x_real_scale[1])*1e-3 + 1e-6 # was *e-2
+        force_in_setpoint_min = (-res['min_tether_force']['in'] + x_real_scale[1])*1e-3 + 1e-6 # was *e-2
 
         # The maximum reel-out tether force can be exceeded when the tether force control is overruled by the maximum
         # reel-out speed limit and the imposed reel-out speed yields a tether force exceeding its set point. This
         # scenario is prevented by the lower constraint.
         force_max_limit = self.system_properties.tether_force_max_limit
         max_force_violation_traction = res['max_tether_force']['out'] - force_max_limit
-        ineq_cons_traction_max_force = -max_force_violation_traction/force_max_limit + 1e-6
+        ineq_cons_traction_max_force = -max_force_violation_traction*1e-3 + 1e-6  # same req. as in QSM: absolute difference maximal 1e-3 , no relative error: /force_max_limit
 
         # Constraint on the number of cross-wind patterns. It is assumed that a realistic reel-out trajectory should
         # include at least one crosswind pattern.
@@ -607,8 +630,14 @@ class OptimizerCycle(Optimizer):
         # TODO set explicitly: check agains maximum traction power
         #max_power_cons = res['average_power']['out'] - self.set_max_traction_power
         #print('Average traction (out) power per cycle: ', max_power_cons)
-        ineq_cons = np.array([force_out_setpoint_min, force_in_setpoint_max, ineq_cons_traction_max_force,
+        ineq_cons = np.array([force_out_setpoint_max,
+                              force_out_setpoint_min,
+                              force_in_setpoint_max,
+                              force_in_setpoint_min,
+                              ineq_cons_traction_max_force,
                               ineq_cons_cw_patterns])
+        if self.print_details:
+            print('inequality constraints: min f_out, max f_out, max f_in, min f_in, max f_out_sys, n_cwp - obj ', ineq_cons, obj)
 
 
         return obj, ineq_cons
@@ -641,7 +670,12 @@ class OptimizerCycle(Optimizer):
             phase_switch_points = [cycle.transition_phase.time[0], cycle.traction_phase.time[0]]
             cycle.time_plot(['straight_tether_length', 'reeling_speed', 'tether_force_ground', 'power_ground'],
                             plot_markers=phase_switch_points)
-
+        if self.print_details:
+            print('min, qsm, control, max',
+                  cycle.traction_phase.min_tether_force,
+                  cycle.traction_phase.average_tether_force_ground,
+                  tether_force_traction,
+                  cycle.traction_phase.max_tether_force)
         res = {
             'average_power': {
                 'cycle': cycle.average_power,
@@ -670,6 +704,8 @@ class OptimizerCycle(Optimizer):
             'n_crosswind_patterns': getattr(cycle.traction_phase, 'n_crosswind_patterns', None),
             # TODO add max height / average heigt? optimal harvesting height
             'min_height': min([cycle.traction_phase.kinematics[0].z, cycle.traction_phase.kinematics[-1].z]),
+            'average_traction_height': cycle.avg_traction_height,
+            'wind_speed_at_avg_traction_height': cycle.wind_speed_at_avg_traction_height,
             'max_elevation_angle': cycle.transition_phase.kinematics[0].elevation_angle,
             'duration': {
                 'cycle': cycle.duration,
@@ -693,6 +729,7 @@ class OptimizerCycle(Optimizer):
         # Optimize around x0
         # perturb x0:
         x0_range = [x0]
+        x0_range_random = []
         # Optimization variables bounds defining the search space.
         bounds = self.bounds_real_scale
         reduce_x = self.reduce_x
@@ -701,11 +738,15 @@ class OptimizerCycle(Optimizer):
             return [np.random.normal(x0[i], x0[i]*smearing)
                     if i in reduce_x else x0[i] for i in range(len(x0))]
 
-        def test_smeared_x0(test_x0, precision=0):
-            return np.all([np.logical_and(
+        def test_smeared_x0(test_x0, precision=0, return_bounds_adhered=False):
+            bounds_adhered = [np.logical_and(
                 test_x0[i] >= (bounds[i][0]-precision),
                 test_x0[i] <= (bounds[i][1]+precision))
-                for i in range(len(test_x0))])
+                for i in range(len(test_x0))]
+            if return_bounds_adhered:
+                return np.all(bounds_adhered), bounds_adhered
+            else:
+                return np.all(bounds_adhered)
 
         def smearing_x0():
             test_smearing = get_smeared_x0()
@@ -720,10 +761,10 @@ class OptimizerCycle(Optimizer):
                 continue
             # Gaussian random selection of x0 within bounds
             # TODO or just use uniform distr, mostly at bounds anyways...?
-            x0_range.append([truncnorm(a=bounds[i][0]/bounds[i][1],
-                                       b=1, scale=bounds[i][1]).rvs()
-                             if i in reduce_x else x0[i]
-                             for i in range(len(x0))])
+            x0_range_random.append([truncnorm(a=bounds[i][0]/bounds[i][1],
+                                              b=1, scale=bounds[i][1]).rvs()
+                                    if i in reduce_x else x0[i]
+                                    for i in range(len(x0))])
 
             # Gaussian random smearing of x0 within bounds
             smearing = 0.1  # 10% smearing of the respective values
@@ -732,6 +773,8 @@ class OptimizerCycle(Optimizer):
             x0_range.append(smearing_x0())
             x0_range.append(smearing_x0())
 
+        x0_range += x0_range_random
+        print(x0_range)
         x0_range = np.array(x0_range)
         # TODO log? print('Testing x0 range: ', x0_range)
         n_x0 = x0_range.shape[0]
@@ -741,8 +784,11 @@ class OptimizerCycle(Optimizer):
         kpiss = []
         sim_successfuls = []
         opt_successfuls = []
-
+        if self.print_details:
+            print('optimise ...')
         for i in range(n_x0):
+            if self.print_details:
+                print('|     {}/{}     |'.format(i, n_x0))
             x0_test = x0_range[i]
             self.x0_real_scale = x0_test
             try:
@@ -750,13 +796,23 @@ class OptimizerCycle(Optimizer):
                 # {}".format(i,
                 #                                                    x0_test))
                 x_opts.append(self.optimize())
-                if test_smeared_x0(self.x_opt_real_scale,
-                                   precision=self.precision):
+                test_passed, bounds_adhered = test_smeared_x0(
+                    self.x_opt_real_scale,
+                    precision=self.precision, return_bounds_adhered=True)
+                if test_passed:
                     # Safety check if variable bounds are adhered
                     op_ress.append(self.op_res)
                     opt_successfuls.append(True)
                     try:
                         cons, kpis = self.eval_point()
+                        if not np.all(cons >= -self.precision):
+                            print('cons:', cons)
+                            x_opts = x_opts[:-1]
+                            op_ress = op_ress[:-1]
+                            opt_successfuls = opt_successfuls[:-1]
+                            raise OptimizerError('Final constraints do not'
+                                                 ' fulfill bounds: >=0 within'
+                                                 ' precision.')
                         conss.append(cons)
                         kpiss.append(kpis)
                         sim_successfuls.append(True)
@@ -773,24 +829,43 @@ class OptimizerCycle(Optimizer):
                         cons, kpis = self.eval_point(
                             relax_errors=True)
                         conss.append(cons)
+                        if not np.all(cons >= -self.precision):
+                            print('cons:', cons)
+                            x_opts = x_opts[:-1]
+                            op_ress = op_ress[:-1]
+                            opt_successfuls = opt_successfuls[:-1]
+                            raise OptimizerError('Final constraints do not'
+                                                 ' fulfill bounds: >=0 within'
+                                                 ' precision.')
                         kpiss.append(kpis)
                         sim_err = e
                         sim_successfuls.append(False)
+                        if self.print_details:
+                            print('........')
+                            print(i, x0_test, self.x_opt_real_scale,
+                                  self.op_res, e)
+                        continue
                         # TODO log?print('Simulation failed -> errors relaxed')
                 else:
                     # TODO log? print("Optimization number "
                     #       "{} finished with an error: {}".format(
                     #           i, 'Optimization bounds violated'))
-                    opt_err = OptimizerError("Optimization bounds violated.")
                     # Drop last x_opts, bonds are not adhered
                     x_opts = x_opts[:-1]
-                    opt_successfuls.append(False)
+                    print('Optimizer bounds check:', bounds_adhered,
+                          'with precision: ', self.precision)
+                    # TODO remove?
+                    raise OptimizerError('Optimization bounds violated '
+                                         'in final result')
 
             except (OptimizerError) as e:
                 # TODO log? print("Optimization number "
                 #      "{} finished with an error: {}".format(i, e))
                 opt_err = e
                 opt_successfuls.append(False)
+                if self.print_details:
+                    print('...')
+                    print(i, x0_test, self.x_opt_real_scale, e)
                 continue
             except (SteadyStateError, PhaseError,
                     OperationalLimitViolation) as e:
@@ -798,6 +873,9 @@ class OptimizerCycle(Optimizer):
                 #      "{} finished with a simulation error: {}".format(i, e))
                 opt_err = e
                 opt_successfuls.append(False)
+                if self.print_details:
+                    print('...')
+                    print(i, x0_test, e)
                 continue
             except (FloatingPointError) as e:
                 # TODO log? print("Optimization number "
@@ -805,6 +883,12 @@ class OptimizerCycle(Optimizer):
                 #      .format(i, e))
                 opt_err = e
                 opt_successfuls.append(False)
+                if self.print_details:
+                    print('...')
+                    print(i, x0_test, e)
+                continue
+            print(i, 'cons:', cons, 'successful.')
+
 
         # TODO Include test for correct power?
         # TODO Output handling different? own function?

@@ -29,8 +29,8 @@ if __name__ == '__main__':
     working_title = 'Plotting clustering validation'
 
     # val.plot_all_single_loc(min_n_pcs=3,
-    #                         plot_height_dependence=True,
-    #                         plot_single_velocity_dependence=True,
+    #                         plot_height_dependence=False,
+    #                         plot_single_velocity_dependence=False,
     #                         plot_velocity_dependence=True,
     #                         plot_backscaling=True)
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':
             'n_clusters': 80,
             'eval_n_pc_up_to': 5,
             'training': {
-                'n_locs': 5000,
+                'n_locs': 1000,
                 'location_type': 'europe'
                 }
             },
@@ -50,8 +50,8 @@ if __name__ == '__main__':
     # val.plot_cluster_diff_maps(eval_type='cluster',
     #                             sel='v_greater_3')  # 'v_greater_3')  # 'full'
     val.plot_cluster_diff_maps(eval_type='cluster',
-                               sel='v_greater_5',
-                               locs_slice=(23, 1000))
+                                sel='v_greater_5',
+                                locs_slice=(23, 1000))
 
     settings = {
         'Data': {'n_locs': 1000,
@@ -68,8 +68,8 @@ if __name__ == '__main__':
     val.config.update(settings)
 
     # val.plot_all_single_loc(min_n_pcs=5,
-    #                         plot_height_dependence=True,
-    #                         plot_single_velocity_dependence=True,
+    #                         plot_height_dependence=False,
+    #                         plot_single_velocity_dependence=False,
     #                         plot_velocity_dependence=True,
     #                         plot_backscaling=True)
 

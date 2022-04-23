@@ -53,6 +53,19 @@ Power:
     # by the cut-in/out estimation
     make_power_curves: False # True
 
+    OPT_VARIABLES: [
+        "Reel-out\nforce [N]", "Reel-in\nforce [N]",
+        "Elevation\nangle [rad]", "Reel-in tether\nlength [m]",
+        "Minimum tether\nlength [m]"
+        ]
+    BOUNDS_DEFAULT: [
+        'system', 'system',
+        '25 to 60 deg', '150 to 250m',
+        '200 to 250',
+    ]
+    # Bounds to be updated, None/null is keep default
+    bounds: [null, null, null, null, null]
+
 Data:
     start_year: 2010  # (4-digit int): Process the wind data starting from this year
     final_year: 2020  # (4-digit int): Process the wind data up to this year

@@ -183,9 +183,9 @@ class Config:
         setattr(self.Clustering.training, 'settings_info', settings_info)
 
         try:
-            norm = self.config.Clustering.do_normalize_data
+            norm = self.Clustering.do_normalize_data
             if norm:
-                norm_tag = '_do_norm{}'
+                norm_tag = '{}'
             else:
                 norm_tag = '_no_norm{}'
             settings_info = settings_info.format(norm_tag)

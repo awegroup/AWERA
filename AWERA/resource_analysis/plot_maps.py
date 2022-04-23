@@ -1133,15 +1133,15 @@ def plot_all():
     #                     line_levels=[0.3, 1.1, 1.5, 2],
     #                     ratio_range=[1, 17],
     #                     n_decimals=1)
-    plot_surface_elevation_from_geopotential()
-    # plot_figure3()
-    # plot_figure4()
-    # #plot_figure5()
-    # plot_figure8()
-    # plot_figure9_upper()
-    # plot_figure9_lower()
-    # #plot_figure10()
-    # #plot_figure11()
+    # plot_surface_elevation_from_geopotential()
+    plot_figure3()
+    plot_figure4()
+    plot_figure5()
+    plot_figure8()
+    plot_figure9_upper()
+    plot_figure9_lower()
+    plot_figure10()
+    plot_figure11()
     plt.show()
 
 if __name__ == "__main__":

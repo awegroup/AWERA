@@ -88,7 +88,7 @@ class ValidationProcessingPowerProduction(ChainAWERA):
             x0_opt_cc_opt, x_opt_cc_opt, op_res_cc_opt,\
                 cons_cc_opt, kpis_cc_opt = self.single_profile_power(
                     heights, wind_u, wind_v,
-                    x0=[4100., 850., 0.5, 240., 200.0],
+                    x0=x_opt_cluster,
                     oc=oc,
                     ref_wind_speed=ref_wind_speed,
                     return_optimizer=False,
@@ -397,7 +397,7 @@ class ValidationProcessingPowerProduction(ChainAWERA):
             if overwrite:
                 raise FileNotFoundError
             with open(self.config.IO.cluster_validation_plotting.format(
-                    title=('power_curve_spread_hist_')).replace(
+                    title=('power_curve_spread_hist_vs_{}'.format(ref))).replace(
                     '.pdf', '.pickle'), 'rb') as f:
                 p_sample_histo = pickle.load(f)
             print('Power diffs read.')
@@ -441,9 +441,15 @@ class ValidationProcessingPowerProduction(ChainAWERA):
                     label_loc = labels_all_locs[i_loc]
                     v_loc = backscaling_all_locs[i_loc]
                 else:
-                    with open(self.config.IO.sample_vs_cluster_power
-                              .format(loc=loc_tag), 'rb') as f:
-                        res = pickle.load(f)
+                    try:
+                        with open(self.config.IO.sample_vs_cluster_power
+                                  .format(loc=loc_tag), 'rb') as f:
+                            res = pickle.load(f)
+
+                    except FileNotFoundError:
+                        print('Location not found: ', i_loc, loc)
+                        failed_locs.append((i_loc, loc))
+                        continue
 
                     label_loc = res['cluster_label']
                     v_loc = res['backscaling']
@@ -480,12 +486,10 @@ class ValidationProcessingPowerProduction(ChainAWERA):
             print('Saving power curve spread histograms....')
             pickle.dump(p_sample_histo, open(
                 self.config.IO.cluster_validation_plotting.format(
-                    title=('power_curve_spread_hist_')).replace(
+                    title=('power_curve_spread_hist_vs_{}'.format(ref))).replace(
                     '.pdf', '.pickle'), 'wb'))
             if len(failed_locs) > 0:
                 print('Failed: ', len(failed_locs), [f[0] for f in failed_locs])
-            import sys
-            sys.exit()
 
         # Plot power curves
         for i_c in range(self.config.Clustering.n_clusters):
@@ -575,6 +579,7 @@ class ValidationProcessingPowerProduction(ChainAWERA):
             # Save plot
             title = 'power_curve_spread_vs_{}_profile_{}'.format(ref, i_c+1)
             plt.savefig(self.config.IO.plot_output.format(title=title))
+            print('Plot output saved. Power curve spread done.')
 
     def plot_power_diff_maps(self,
                              read_sample_only=True,
@@ -854,6 +859,9 @@ class ValidationProcessingClustering(Clustering):
                 if save_full_diffs is not None:
                     save_full_diffs_b = save_full_diffs.replace('.pdf',
                                                                 '_backscaling.pdf')
+                else:
+                    save_full_diffs_b = save_full_diffs
+
                 vel_res_b = self.eval_velocities(
                     mean_diffs, full_diffs,
                     altitudes,
@@ -897,11 +905,15 @@ class ValidationProcessingClustering(Clustering):
                     mask = v_loc > 5
                     res = np.empty((len(self.config.Data.locations), 2))
                     for i in range(len(self.config.Data.locations)):
-                        res[i, :] = (
-                            np.mean(diff_value[i, mask[i, :], :]
-                                    .reshape((-1))),
-                            np.std(diff_value[i, mask[i, :], :]
-                                   .reshape((-1))))
+                        # Locations with no samples above 5 m/s backscaling
+                        if np.sum(mask[i, :]) == 0:
+                            res[i, :] = [-9999, -9999]
+                        else:
+                            res[i, :] = (
+                                np.mean(diff_value[i, mask[i, :], :]
+                                        .reshape((-1))),
+                                np.std(diff_value[i, mask[i, :], :]
+                                       .reshape((-1))))
                     loc_diffs[w_o][
                         diff_type]['v_greater_5'] = res
         if not loc_only:
@@ -1717,9 +1729,11 @@ class ValidationPlottingClustering(Clustering):
                         for d in diffs:
                             v_res = np.empty(
                                 (len(cluster_vel_diffs[0][w_o]['vel_bins']), 2))
+
                             for i, vel in enumerate(d):
                                 v_res[i, :] = d[vel]
                             d_res.append(v_res)
+                            print(d_res)
                         self.plot_single_height_velocity_dependence(
                             w_o, diff_type, -1,
                             d_res,

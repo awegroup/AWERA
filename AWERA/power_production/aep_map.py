@@ -163,7 +163,7 @@ def plot_aep_map(p_loc, aep_loc, c_f_loc,
         'contour_line_label_fmt': '%.0f',
         'colorbar_ticks': linspace01[::4],
         'colorbar_tick_fmt': '{:.0f}',
-        'colorbar_label': 'AEP [MWh]',
+        'colorbar_label': 'AEP [MWh/a]',
         'extend': 'max',
     }
     linspace02 = np.linspace(0, 60, 21)
@@ -293,13 +293,37 @@ def aep_map(config):
     if np.sum(p_loc.mask) == 0:
         # Plot continuous aep map
         print('Location wise AEP determined. Plot map:')
-        plot_aep_map(p_loc, aep_loc, c_f_loc,
-                     plots_interactive=config.Plotting.plots_interactive,
-                     file_name=config.IO.plot_output.format(
-                         title='aep_p_cf_contour_maps'),
-                     file_name_aep=config.IO.plot_output.format(
-                         title='aep_contour_map')
-                     )
+        # plot_aep_map(p_loc, aep_loc, c_f_loc,
+        #              plots_interactive=config.Plotting.plots_interactive,
+        #              file_name=config.IO.plot_output.format(
+        #                  title='aep_p_cf_contour_maps'),
+        #              file_name_aep=config.IO.plot_output.format(
+        #                  title='aep_contour_map')
+        #              )
+
+        # Plot single
+        plot_map(config, aep_loc,
+                 title='AEP',
+                 label=r'AEP [MWh/a]',
+                 log_scale=False,
+                 n_decimals=0,
+                 output_file_name=config.IO.plot_output.format(
+                         title='aep_map'),
+                 line_levels=[10., 30., 50.],
+                 fill_range=[0, 54],
+                 overflow=None)
+
+        plot_map(config, p_loc,
+                 title='Mean Cycle Power',
+                 label='P [kW]',
+                 log_scale=False,
+                 n_decimals=0,
+                 output_file_name=config.IO.plot_output.format(
+                         title='p_map'),
+                 line_levels=[1., 3., 6.],
+                 fill_range=[0, 6],
+                 overflow=None)
+
         plot_map(config, c_f_loc*100,
                  title=r'$c_f$',
                  label=r'$c_f$ [%]',

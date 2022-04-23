@@ -58,9 +58,26 @@ def get_data_avg_power_cycle_height_from_cluster(config):
     data_harvesting_height = np.zeros(data_matching_cluster.shape)
     data_max_harvesting_height = np.zeros(data_matching_cluster.shape)
     data_min_harvesting_height = np.zeros(data_matching_cluster.shape)
+    mask_cut_wind_speeds = np.empty((data_matching_cluster.shape),
+                                    dtype='bool')
+    print('mask sum before:', np.sum(mask_cut_wind_speeds))
+    limit_estimates = pd.read_csv(config.IO.refined_cut_wind_speeds)
     # TODO parallelize! if config allows it
     for i_cluster in range(config.Clustering.n_clusters):
+
         matched_cluster_id = data_matching_cluster == i_cluster
+
+        # Read cut-in / out
+        cut_in = limit_estimates.iloc[i_cluster]['vw_100m_cut_in']
+        cut_out = limit_estimates.iloc[i_cluster]['vw_100m_cut_out']
+        sel_down_times = np.logical_and(
+            np.logical_or(data_backscaling_from_cluster < cut_in,
+                          data_backscaling_from_cluster > cut_out),
+            matched_cluster_id)
+        print('Cluster {} has {} down times'.format(
+            i_cluster+1,
+            np.sum(sel_down_times)/np.sum(matched_cluster_id)))
+        mask_cut_wind_speeds[sel_down_times] = True
         print('{} samples in cluster {}'.format(sum(matched_cluster_id),
                                                 i_cluster))
         data_v = data_backscaling_from_cluster[matched_cluster_id]
@@ -83,13 +100,16 @@ def get_data_avg_power_cycle_height_from_cluster(config):
     # TODO make return backsaling optional?
 
     # Reshape into location-wise data
-    res_height = np.zeros((config.Data.n_locs, n_samples_per_loc))
-    res_min_height = np.zeros((config.Data.n_locs, n_samples_per_loc))
-    res_max_height = np.zeros((config.Data.n_locs, n_samples_per_loc))
-    res_backscaling = np.zeros((config.Data.n_locs, n_samples_per_loc))
-    res_cluster = np.zeros((config.Data.n_locs, n_samples_per_loc))
+    n_locs = len(config.Data.locations)
+    res_height = np.zeros((n_locs, n_samples_per_loc))
+    res_min_height = np.zeros((n_locs, n_samples_per_loc))
+    res_max_height = np.zeros((n_locs, n_samples_per_loc))
+    res_backscaling = np.zeros((n_locs, n_samples_per_loc))
+    res_cluster = np.zeros((n_locs, n_samples_per_loc))
+    res_down_times = np.empty((n_locs, n_samples_per_loc),
+                              dtype='bool')
     # TODO  make nicer
-    for i in range(config.Data.n_locs):
+    for i in range(n_locs):
         res_height[i, :] = \
             data_harvesting_height[i*n_samples_per_loc:(i+1)*n_samples_per_loc]
         res_min_height[i, :] = \
@@ -103,6 +123,8 @@ def get_data_avg_power_cycle_height_from_cluster(config):
                 i*n_samples_per_loc:(i+1)*n_samples_per_loc]
         res_cluster[i, :] = \
             data_matching_cluster[i*n_samples_per_loc:(i+1)*n_samples_per_loc]
+        res_down_times[i, :] = \
+            mask_cut_wind_speeds[i*n_samples_per_loc:(i+1)*n_samples_per_loc]
     #df = pd.DataFrame({'height': res_height, 'backscaling': res_backscaling,
     #                   'label': res_cluster})
     #df.to_csv(config.IO.plot_output.format(
@@ -116,12 +138,13 @@ def get_data_avg_power_cycle_height_from_cluster(config):
                      'height_range': {'min': res_min_height,
                                       'max': res_max_height},
                      'backscaling': res_backscaling,
+                     'down_times': res_down_times,
                      'label': res_cluster}, f)
     print(res_height)
     print(res_backscaling)
     print(res_cluster)
     return res_height, {'min': res_min_height, 'max': res_max_height},\
-        res_backscaling, res_cluster
+        res_backscaling, res_cluster, res_down_times
 
 
 def get_data_power_from_cluster(config):
@@ -184,6 +207,7 @@ def read_cluster_profiles(config, descale_ref=False):
 
 
 def get_wind_speed_at_height(config, set_height=-1):
+    # TODO if not using harv. height just read labels to get backsclaing
     try:
         with open(
                 config.IO.plot_output.format(
@@ -193,7 +217,8 @@ def get_wind_speed_at_height(config, set_height=-1):
         harvesting_height, backscaling, matching_cluster = \
             height_file['height'], height_file['backscaling'], height_file['label']
     except FileNotFoundError:
-        harvesting_height, harv_height_range, backscaling, matching_cluster = \
+        harvesting_height, harv_height_range, backscaling, matching_cluster, \
+            down_times = \
             get_data_avg_power_cycle_height_from_cluster(config)
     # TODO make optional: rerun?
     # TODO read labels file if set height, make correct shape again
@@ -342,7 +367,7 @@ def eval_wind_speed_at_harvesting_height(config):
     harv_height, harv_height_range, _, _ = \
         height_file['height'], height_file['height_range'],\
         height_file['backscaling'], height_file['label']
-    # harv_height, _, _, _ = \
+    # harv_height, _, _, _, _ = \
     #     get_data_avg_power_cycle_height_from_cluster(config)
 
     power = get_data_power_from_cluster(config)
@@ -471,7 +496,7 @@ def eval_wind_speed_at_harvesting_height(config):
                 break
 
         # Plot timeline - general
-        from ..resource_analysis.single_loc_plots import plot_figure_5a, \
+        from ..resource_analysis.single_loc_plots import plot_figure_5a_new, \
             plot_timeline
         # TODO get sample hours
         from datetime import datetime
@@ -502,7 +527,7 @@ def eval_wind_speed_at_harvesting_height(config):
         print(avg_cut_in_out)
         print('cut-in/out evaluated')
         # Plot timeline
-        plot_figure_5a(hours, loc_v_at_harvesting_height, loc_harv_height,
+        plot_figure_5a_new(hours, loc_v_at_harvesting_height, loc_harv_height,
                        # heights_of_interest, ceiling_id, floor_id,
                        height_range=loc_harv_height_range,
                        ref_velocity=backscaling[i_loc, :],

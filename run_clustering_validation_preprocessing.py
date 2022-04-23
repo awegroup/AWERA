@@ -1,6 +1,7 @@
 import os
 from AWERA import config
-from AWERA.validation.validation import ValidationProcessingClustering
+from AWERA.validation.validation import ValidationProcessingClustering,\
+    ValidationPlottingClustering
 import matplotlib.pyplot as plt
 
 import time
@@ -42,7 +43,7 @@ val = ValidationProcessingClustering(config)
 val_settings = {'Clustering': {
     # Run validation processing on:
     'eval_n_clusters': [8, 16, 80],
-    'eval_n_pc_up_to': 7,
+    'eval_n_pc_up_to': 5, # 7,
     # Detailed analysis of:
     'eval_n_pcs': [5, 7],
     'eval_heights': [300, 400, 500],
@@ -50,7 +51,7 @@ val_settings = {'Clustering': {
     # Defining the wind speed bin ranges to the next element,
     # second to last till maximum velocity; the last 0 refers to full sample
     'split_velocities': [0, 1.5, 3, 5, 10, 20, 25, 0],
-    'wind_type_eval': ['abs', 'parallel', 'perpendicular'],
+    'wind_type_eval': ['abs'],  # , 'parallel', 'perpendicular'],
 
     # Validation step config:
     # Test impact of normalisation in preprocessing
@@ -81,11 +82,22 @@ val_settings = {'Clustering': {
     'IO': {'result_dir_validation': "validation_preprocessing/"}}
 val.config.update(val_settings)
 
-res = val.process_all(min_n_pcs=3,
-                      save_full_diffs=True)
+# res = val.process_all(min_n_pcs=5,  # 3,
+#                       save_full_diffs=False)  # True)
+
+val = ValidationPlottingClustering(config)
+working_title = 'Plotting clustering validation'
+val.config.update(val_settings)
+
+val.plot_all_single_loc(min_n_pcs=5,  # 3,
+                        plot_height_dependence=False,
+                        plot_single_velocity_dependence=False,
+                        plot_velocity_dependence=True,
+                        plot_backscaling=True)
+
 import numpy as np
 np.set_printoptions(threshold=50)
-print(res)
+# print(res)
 print('Done.')
 print('------------------------------ Config:')
 print(val.config)

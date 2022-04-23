@@ -34,8 +34,9 @@ def aep_err_vs_n_locs(config,
     # Plot delta aep vs aep (training only on single loc)
     plot_config = {
         'title':  'Impact of the selected number of training locations on the AEP',
+        'figsize': (7, 3.7),
         'x_label': '# training locations',
-        'y_label': 'abs diff [MWh]',
+        'y_label': 'abs diff [MWh/a]',
         'x_ticks': labels,
         'output_file_name': config.IO.plot_output_data.format(
             title='diff_aep_vs_n_training_locs'),

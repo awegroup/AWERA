@@ -12,8 +12,13 @@ import matplotlib.pyplot as plt
 from scipy.stats import weibull_min
 from scipy.optimize import curve_fit
 
-from ..utils.convenience_utils import hour_to_date_str, hour_to_date
-from .process_data import eval_single_location, heights_of_interest, analyzed_heights, analyzed_heights_ids
+if __name__ == '__main__':
+    # TODO Added convenience utils here for now, hotfix to be able to run this
+    from convenience_utils import hour_to_date_str, hour_to_date
+    from process_data import eval_single_location, heights_of_interest, analyzed_heights, analyzed_heights_ids
+else:
+    from ..utils.convenience_utils import hour_to_date_str, hour_to_date
+    from .process_data import eval_single_location, heights_of_interest, analyzed_heights, analyzed_heights_ids
 
 # Timestamps for which the wind profiles are evaluated in figure 5.
 hours_wind_profile_plots = [1016833, 1016837, 1016841, 1016852, 1016876, 1016894, 1016910, 1016958]
@@ -22,11 +27,11 @@ hours_wind_profile_plots = [1016833, 1016837, 1016841, 1016852, 1016876, 1016894
 curve_fit_starting_points = {
     '100 m fixed': (2.28998636, 0., 9.325903),
     '500 m fixed': (1.71507275, 0.62228813, 10.34787431),
-    '1500 m fixed': (1.82862734, 0.30115809, 10.63203257),
+    '1250 m fixed': (1.82862734, 0.30115809, 10.63203257),
     '300 m ceiling': (1.9782503629055668, 0.351604371, 10.447848193717771),
     '500 m ceiling': (1.82726087, 0.83650295, 10.39813481),
     '1000 m ceiling': (1.83612611, 1.41125279, 10.37226014),
-    '1500 m ceiling': (1.80324619, 2.10282164, 10.26859976),
+    '1250 m ceiling': (1.80324619, 2.10282164, 10.26859976),
 }
 
 # Styling settings used for making plots.
@@ -93,7 +98,7 @@ def plot_timeline(hours, data,
     #plt.savefig('/home/s6lathim/physik/AWE/meeting/ireland/power_timeline.pdf')
 
 
-def plot_figure_5a(hours, v_ceiling, optimal_heights,
+def plot_figure_5a_new(hours, v_ceiling, optimal_heights,
                    #heights_of_interest, ceiling_id, floor_id,
                    height_range=None,
                    ref_velocity=None,
@@ -188,6 +193,60 @@ def plot_figure_5a(hours, v_ceiling, optimal_heights,
 
     return dates
 
+
+def plot_figure_5a(hours, v_ceiling, optimal_heights, heights_of_interest, ceiling_id, floor_id):
+    """Plot optimal height and wind speed time series for the first week of data.
+
+    Args:
+        hours (list): Hour timestamps.
+        v_ceiling (list): Optimal wind speed time series resulting from variable-height analysis.
+        optimal_heights (list): Time series of optimal heights corresponding to `v_ceiling`.
+        heights_of_interest (list): Heights above the ground at which the wind speeds are evaluated.
+        ceiling_id (int): Id of the ceiling height in `heights_of_interest`, as used in the variable-height analysis.
+        floor_id (int): Id of the floor height in `heights_of_interest`, as used in the variable-height analysis.
+
+    """
+    # Only keep the first week of data from the time series.
+    show_n_hours = 24*7
+    optimal_heights = optimal_heights[:show_n_hours]
+    dates = [hour_to_date(h) for h in hours[:show_n_hours]]
+    v_ceiling = v_ceiling[:show_n_hours]
+
+    fig, ax = plt.subplots(2, 1, sharex=True)
+    plt.subplots_adjust(bottom=.2)
+
+    # Plot the height limits.
+    dates_limits = [dates[0], dates[-1]]
+    ceiling_height = heights_of_interest[ceiling_id]
+    floor_height = heights_of_interest[floor_id]
+    ax[0].plot(dates_limits, [ceiling_height]*2, 'k--', label='height bounds')
+    ax[0].plot(dates_limits, [floor_height]*2, 'k--')
+
+    # Plot the optimal height time series.
+    ax[0].plot(dates, optimal_heights, color='darkcyan', label='optimal height')
+
+    # Plot the markers at the points for which the wind profiles are plotted in figure 5b.
+    marker_ids = [list(hours).index(h) for h in hours_wind_profile_plots]
+    for i, h_id in enumerate(marker_ids):
+        ax[0].plot(dates[h_id], optimal_heights[h_id], marker_cycle[i], color=color_cycle_default[i], markersize=8,
+                   markeredgewidth=2, markerfacecolor='None')
+
+    ax[0].set_ylabel('Height [m]')
+    ax[0].set_ylim([0, 800])
+    ax[0].grid()
+    ax[0].legend()
+
+    # Plot the optimal wind speed time series.
+    ax[1].plot(dates, v_ceiling)
+    for i, h_id in enumerate(marker_ids):
+        ax[1].plot(dates[h_id], v_ceiling[h_id], marker_cycle[i], color=color_cycle_default[i], markersize=8,
+                   markeredgewidth=2, markerfacecolor='None')
+    ax[1].set_ylabel('Wind speed [m/s]')
+    ax[1].grid()
+    ax[1].set_xlim(dates_limits)
+
+    plt.axes(ax[1])
+    plt.xticks(rotation=70)
 
 def plot_figure_5b(hours, v_req_alt, v_ceiling, optimal_heights, heights_of_interest, ceiling_id, floor_id):
     """Plot vertical wind speed profiles for timestamps in `hours_wind_profile_plots`.
@@ -294,7 +353,7 @@ def plot_weibull_fixed_and_ceiling(v_req_alt, heights_of_interest, plot_heights,
     plt.xlabel('Wind speed [m/s]')
     plt.ylabel('Relative frequency [-]')
     plt.xlim([0, 35])
-    plt.ylim([0, .105])
+    plt.ylim([0, .13])  # 105])
     plt.legend()
     plt.grid()
 
@@ -307,7 +366,7 @@ def plot_figure_6a(optimal_heights):
 
     """
     fig, ax = plt.subplots()
-    ax.hist(optimal_heights, normed=1, edgecolor='darkcyan')
+    ax.hist(optimal_heights, density=True, edgecolor='darkcyan')
     plt.ylabel('Relative frequency [-]')
     plt.xlabel('Height [m]')
     plt.grid()
@@ -326,7 +385,7 @@ def plot_figure_6b(optimal_heights):
         height_change = optimal_heights[i] - optimal_heights[i+1]
         if height_change != 0.:
             height_changes.append(height_change)
-    ax.hist(height_changes, bins=30, normed=1, edgecolor='darkcyan')
+    ax.hist(height_changes, bins=30, density=True, edgecolor='darkcyan')
     plt.ylabel('Relative frequency [-]')
     plt.xlabel('Height change [m/h]')
     plt.grid()
@@ -353,7 +412,7 @@ def plot_figure_6d(v_ceilings, ceiling_heights):
     plt.xlabel('Wind speed [m/s]')
     plt.ylabel('Relative frequency [-]')
     plt.xlim([0, 35])
-    plt.ylim([0, .105])
+    plt.ylim([0, .13])  # .105])
     plt.legend()
     plt.grid()
 
@@ -370,20 +429,20 @@ def main():
 
     # FIXME: Index to match 500m by default?
     # FIXME Function call fig 5a different - check
-    plot_figure_5a(hours, v_ceilings[:, 1], optimal_heights[:, 1], heights_of_interest,
-                   analyzed_heights_ids['ceilings'][1], analyzed_heights_ids['floor'])
-    plot_figure_5b(hours, v_req_alt, v_ceilings[:, 1], optimal_heights[:, 1], heights_of_interest,
-                   analyzed_heights_ids['ceilings'][1], analyzed_heights_ids['floor'])
+    plot_figure_5a(hours, v_ceilings[:, 3], optimal_heights[:, 3], heights_of_interest,
+                   analyzed_heights_ids['ceilings'][3], analyzed_heights_ids['floor'])
+    plot_figure_5b(hours, v_req_alt, v_ceilings[:, 3], optimal_heights[:, 3], heights_of_interest,
+                   analyzed_heights_ids['ceilings'][3], analyzed_heights_ids['floor'])
 
     # Plots of figure 6 use data from 2011 until 2017.
     start_year = 2011
     end_year = 2017
     hours, v_req_alt, v_ceilings, optimal_heights = eval_single_location(eval_lat, eval_lon, start_year, end_year)
-    plot_figure_6a(optimal_heights[:, 1])
-    plot_figure_6b(optimal_heights[:, 1])
-    plot_weibull_fixed_and_ceiling(v_req_alt, heights_of_interest, [100., 500., 1500.], v_ceilings[:, 1])  # figure 6c
+    plot_figure_6a(optimal_heights[:, 3])
+    plot_figure_6b(optimal_heights[:, 3])
+    plot_weibull_fixed_and_ceiling(v_req_alt, heights_of_interest, [100., 500., 1250.], v_ceilings[:, 3])  # figure 6c
     plot_figure_6d(v_ceilings, analyzed_heights['ceilings'])
-    plot_weibull_fixed_and_ceiling(v_req_alt, heights_of_interest, [1500.], v_ceilings[:, 0], 300.)  # figure 6e
+    plot_weibull_fixed_and_ceiling(v_req_alt, heights_of_interest, [1250.], v_ceilings[:, 3], 500.)  # figure 6e
 
     plt.show()
 

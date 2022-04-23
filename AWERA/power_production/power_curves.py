@@ -220,7 +220,7 @@ def get_cut_out_wind_speed(env=LogProfile()):
 def export_to_csv(config, v, v_cut_out, p, x_opts, n_cwp, i_profile):
     df = {
         'v_100m [m/s]': v,
-        'v/v_cut-out [-]': v/v_cut_out,
+        'v/v_cut-out [-]': np.array(v)/v_cut_out,
         'P [W]': p,
         'F_out [N]': [x[0] for x in x_opts],
         'F_in [N]': [x[1] for x in x_opts],
@@ -393,12 +393,16 @@ def generate_power_curves(config,
         # is set to 30 degrees.
         op_cycle_pc_phase1 = OptimizerCycle(cycle_sim_settings_pc_phase1,
                                             sys_props_v3, env,
-                                            reduce_x=np.array([0, 1, 2, 3]))
+                                            reduce_x=np.array([0, 1, 2, 3]),
+                                            bounds=copy.deepcopy(
+                                                config.Power.bounds))
         op_cycle_pc_phase1.bounds_real_scale[2][1] = 30*np.pi/180.
 
         op_cycle_pc_phase2 = OptimizerCycle(cycle_sim_settings_pc_phase2,
                                             sys_props_v3, env,
-                                            reduce_x=np.array([0, 1, 2, 3]))
+                                            reduce_x=np.array([0, 1, 2, 3]),
+                                            bounds=copy.deepcopy(
+                                                config.Power.bounds))
 
         # Configuration of the sequential optimizations for which is
         # differentiated between the wind speed ranges
@@ -452,38 +456,40 @@ def generate_power_curves(config,
         print('p_cycle: ', p_cycle)
         # Log? print('p_cycle: ', p_cycle)
         # Mask negative jumps in power
-        sel_succ_power = p_cycle > 0
-        # TODO  - check reason for negative power/ strong jumps
-        if sum(sel_succ_power) != len(sel_succ_power):
-            print(len(sel_succ_power)-sum(sel_succ_power),
-                  'masked negative powers')
-        p_cycle_masked = p_cycle[sel_succ_power]
-        print('masked p_cycle: ', p_cycle_masked)
-        # TODO resolve source of problems - done right? leave in as check
-        while True:
-            sel_succ_power_disc = [True] + list(np.diff(p_cycle_masked)
-                                                > -1000)
-            print('No disc: ', sel_succ_power_disc)
-            sel_succ_power[sel_succ_power] = sel_succ_power_disc
-            # p_cycle_masked = p_cycle_masked[sel_succ_power_disc]
-            # if sum(sel_succ_power_disc) == len(sel_succ_power_disc):
-            #    # No more discontinuities
-            #       break
-            # TODO this leads to errors sometimes:
-            # IndexError: boolean index did not match indexed array along
-            # dimension 0; dimension is 0
-            # but corresponding boolean dimension is 1
-            break
-            print(len(sel_succ_power_disc)-sum(sel_succ_power_disc),
-                  'masked power discontinuities')
+        # sel_succ_power = p_cycle > 0
+        # # TODO  - check reason for negative power/ strong jumps
+        # if sum(sel_succ_power) != len(sel_succ_power):
+        #     print(len(sel_succ_power)-sum(sel_succ_power),
+        #           'masked negative powers')
+        # p_cycle_masked = p_cycle[sel_succ_power]
+        # print('masked p_cycle: ', p_cycle_masked)
+        # # TODO resolve source of problems - done right? leave in as check
+        # while True:
+        #     sel_succ_power_disc = [True] + list(np.diff(p_cycle_masked)
+        #                                         > -1000)
+        #     print('No disc: ', sel_succ_power_disc)
+        #     sel_succ_power[sel_succ_power] = sel_succ_power_disc
+        #     # p_cycle_masked = p_cycle_masked[sel_succ_power_disc]
+        #     # if sum(sel_succ_power_disc) == len(sel_succ_power_disc):
+        #     #    # No more discontinuities
+        #     #       break
+        #     # TODO this leads to errors sometimes:
+        #     # IndexError: boolean index did not match indexed array along
+        #     # dimension 0; dimension is 0
+        #     # but corresponding boolean dimension is 1
+        #     break
+        #     print(len(sel_succ_power_disc)-sum(sel_succ_power_disc),
+        #           'masked power discontinuities')
 
-        p_cycle = p_cycle[sel_succ_power]
-        wind = pc.wind_speeds[sel_succ_power]
+        # p_cycle = p_cycle # [sel_succ_power]
+        wind = pc.wind_speeds  # [sel_succ_power]
 
         ax_pcs[0].plot(wind, p_cycle/1000, label=i_profile)
         ax_pcs[1].plot(wind/vw_cut_out, p_cycle/1000, label=i_profile)
 
-        pc.plot_optimal_trajectories(plot_info='_profile_{}'.format(i_profile))
+        pc.plot_optimal_trajectories(
+            plot_info='_profile_{}'.format(i_profile),
+            circle_radius=op_cycle_pc_phase2.bounds_real_scale[4][0])
         pc.plot_optimization_results(op_cycle_pc_phase2.OPT_VARIABLE_LABELS,
                                      op_cycle_pc_phase2.bounds_real_scale,
                                      [sys_props_v3.tether_force_min_limit,
@@ -494,8 +500,8 @@ def generate_power_curves(config,
 
         n_cwp = np.array([kpis['n_crosswind_patterns']
                           for kpis in pc.performance_indicators]
-                         )[sel_succ][sel_succ_power]
-        x_opts = np.array(pc.x_opts)[sel_succ][sel_succ_power]
+                         )[sel_succ]  # [sel_succ_power]
+        x_opts = np.array(pc.x_opts)[sel_succ]  # [sel_succ_power]
         if config.General.write_output:
             export_to_csv(config, wind, vw_cut_out, p_cycle,
                           x_opts, n_cwp, i_profile)
@@ -518,8 +524,10 @@ def generate_power_curves(config,
             # TODO include this change in config?
             # TODO log? print("Exporting single profile operational limits.")
     ax_pcs[1].legend()
-    ax_pcs[0].set_xlabel('$v_{w,100m}$ [m/s]')
-    ax_pcs[1].set_xlabel('$v_{w,100m}/v_{cut-out}$ [-]')
+    x_label = '$v_{w,' + str(config.General.ref_height) + 'm}$ [m/s]'
+    ax_pcs[0].set_xlabel(x_label)
+    ax_pcs[1].set_xlabel('$v_{w,' + str(config.General.ref_height)
+                         + 'm}/v_{cut-out}$ [-]')
     ax_pcs[0].set_ylabel('Mean cycle Power P [kW]')
     ax_pcs[1].set_ylabel('Mean cycle Power P [kW]')
 
@@ -554,12 +562,22 @@ def load_power_curve_results_and_plot_trajectories(config, i_profile=1):
     pc.plot_optimization_results(plot_info='_profile_{}'.format(i_profile))
 
 
-def compare_kpis(config, power_curves):
+def compare_kpis(config, power_curves, compare_profiles=None):
     """Plot how performance indicators change with wind speed for all
         generated power curves."""
-        # TODO adapt label to config ref height
-    fig_nums = [plt.figure().number for _ in range(5)]
+    # TODO adapt label to config ref height
+    x_label = '$v_{w,' + str(config.General.ref_height) + 'm}$ [m/s]'
+    if compare_profiles is not None:
+        fig_nums = [plt.figure().number for _ in range(10)]
+        tag = '_compare'
+    else:
+        tag = ''
     for idx, pc in enumerate(power_curves):
+        if compare_profiles is None:
+            fig_nums = [plt.figure().number for _ in range(10)]
+        if compare_profiles is not None:
+            if idx+1 not in compare_profiles:
+                continue
         sel_succ = [kpis['sim_successful']
                     for kpis in pc.performance_indicators]
         performance_indicators_success = [kpis for i, kpis in enumerate(
@@ -573,19 +591,21 @@ def compare_kpis(config, power_curves):
         f_out_max = [kpis['max_tether_force']['out']
                      for kpis in performance_indicators_success]
         f_out = [x[0] for x in x_opts_success]
-        p = plt.plot(pc.wind_speeds, f_out)
+        p = plt.plot(pc.wind_speeds, f_out, label=str(int(idx + 1)))
         clr = p[-1].get_color()
         plt.plot(pc.wind_speeds, f_out_min, linestyle='None', marker=6,
                  color=clr, markersize=7, markerfacecolor="None")
         plt.plot(pc.wind_speeds, f_out_max, linestyle='None', marker=7,
                  color=clr, markerfacecolor="None")
         plt.grid(True)
-        plt.xlabel('$v_{w,100m}$ [m/s]')
+        plt.xlabel(x_label)
         plt.ylabel('Reel-out force [N]')
+        if compare_profiles is not None:
+            plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_force_vs_wind_'
-                       'speeds_profile_{}'.format(idx+1))))
+                       'speeds_profile_{}{}'.format(idx+1, tag))))
 
         plt.figure(fig_nums[1])
         f_in_min = [kpis['min_tether_force']['in']
@@ -593,59 +613,146 @@ def compare_kpis(config, power_curves):
         f_in_max = [kpis['max_tether_force']['in']
                     for kpis in performance_indicators_success]
         f_in = [x[1] for x in x_opts_success]
-        p = plt.plot(pc.wind_speeds, f_in)
+        p = plt.plot(pc.wind_speeds, f_in, label=str(int(idx + 1)))
         clr = p[-1].get_color()
         plt.plot(pc.wind_speeds, f_in_min, linestyle='None', marker=6,
                  color=clr, markersize=7, markerfacecolor="None")
         plt.plot(pc.wind_speeds, f_in_max, linestyle='None', marker=7,
                  color=clr, markerfacecolor="None")
         plt.grid(True)
-        plt.xlabel('$v_{w,100m}$ [m/s]')
+        plt.xlabel(x_label)
         plt.ylabel('Reel-in force [N]')
+        if compare_profiles is not None:
+            plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_in_force_vs_wind_'
-                       'speeds_profile_{}'.format(idx+1))))
+                       'speeds_profile_{}{}'.format(idx+1, tag))))
 
         plt.figure(fig_nums[2])
         f_in_min = [kpis['min_reeling_speed']['out']
                     for kpis in performance_indicators_success]
         f_in_max = [kpis['max_reeling_speed']['out']
                     for kpis in performance_indicators_success]
-        p = plt.plot(pc.wind_speeds, f_in_min)
+        p = plt.plot(pc.wind_speeds, f_in_min, label=str(int(idx + 1)))
         clr = p[-1].get_color()
         plt.plot(pc.wind_speeds, f_in_max, linestyle='None', marker=7,
                  color=clr, markerfacecolor="None")
         plt.grid(True)
-        plt.xlabel('$v_{w,100m}$ [m/s]')
+        plt.xlabel(x_label)
         plt.ylabel('Reel-out speed [m/s]')
+        if compare_profiles is not None:
+            plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_speed_vs_'
-                       'wind_speeds_profile_{}'.format(idx+1))))
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
 
         plt.figure(fig_nums[3])
+        v_in_min = [kpis['min_reeling_speed']['in']
+                    for kpis in performance_indicators_success]
+        v_in_max = [kpis['max_reeling_speed']['in']
+                    for kpis in performance_indicators_success]
+        p = plt.plot(pc.wind_speeds, v_in_min, label=str(int(idx + 1)))
+        clr = p[-1].get_color()
+        plt.plot(pc.wind_speeds, v_in_max, linestyle='None', marker=7,
+                 color=clr, markerfacecolor="None")
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Reel-in speed [m/s]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_reel_in_speed_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[4])
         n_cwp = [kpis['n_crosswind_patterns']
                  for kpis in performance_indicators_success]
-        plt.plot(pc.wind_speeds, n_cwp)
+        plt.plot(pc.wind_speeds, n_cwp, label=str(int(idx + 1)))
         plt.grid(True)
-        plt.xlabel('$v_{w,100m}$ [m/s]')
+        plt.xlabel(x_label)
         plt.ylabel('Number of cross-wind patterns [-]')
+        if compare_profiles is not None:
+            plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_cw_patterns_vs_'
-                       'wind_speeds_profile_{}'.format(idx+1))))
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
 
-        plt.figure(fig_nums[4])
+        plt.figure(fig_nums[5])
         elev_angles = [x_opt[2]*180./np.pi for x_opt in x_opts_success]
-        plt.plot(pc.wind_speeds, elev_angles)
+        plt.plot(pc.wind_speeds, elev_angles, label=str(int(idx + 1)))
         plt.grid(True)
-        plt.xlabel('$v_{w,100m}$ [m/s]')
+        plt.xlabel(x_label)
         plt.ylabel('Reel-out elevation angle [deg]')
+        if compare_profiles is not None:
+            plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_elev_angle_vs_'
-                       'wind_speeds_profile_{}'.format(idx+1))))
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[6])
+        duty_cycle = [kpis['duty_cycle']
+                      for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(duty_cycle)*100,
+                 label=str(int(idx + 1)))
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Duty cycle [%]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_duty_cycle_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[7])
+        pump_eff = [kpis['pumping_efficiency']
+                    for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(pump_eff)*100,
+                 label=str(int(idx + 1)))
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Pumping efficiency [%]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_pumping_efficiency_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[8])
+        trac_height = [kpis['average_traction_height']
+                       for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(trac_height),
+                 label=str(int(idx + 1)))
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Average traction height [m]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_average_traction_height_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[9])
+        v_trac_height = [kpis['wind_speed_at_avg_traction_height']
+                         for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(v_trac_height),
+                 label=str(int(idx + 1)))
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Wind speed @ avg. traction height [m/s]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_v_at_avg_traction_height_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
 
 
 def combine_separate_profile_files(config,
