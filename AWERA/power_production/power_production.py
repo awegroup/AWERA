@@ -425,6 +425,8 @@ class PowerProduction(SingleProduction):
                         wind_speeds = [kpis[
                             'wind_speed_at_avg_traction_height']
                             for kpis in pc.performance_indicators]
+                        power = np.array([x for _, x in sorted(zip(wind_speeds, power))])
+                        wind_speeds = np.array(sorted(wind_speeds))
                 else:
                     wind_speeds, power = pc[0], pc[1]
                     if speed_at_op_height:

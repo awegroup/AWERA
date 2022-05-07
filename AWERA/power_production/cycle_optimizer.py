@@ -224,7 +224,7 @@ class Optimizer:
             raise OptimizerError("Optimization vector contains nan's.")
         self.x_progress.append(x.copy())
 
-    def optimize(self, *args, maxiter=30, iprint=-1):  # 0):
+    def optimize(self, *args, maxiter=50, iprint=-1):  # 0):
         """Perform optimization."""
         self.clear_result_attributes()
         # Construct scaled starting point and bounds
@@ -553,7 +553,7 @@ class OptimizerCycle(Optimizer):
         if np.any(np.isnan(bounds[1, :])):
             bounds[1, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
         if reduce_ineq_cons is None:
-            reduce_ineq_cons = np.arange(6)  # Inequality constraints
+            reduce_ineq_cons = np.arange(6)  # 7)  # Inequality constraints
         super().__init__(self.X0_REAL_SCALE_DEFAULT.copy(), bounds, self.SCALING_X_DEFAULT.copy(),
                          reduce_x, reduce_ineq_cons, system_properties, environment_state)
 
@@ -606,17 +606,24 @@ class OptimizerCycle(Optimizer):
             res['min_tether_force']['out'] = 0.
         if res['min_tether_force']['in'] == np.inf:
             res['min_tether_force']['in'] = 0.
-        force_out_setpoint_max = (res['max_tether_force']['out'] - x_real_scale[0])*1e-3 + 1e-6 # was *e-2
-        force_out_setpoint_min = (-res['min_tether_force']['out'] + x_real_scale[0])*1e-3 + 1e-6 # was *e-2
-        force_in_setpoint_max = (res['max_tether_force']['in'] - x_real_scale[1])*1e-3 + 1e-6 # was *e-2
-        force_in_setpoint_min = (-res['min_tether_force']['in'] + x_real_scale[1])*1e-3 + 1e-6 # was *e-2
+        force_out_setpoint_max = (res['max_tether_force']['out'] - x_real_scale[0])*1e-3 # + 1e-6 # was *e-2
+        force_out_setpoint_min = (-res['min_tether_force']['out'] + x_real_scale[0])*1e-3 # + 1e-6 # was *e-2
+        force_in_setpoint_max = (res['max_tether_force']['in'] - x_real_scale[1])*1e-3 # + 1e-6 # was *e-2
+        force_in_setpoint_min = (-res['min_tether_force']['in'] + x_real_scale[1])*1e-3 # + 1e-6 # was *e-2
 
         # The maximum reel-out tether force can be exceeded when the tether force control is overruled by the maximum
         # reel-out speed limit and the imposed reel-out speed yields a tether force exceeding its set point. This
         # scenario is prevented by the lower constraint.
         force_max_limit = self.system_properties.tether_force_max_limit
         max_force_violation_traction = res['max_tether_force']['out'] - force_max_limit
-        ineq_cons_traction_max_force = -max_force_violation_traction*1e-3 + 1e-6  # same req. as in QSM: absolute difference maximal 1e-3 , no relative error: /force_max_limit
+        ineq_cons_traction_max_force = -max_force_violation_traction*1e-3 - self.precision  # same req. as in QSM: absolute difference maximal 1e-3 , no relative error: /force_max_limit
+
+        # Constraint on the reeling speed control versus force control
+        print(res['speed_viol_diff'])
+
+        # Constraint on lambda, the reeling factor in reel-in and reel-out phase which are to be strictly positive
+        min_reeling_factor_in = res['min_reeling_factor']['in'] - self.precision
+        min_reeling_factor_out = res['min_reeling_factor']['out'] - self.precision
 
         # Constraint on the number of cross-wind patterns. It is assumed that a realistic reel-out trajectory should
         # include at least one crosswind pattern.
@@ -635,19 +642,26 @@ class OptimizerCycle(Optimizer):
                               force_in_setpoint_max,
                               force_in_setpoint_min,
                               ineq_cons_traction_max_force,
+                              min_reeling_factor_in,
+                              min_reeling_factor_out,
+                              res['speed_viol_diff']['in'],
+                              res['speed_viol_diff']['out'],
                               ineq_cons_cw_patterns])
         if self.print_details:
-            print('inequality constraints: min f_out, max f_out, max f_in, min f_in, max f_out_sys, n_cwp - obj ', ineq_cons, obj)
+            print('inequality constraints: min f_out, max f_out, max f_in,'
+                  ' min f_in, max f_out_sys, speed_viol_diff, n_cwp - obj ',
+                  ineq_cons, obj)
 
 
-        return obj, ineq_cons
+        return obj, ineq_cons[4:]
 
     def eval_performance_indicators(self, x_real_scale, plot_result=False, relax_errors=True):
         """Method running the simulation and returning the performance indicators needed to calculate the objective and
         constraint functions."""
         # Map the optimization vector to the separate variables.
-        tether_force_traction, tether_force_retraction, elevation_angle_traction, tether_length_diff, \
-        tether_length_min = x_real_scale
+        tether_force_traction, tether_force_retraction, \
+            elevation_angle_traction, tether_length_diff, \
+            tether_length_min = x_real_scale
 
         # Configure the cycle settings and run simulation.
         self.cycle_settings['cycle']['elevation_angle_traction'] = elevation_angle_traction
@@ -676,6 +690,14 @@ class OptimizerCycle(Optimizer):
                   cycle.traction_phase.average_tether_force_ground,
                   tether_force_traction,
                   cycle.traction_phase.max_tether_force)
+
+        env_state = self.environment_state
+        power_wind_trac = []
+        for z in cycle.traction_phase.kinematics.z:
+            env_state.calculate(z)
+            power_wind_trac.append(
+                .5 * env_state.air_density * env_state.wind_speed ** 3)
+
         res = {
             'average_power': {
                 'cycle': cycle.average_power,
@@ -701,12 +723,23 @@ class OptimizerCycle(Optimizer):
                 'in': cycle.retraction_phase.max_reeling_speed,
                 'out': cycle.traction_phase.max_reeling_speed,
             },
-            'n_crosswind_patterns': getattr(cycle.traction_phase, 'n_crosswind_patterns', None),
+            'n_crosswind_patterns': getattr(cycle.traction_phase,
+                                            'n_crosswind_patterns', None),
             # TODO add max height / average heigt? optimal harvesting height
-            'min_height': min([cycle.traction_phase.kinematics[0].z, cycle.traction_phase.kinematics[-1].z]),
+            'min_height': min([cycle.traction_phase.kinematics[0].z,
+                               cycle.traction_phase.kinematics[-1].z]),
             'average_traction_height': cycle.avg_traction_height,
-            'wind_speed_at_avg_traction_height': cycle.wind_speed_at_avg_traction_height,
-            'max_elevation_angle': cycle.transition_phase.kinematics[0].elevation_angle,
+            'wind_speed_at_avg_traction_height':
+                cycle.wind_speed_at_avg_traction_height,
+            'power_dens_wind_trac': power_wind_trac,
+            'min_reeling_factor': {
+                'in': np.min([ss.tangential_speed_factor
+                              for ss in cycle.retraction_phase.steady_states]),
+                'out': np.min([ss.tangential_speed_factor
+                               for ss in cycle.traction_phase.steady_states]),
+            },
+            'max_elevation_angle':
+                cycle.transition_phase.kinematics[0].elevation_angle,
             'duration': {
                 'cycle': cycle.duration,
                 'in': cycle.retraction_phase.duration,
@@ -716,6 +749,11 @@ class OptimizerCycle(Optimizer):
             'duty_cycle': cycle.duty_cycle,
             'pumping_efficiency': cycle.pumping_efficiency,
             'kinematics': cycle.kinematics,
+            'traction_kinematics': cycle.traction_phase.kinematics,
+            'speed_viol_diff': {
+                'in': cycle.retraction_phase.speed_viol_diff,
+                'out': cycle.traction_phase.speed_viol_diff,
+            },
         }
         return res
 
@@ -771,6 +809,7 @@ class OptimizerCycle(Optimizer):
 
             # Test on two smeared variations of x0
             x0_range.append(smearing_x0())
+            smearing = 0.5
             x0_range.append(smearing_x0())
 
         x0_range += x0_range_random

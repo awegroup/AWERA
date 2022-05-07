@@ -175,11 +175,11 @@ class LogProfile(EnvAtmosphericPressure):
             self.wind_speed = self.wind_speed_ref * np.log(height / self.h_0) / np.log(self.h_ref / self.h_0)
         return self.wind_speed
 
-    def plot_wind_profile(self):
+    def plot_wind_profile(self, color=None):
         """Plot the wind speed versus the height above ground."""
-        heights = [50., 75., 100., 150., 200., 300., 400., 500.]
+        heights = [10, 25, 50., 75., 100., 150., 200., 300., 400., 500., 600.]
         wind_speeds = [self.calculate_wind(h) for h in heights]
-        plt.plot(wind_speeds, heights)
+        plt.plot(wind_speeds, heights, color=color)
         plt.xlabel('Wind speed [m/s]')
         plt.ylabel('Height [m]')
         plt.grid(True)
@@ -388,6 +388,8 @@ class SystemProperties(SysPropsFixedAeroCoeffs):
         # Relevant operational limits.
         self.reeling_speed_min_limit = 0.
         self.reeling_speed_max_limit = 8.
+        self.reeling_speed_max_limit_trac = None
+        self.reeling_speed_max_limit_retr = None
         self.tether_force_min_limit = 1200.
         self.tether_force_max_limit = 3200.
 
@@ -1223,6 +1225,7 @@ class Phase(TimeSeries):
         self.impose_operational_limits = impose_operational_limits
         self.kite_powered = True
         self.follow_wind = False
+        self.speed_viol_diff = 0.  # !=0:force control, out reeling speed bounds
 
         # Start and stop conditions of phase.
         self.kinematics_start = None
@@ -1381,7 +1384,15 @@ class Phase(TimeSeries):
         else:
             min_force = sys_props.tether_force_min_limit
             max_force = sys_props.tether_force_max_limit
-        max_speed = sys_props.reeling_speed_max_limit
+        if self.__class__.__name__ == "RetractionPhase" \
+                and sys_props.reeling_speed_max_limit_retr is not None:
+            max_speed = sys_props.reeling_speed_max_limit_retr
+        elif "TractionPhase" in self.__class__.__name__ \
+                and sys_props.reeling_speed_max_limit_trac is not None:
+            max_speed = sys_props.reeling_speed_max_limit_trac
+        else:
+            max_speed = sys_props.reeling_speed_max_limit
+
         min_speed = sys_props.reeling_speed_min_limit
         assert max_speed > 0 and min_speed >= 0, "Reeling speed limits should be positive."
 
@@ -1403,17 +1414,21 @@ class Phase(TimeSeries):
                 setpoint_speed = None
 
                 if max_speed is not None and abs(new_state.reeling_speed) > max_speed:
+                    self.speed_viol_diff = - abs(new_state.reeling_speed) + max_speed
                     # print('greater')
                     if self.__class__.__name__ == "RetractionPhase":
                         setpoint_speed = -max_speed
                     else:
                         setpoint_speed = max_speed
                 elif min_speed is not None and abs(new_state.reeling_speed) < min_speed:
+                    self.speed_viol_diff = abs(new_state.reeling_speed) - min_speed
                     # print(new_state.reeling_speed, 'smaller')
                     if self.__class__.__name__ == "RetractionPhase":
                         setpoint_speed = -min_speed
                     else:
                         setpoint_speed = min_speed
+                else:
+                    self.speed_viol_diff = 0.
 
                 if setpoint_speed is not None:
                     new_state = SteadyState(self.steady_state_config)
@@ -2241,6 +2256,11 @@ class Cycle(TimeSeries):
         self.avg_traction_height = None
         self.wind_speed_at_avg_traction_height = None
 
+        self.phase_efficiencies = settings.get('phase_efficiencies',
+                                                     {'traction': 1,
+                                                      'retraction': 1})
+        print(self.phase_efficiencies)
+
     def run_simulation(self, system_properties, environment_state, steady_state_config={},
                        enable_limit_violation_error=False, print_summary=False):
         """Consecutively run the simulations of the 3 phases.
@@ -2334,7 +2354,7 @@ class Cycle(TimeSeries):
         try:
             trac.run_simulation(system_properties, env_trac, steady_state_config, last_time)
         except PhaseError as e:
-            print('phase Error in traction')
+            print('phase Error in traction', e.args[0])
             if e.code not in [1, 2]:  # Simulation does not seem to reach end criteria.
                 raise
             trac.energy = -1e2
@@ -2351,7 +2371,12 @@ class Cycle(TimeSeries):
             self.time = retr.time + trans.time + trac.time
             self.kinematics = retr.kinematics + trans.kinematics + trac.kinematics
             self.steady_states = retr.steady_states + trans.steady_states + trac.steady_states
-        self.energy = trac.energy + retr.energy
+        eff_trac_energy = trac.energy * self.phase_efficiencies['traction']
+        eff_retr_energy = retr.energy * self.phase_efficiencies['retraction']
+        # TODO efficiencies only in final result - and nothing for transition
+        self.energy = eff_retr_energy + eff_trac_energy
+        # trac.energy + retr.energy
+        print('transistion energy', trans.energy)
         if self.include_transition_energy:
             self.energy += trans.energy
         self.duration = self.time[-1]
@@ -2368,7 +2393,7 @@ class Cycle(TimeSeries):
 
         self.duty_cycle = trac.duration/self.duration
         try:
-            self.pumping_efficiency = self.energy/trac.energy
+            self.pumping_efficiency = self.energy/eff_trac_energy  # trac.energy
         except FloatingPointError:
             self.pumping_efficiency = 0.
 

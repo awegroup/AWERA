@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import copy
+import importlib
 
 import pandas as pd
 from copy import deepcopy
@@ -9,7 +10,8 @@ import sys
 import getopt
 from .qsm import LogProfile, NormalisedWindTable1D, KiteKinematics,\
     SteadyState, TractionPhaseHybrid, TractionConstantElevation, \
-    SteadyStateError, OperationalLimitViolation, TractionPhase
+    SteadyStateError, OperationalLimitViolation, TractionPhase, \
+    SystemProperties
 from .kitepower_kites import sys_props_v3
 from .cycle_optimizer import OptimizerCycle
 from .power_curve_constructor import PowerCurveConstructor
@@ -27,26 +29,58 @@ l1_lb = 350  # Lower bound of tether length at end of reel-out.
 l1_ub = 450  # Upper bound of tether length at end of reel-out.
 
 
-def calc_tether_force_traction(env_state, straight_tether_length):
+def read_system_settings(config):
+    cycle_sim_settings_pc_phase1, cycle_sim_settings_pc_phase2, \
+        sys_props, x0 = None, None, None, None
+    if config.Power.kite_and_QSM_settings_file is not None:  # add to config, abs or relative path?
+        settings_mod = importlib.import_module(
+            config.Power.kite_and_QSM_settings_file)
+        try:
+            cycle_sim_settings_pc_phase1 = settings_mod.settings
+            phase_1_settings_imported = True
+        except AttributeError:
+            phase_1_settings_imported = False
+        try:
+            cycle_sim_settings_pc_phase2 = settings_mod.settings_phase_2
+        except AttributeError:
+            if phase_1_settings_imported:
+                cycle_sim_settings_pc_phase2 = deepcopy(
+                    cycle_sim_settings_pc_phase1)
+
+        try:
+            sys_props = settings_mod.sys_props
+            if not isinstance(sys_props, SystemProperties):
+                sys_props = SystemProperties(sys_props)
+        except AttributeError:
+            pass
+        try:
+            x0 = settings_mod.x0
+        except AttributeError:
+            pass
+    return cycle_sim_settings_pc_phase1, cycle_sim_settings_pc_phase2, \
+        sys_props, x0
+
+
+def calc_tether_force_traction(env_state, straight_tether_length, sys_props):
     """Calculate tether force for the minimum allowable reel-out speed
     and given wind conditions and tether length."""
     kinematics = KiteKinematics(straight_tether_length,
                                 phi_ro, theta_ro_ci, chi_ro)
     env_state.calculate(kinematics.z)
-    sys_props_v3.update(kinematics.straight_tether_length, True)
+    sys_props.update(kinematics.straight_tether_length, True)
     ss = SteadyState({'enable_steady_state_errors': True})
     ss.control_settings = ('reeling_speed',
-                           sys_props_v3.reeling_speed_min_limit)
-    ss.find_state(sys_props_v3, env_state, kinematics)
+                           sys_props.reeling_speed_min_limit)
+    ss.find_state(sys_props, env_state, kinematics)
     return ss.tether_force_ground
 
 
-def get_cut_in_wind_speed(env):
+def get_cut_in_wind_speed(env, sys_props):
     """Iteratively determine lowest wind speed for which, along the entire
     reel-out path, feasible steady flight states
     with the minimum allowable reel-out speed are found."""
     dv = 1e-2  # Step size [m/s].
-    v0 = 4  # Lowest wind speed [m/s] with which the iteration is started.
+    v0 = 2  # Lowest wind speed [m/s] with which the iteration is started.
 
     v = v0
     rescan_finer_steps = False
@@ -54,8 +88,8 @@ def get_cut_in_wind_speed(env):
         env.set_reference_wind_speed(v)
         try:
             # Setting tether force as setpoint in qsm yields infeasible region
-            tether_force_start = calc_tether_force_traction(env, l0)
-            tether_force_end = calc_tether_force_traction(env, l1_lb)
+            tether_force_start = calc_tether_force_traction(env, l0, sys_props)
+            tether_force_end = calc_tether_force_traction(env, l1_lb, sys_props)
 
             start_critical = tether_force_end > tether_force_start
             if start_critical:
@@ -63,8 +97,8 @@ def get_cut_in_wind_speed(env):
             else:
                 critical_force = tether_force_end
 
-            if tether_force_start > sys_props_v3.tether_force_min_limit and \
-                    tether_force_end > sys_props_v3.tether_force_min_limit:
+            if tether_force_start > sys_props.tether_force_min_limit and \
+                    tether_force_end > sys_props.tether_force_min_limit:
                 if v == v0:
                     raise ValueError("Starting speed is too high.")
                 if rescan_finer_steps:
@@ -78,11 +112,11 @@ def get_cut_in_wind_speed(env):
         v += dv
 
 
-def calc_n_cw_patterns(env, theta=60. * np.pi / 180.):
+def calc_n_cw_patterns(env, sys_props, theta=60. * np.pi / 180.):
     """Calculate the number of cross-wind manoeuvres flown."""
     trac = TractionPhaseHybrid({
             'control': ('tether_force_ground',
-                        sys_props_v3.tether_force_max_limit),
+                        sys_props.tether_force_max_limit),
             'azimuth_angle': phi_ro,
             'course_angle': chi_ro,
         })
@@ -96,23 +130,24 @@ def calc_n_cw_patterns(env, theta=60. * np.pi / 180.):
     trac.elevation_angle = TractionConstantElevation(theta)
     trac.tether_length_end = l1_ub
     trac.finalize_start_and_end_kite_obj()
-    trac.run_simulation(sys_props_v3, env,
+    trac.run_simulation(sys_props, env,
                         {'enable_steady_state_errors': True})
 
     return trac.n_crosswind_patterns
 
 
-def get_max_wind_speed_at_elevation(env=LogProfile(),
+def get_max_wind_speed_at_elevation(sys_props,
+                                    env=LogProfile(),
                                     theta=60. * np.pi / 180.):
     """Iteratively determine maximum wind speed allowing at least one
     cross-wind manoeuvre during the reel-out phase for
     provided elevation angle."""
     dv = 0.2  # Step size [m/s].
-    v0 = 25.  # Lowest wind speed [m/s] with which the iteration is started.
+    v0 = 22.  # Lowest wind speed [m/s] with which the iteration is started.
     # Check if the starting wind speed gives a feasible solution.
     env.set_reference_wind_speed(v0)
     try:
-        n_cw_patterns = calc_n_cw_patterns(env, theta)
+        n_cw_patterns = calc_n_cw_patterns(env, sys_props, theta)
     except (SteadyStateError, OperationalLimitViolation) as e:
         if e.code == 8:
             pass
@@ -124,7 +159,7 @@ def get_max_wind_speed_at_elevation(env=LogProfile(),
                 print('second test: ', v0)
                 # Check if the starting wind speed gives a feasible solution.
                 env.set_reference_wind_speed(v0)
-                n_cw_patterns = calc_n_cw_patterns(env, theta)
+                n_cw_patterns = calc_n_cw_patterns(env, sys_props, theta)
             except (SteadyStateError, OperationalLimitViolation) as e:
                 if e.code == 8:
                     pass
@@ -138,7 +173,7 @@ def get_max_wind_speed_at_elevation(env=LogProfile(),
                         # Check if the starting wind speed gives
                         # a feasible solution.
                         env.set_reference_wind_speed(v0)
-                        n_cw_patterns = calc_n_cw_patterns(env, theta)
+                        n_cw_patterns = calc_n_cw_patterns(env, sys_props, theta)
                     except (SteadyStateError,
                             OperationalLimitViolation) as e:
                         try:
@@ -150,7 +185,7 @@ def get_max_wind_speed_at_elevation(env=LogProfile(),
                             # Check if the starting wind speed gives
                             # a feasible solution.
                             env.set_reference_wind_speed(v0)
-                            n_cw_patterns = calc_n_cw_patterns(env, theta)
+                            n_cw_patterns = calc_n_cw_patterns(env, sys_props, theta)
                         except (SteadyStateError,
                                 OperationalLimitViolation) as e:
                             if e.code != 8:
@@ -167,7 +202,7 @@ def get_max_wind_speed_at_elevation(env=LogProfile(),
         # TODO output? print('velocity: ', v, 'rescan: ', rescan_finer_steps,
         #       'fail_couter: ', fail_counter)
         try:
-            n_cw_patterns = calc_n_cw_patterns(env, theta)
+            n_cw_patterns = calc_n_cw_patterns(env, sys_props, theta)
             fail_counter = 0  # Simulation worked -> reset fail counter
             if n_cw_patterns < 1.:  # No full crosswind pattern flown - cut out
                 if rescan_finer_steps:
@@ -198,7 +233,7 @@ def get_max_wind_speed_at_elevation(env=LogProfile(),
         v += dv
 
 
-def get_cut_out_wind_speed(env=LogProfile()):
+def get_cut_out_wind_speed(sys_props, env=LogProfile()):
     """In general, the elevation angle is increased with wind speed as a last
     means of de-powering the kite. In that case, the wind speed at which the
     elevation angle reaches its upper limit is the cut-out wind speed. This
@@ -209,7 +244,7 @@ def get_cut_out_wind_speed(env=LogProfile()):
     dbeta = 1*np.pi/180.
     vw_last = 0.
     while True:
-        vw = get_max_wind_speed_at_elevation(env, beta)
+        vw = get_max_wind_speed_at_elevation(sys_props, env, beta)
         if vw is not None:
             if vw <= vw_last:
                 return vw_last, beta+dbeta
@@ -277,12 +312,16 @@ def estimate_wind_speed_operational_limits(config,
         env = create_environment(input_profiles, i_profile)
 
         # Get cut-in wind speed.
-        vw_cut_in, _, tether_force_cut_in = get_cut_in_wind_speed(env)
+        sys_props = sys_props_v3
+        _, _, read_sys_props, read_x0 = read_system_settings(config)
+        if read_sys_props is not None:
+            sys_props = read_sys_props
+        vw_cut_in, _, tether_force_cut_in = get_cut_in_wind_speed(env, sys_props)
         res['vw_100m_cut_in'].append(vw_cut_in)
         res['tether_force_cut_in'].append(tether_force_cut_in)
 
         # Get cut-out wind speed
-        vw_cut_out, elev = get_cut_out_wind_speed(env)
+        vw_cut_out, elev = get_cut_out_wind_speed(sys_props, env)
         # if vw_cut_out > 27:
         #     vw_cut_out = 27
 
@@ -344,9 +383,24 @@ def generate_power_curves(config,
             'course_angle': chi_ro,
         },
     }
+
     cycle_sim_settings_pc_phase2 = deepcopy(cycle_sim_settings_pc_phase1)
     cycle_sim_settings_pc_phase2['cycle']['traction_phase'] = \
         TractionPhaseHybrid
+
+    # TODO make kitepower_3 default settings file
+    sys_props = sys_props_v3
+
+    read_cycle_sim_settings_pc_phase1, read_cycle_sim_settings_pc_phase2, \
+        read_sys_props, read_x0 = read_system_settings(config)
+    if read_cycle_sim_settings_pc_phase1 is not None:
+        cycle_sim_settings_pc_phase1 = read_cycle_sim_settings_pc_phase1
+    if read_cycle_sim_settings_pc_phase2 is not None:
+        cycle_sim_settings_pc_phase1 = read_cycle_sim_settings_pc_phase2
+    if read_sys_props is not None:
+        sys_props = read_sys_props
+    if read_x0 is not None:
+        x0 = read_x0
 
     fig, ax_pcs = plt.subplots(2, 1)
     for a in ax_pcs:
@@ -379,10 +433,11 @@ def generate_power_curves(config,
         # estimated cut-out wind speed.
         vw_cut_in = limit_estimates.iloc[i_profile-1]['vw_100m_cut_in']
         vw_cut_out = limit_estimates.iloc[i_profile-1]['vw_100m_cut_out']
-        wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
-        wind_speeds = np.concatenate((wind_speeds,
-                                      np.linspace(vw_cut_out-1,
-                                                  vw_cut_out-0.05, 15)))
+        wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
+        # wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
+        # wind_speeds = np.concatenate((wind_speeds,
+        #                               np.linspace(vw_cut_out-1,
+        #                                           vw_cut_out-0.05, 15)))
 
         # For the first phase of the power curve, the constraint on the number
         # of cross-wind patterns flown is not
@@ -392,14 +447,14 @@ def generate_power_curves(config,
         # this phase. Also the upper elevation bound
         # is set to 30 degrees.
         op_cycle_pc_phase1 = OptimizerCycle(cycle_sim_settings_pc_phase1,
-                                            sys_props_v3, env,
+                                            sys_props, env,
                                             reduce_x=np.array([0, 1, 2, 3]),
                                             bounds=copy.deepcopy(
                                                 config.Power.bounds))
         op_cycle_pc_phase1.bounds_real_scale[2][1] = 30*np.pi/180.
 
         op_cycle_pc_phase2 = OptimizerCycle(cycle_sim_settings_pc_phase2,
-                                            sys_props_v3, env,
+                                            sys_props, env,
                                             reduce_x=np.array([0, 1, 2, 3]),
                                             bounds=copy.deepcopy(
                                                 config.Power.bounds))
@@ -431,8 +486,10 @@ def generate_power_curves(config,
         # the cut-in wind speed.
         critical_force = limit_estimates.iloc[i_profile-1][
             'tether_force_cut_in']
-        x0 = np.array([critical_force, 300., theta_ro_ci, 150., 200.0])
-
+        if read_x0 is None:
+            x0 = np.array([critical_force, 300., theta_ro_ci, 150., 200.0])
+        else:
+            x0 = read_x0
         # Start optimizations.
         pc = PowerCurveConstructor(wind_speeds)
         setattr(pc, 'plots_interactive', config.Plotting.plots_interactive)
@@ -492,10 +549,10 @@ def generate_power_curves(config,
             circle_radius=op_cycle_pc_phase2.bounds_real_scale[4][0])
         pc.plot_optimization_results(op_cycle_pc_phase2.OPT_VARIABLE_LABELS,
                                      op_cycle_pc_phase2.bounds_real_scale,
-                                     [sys_props_v3.tether_force_min_limit,
-                                      sys_props_v3.tether_force_max_limit],
-                                     [sys_props_v3.reeling_speed_min_limit,
-                                      sys_props_v3.reeling_speed_max_limit],
+                                     [sys_props.tether_force_min_limit,
+                                      sys_props.tether_force_max_limit],
+                                     [sys_props.reeling_speed_min_limit,
+                                      sys_props.reeling_speed_max_limit],
                                      plot_info='_profile_{}'.format(i_profile))
 
         n_cwp = np.array([kpis['n_crosswind_patterns']
@@ -653,6 +710,7 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                     for kpis in performance_indicators_success]
         v_in_max = [kpis['max_reeling_speed']['in']
                     for kpis in performance_indicators_success]
+        print(v_in_min, v_in_max)
         p = plt.plot(pc.wind_speeds, v_in_min, label=str(int(idx + 1)))
         clr = p[-1].get_color()
         plt.plot(pc.wind_speeds, v_in_max, linestyle='None', marker=7,

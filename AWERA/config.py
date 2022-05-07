@@ -26,6 +26,7 @@ import yaml
 import os
 import numpy as np
 from .location_selection import get_locations
+import importlib
 
 
 class Config:
@@ -98,13 +99,19 @@ class Config:
             self.Data.lon_range,
             self.Data.all_lats,
             self.Data.all_lons,
-            self.Data.grid_size
+            self.Data.grid_size,
+            init_locs=self.Data.init_locs
             ))
         # Get loction indices w.r.t. to full dataset
-        setattr(self.Data, 'i_locations', [(self.Data.all_lats.index(lat),
-                                            self.Data.all_lons.index(lon))
-                                           for lat, lon in self.Data.locations]
-                )
+        print(self.Data.locations)
+        try:
+            setattr(self.Data, 'i_locations', [(self.Data.all_lats.index(lat),
+                                                self.Data.all_lons.index(lon))
+                                               for lat, lon in self.Data.locations]
+                    )
+        except ValueError as e:
+            print('Not setting location indices, location not in list of all locations', e.args[0])
+            # TODO nit printing e? e.text...?
         # Check for individual training data selection, otherwise set to Data
         for key in self.Clustering.training.__dict__:
             if getattr(self.Clustering.training, key) is None:
@@ -133,7 +140,8 @@ class Config:
                                   self.Data.lon_range,
                                   self.Data.all_lats,
                                   self.Data.all_lons,
-                                  self.Data.grid_size
+                                  self.Data.grid_size,
+                                  init_locs=self.Clustering.training.init_locs
                                   ))
         # Set correct n_locs
         setattr(self.Data, 'n_locs', len(self.Data.locations))
@@ -180,7 +188,6 @@ class Config:
             self.Clustering.n_clusters,
             self.Clustering.n_pcs,
             )
-        setattr(self.Clustering.training, 'settings_info', settings_info)
 
         try:
             norm = self.Clustering.do_normalize_data
@@ -203,7 +210,17 @@ class Config:
         except AttributeError:
             pass
         settings_info = settings_info.format('')
+
+        kite_name = ''
+        try:
+            kite_name = importlib.import_module(
+                self.Power.kite_and_QSM_settings_file).kite_name + '_'
+        except AttributeError:
+            pass
+        settings_info = kite_name + settings_info
+        setattr(self.Power, 'kite', kite_name)
         setattr(self.Clustering.training, 'settings_info', settings_info)
+
 
         # --------------------------- DIR + FILE and SUFFIX FORMATTING
         # TODO optimize this....
