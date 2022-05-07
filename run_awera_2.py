@@ -12,24 +12,24 @@ if __name__ == '__main__':
     # read config from jobnumber
     # 8 small jobs
     # 4 big jobs
-    loc_id = int(os.environ['LOC_ID'])
+    # loc_id = int(os.environ['LOC_ID'])
 
     settings = {
-        'Processing': {'n_cores': 10},
-        'Data': {'n_locs': -1,
-                 'location_type': 'europe'},
+    #     'Processing': {'n_cores': 10},
+    #     'Data': {'n_locs': -1,
+    #              'location_type': 'europe'},
         'Clustering': {
-            'n_clusters': 80,  # TODO choose before predict labels...
-            'training': {
-                'n_locs': 5000,
-                'location_type': 'europe'
+            'n_clusters': 8,  # TODO choose before predict labels...
+    #         'training': {
+    #             'n_locs': 5000,
+    #             'location_type': 'europe'
                 }
-            },
-        'IO': {'result_dir':
-               "/cephfs/user/s6lathim/AWERA_results/"}
+    #         },
+    #     'IO': {'result_dir':
+    #            "/cephfs/user/s6lathim/AWERA_results/"}
     }
     print(settings)
-    # Update settings to config
+    # # Update settings to config
     config.update(settings)
 
     # Initialise AWERA chain with chosen config
@@ -78,22 +78,25 @@ if __name__ == '__main__':
 
     # TODO check if clustering etc has to be done?
 
-    working_title = 'predict_labels_{}'.format(loc_id) # 'run_profile'
+    # working_title = 'predict_labels_{}'.format(loc_id) # 'run_profile'
     # awera.predict_labels(locs_slice=(loc_id, 1000))
     # print('Labels predicted.')
     #working_title = 'combine_labels'
-    awera.combine_labels()
-    print('Labels combined.')
+    #awera.combine_labels()
+    #print('Labels combined.')
     #working_title = 'plotting'
     #awera.plot_cluster_shapes()
-    awera.get_frequency()
-    print('Frequency predicted.')
+    #awera.get_frequency()
+    #print('Frequency predicted.')
     # from AWERA.eval.evaluation import evalAWERA
     # e = evalAWERA(config)
     # working_title = 'sliding_window_eval'
     # e.sliding_window_power()
     #e.aep_map()
-    #awera.run()
+    # awera.run_clustering()
+    awera.plot_cluster_shapes()
+    print('Clustering done.')
+    #awera.run_curves()
     #e.power_freq()
 
     # profiler.disable()

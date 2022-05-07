@@ -11,19 +11,19 @@ if __name__ == '__main__':
     # 4 big jobs
     settings_id = int(os.environ['SETTINGS_ID'])
 
-    n_clusters_settings = [8, 16, 80]
-    n_clusters = n_clusters_settings[0]
+    n_clusters_settings = [8, 24]  # 16, 80]
+    n_clusters = n_clusters_settings[settings_id]
 
-    n_locs = [200, 500, 1000, 5000]
-    n_l = n_locs[settings_id]
+    # n_locs = 1 # [200, 500, 1000, 5000]
+    n_l = 1  # n_locs[settings_id]
     settings = {
-        'Data': {'n_locs': 50,
-                 'location_type': 'europe'},
+        'Data': {'n_locs': 1,
+                 'location_type': 'Rotterdam'},
         'Clustering': {
             'n_clusters': n_clusters,
             'training': {
                 'n_locs': n_l,
-                'location_type': 'europe'
+                'location_type': 'Rotterdam'
                 }
             },
         'Processing': {'n_cores': n_clusters},
@@ -33,6 +33,8 @@ if __name__ == '__main__':
     print(settings)
     # Update settings to config
     config.update(settings)
+
+    print(config)
 
     # Initialise AWERA chain with chosen config
     awera = ChainAWERA(config)
