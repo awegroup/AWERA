@@ -96,7 +96,7 @@ def random_locations(n=10,
 
 def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
                   all_lats, all_lons,
-                  grid_size, init_locs=[]):
+                  grid_size, init_locs=None):
     # TODO fix BAF error random generation xmax < xmin?
     n_max_locs = len(all_lats)*len(all_lons)
     if n_locs == -1 or n_locs == n_max_locs:
@@ -107,7 +107,7 @@ def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
         locations_file = file_name.format(
                 location_type=location_type,
                 n_locs=n_locs)
-    if len(init_locs) > 0:
+    if init_locs is not None:
         # TODO include option for custom locations in chain config/...
         locations = init_locs
         res = {'n_locs': n_locs,
