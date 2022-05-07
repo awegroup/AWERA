@@ -39,12 +39,9 @@ def plot_frequency(config):
         if sel_loc_id != -1:
             freq = frequency[sel_loc_id, i_profile, :]
             wind_speed_bins = wind_speed_bin_limits[i_profile, :]
-        elif len(locations) > 1:
+        else:
             # Mult locations
             freq = np.sum(frequency[:, i_profile, :], axis=0)/len(locations)
-            wind_speed_bins = wind_speed_bin_limits[i_profile, :]
-        else:  # TODO this is not right anymore?
-            freq = frequency[i_profile, :]
             wind_speed_bins = wind_speed_bin_limits[i_profile, :]
 
         wind_speed_bins = wind_speed_bins[:-1] + np.diff(wind_speed_bins)/2
@@ -53,6 +50,7 @@ def plot_frequency(config):
 
         # combine 4 bins
         freq_step = np.zeros(int(len(freq)/4))
+        print(len(freq))
         for i in range(int(len(freq)/4)):
             freq_step[i] = np.sum(freq[i*4:i*4+4])
         wind_speed_step = wind_speed_bins[::4]

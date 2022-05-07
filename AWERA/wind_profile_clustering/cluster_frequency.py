@@ -47,6 +47,7 @@ def location_wise_frequency_distribution(config,
                                          labels, n_samples, n_samples_per_loc,
                                          backscaling):
     #if len(locations) > 1:
+    n_samples_per_loc = int(n_samples_per_loc)
     distribution_data = {
         'frequency': np.zeros((len(locations),
                                config.Clustering.n_clusters,
@@ -54,6 +55,7 @@ def location_wise_frequency_distribution(config,
         'locations': locations
         }
     for i, loc in enumerate(locations):
+        print(i, loc, n_samples_per_loc)
         distribution_data['frequency'][i, :, :], \
             wind_speed_bin_limits = \
             export_single_loc_frequency_distribution(

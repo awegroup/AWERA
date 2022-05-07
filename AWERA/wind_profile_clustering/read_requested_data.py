@@ -326,7 +326,7 @@ def get_wind_data(config, sel_sample_ids=[], locs=[]):
         os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
         # TODO check - is this still needed?
         # if yes - where set, needed for era5? FIX
-        from read_data.dowa import read_data
+        from .read_data.dowa import read_data
         wind_data = read_data({'mult_coords': locs}, config.Data.DOWA_data_dir)
 
         # Use start_year to final_year data only
@@ -344,7 +344,8 @@ def get_wind_data(config, sel_sample_ids=[], locs=[]):
             wind_data[key] = wind_data[key][data_range]
         wind_data['n_samples'] = len(data_range)
         wind_data['years'] = (config.Data.start_year, config.Data.final_year)
-
+        wind_data['locations'] = locs
+        wind_data['n_samples_per_loc'] = wind_data['n_samples']/len(locs)
         print(len(hours))
         print(len(wind_data['wind_speed_east']), wind_data['n_samples'])
 
