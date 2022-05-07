@@ -1,6 +1,6 @@
 from .wind_profile_clustering.clustering import Clustering
 from .power_production.power_production import PowerProduction
-
+from .power_production.aep_map import evaluate_aep
 from .utils.plotting_utils import plot_map
 import numpy as np
 import pandas as pd
@@ -21,6 +21,8 @@ class ChainAWERA(Clustering, PowerProduction):
         if make_freq:
             setattr(self.config.Clustering, 'make_freq_distr', True)
             self.get_frequency()
+    def aep(self):
+        return evaluate_aep(self.config)
 
     def match_clustering_power_results(self,
                                        i_loc=None,
