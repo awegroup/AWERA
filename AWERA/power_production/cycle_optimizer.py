@@ -598,6 +598,10 @@ class OptimizerCycle(Optimizer):
 
         # Determine optimization objective and constraints.
         obj = -res['average_power']['cycle']/power_wind_100m/self.system_properties.kite_projected_area
+        if res['average_power']['eff']['cycle'] is not None:
+            obj = obj * res['average_power']['eff']['cycle']
+        else:
+            obj = 0
         # When speed limits are active during the optimization (see determine_new_steady_state method of Phase
         # class in qsm.py), the setpoint reel-out/reel-in forces are overruled. For special cases, the respective
         # optimization variables won't affect the simulation. The lower constraints avoid random steps between
@@ -693,8 +697,8 @@ class OptimizerCycle(Optimizer):
 
         env_state = self.environment_state
         power_wind_trac = []
-        for z in cycle.traction_phase.kinematics.z:
-            env_state.calculate(z)
+        for kin in cycle.traction_phase.kinematics:
+            env_state.calculate(kin.z)
             power_wind_trac.append(
                 .5 * env_state.air_density * env_state.wind_speed ** 3)
 
@@ -704,6 +708,12 @@ class OptimizerCycle(Optimizer):
                 'in': cycle.retraction_phase.average_power,
                 'trans': cycle.transition_phase.average_power,
                 'out': cycle.traction_phase.average_power,
+                'eff': {
+                    'cycle': cycle.eff_winch,
+                    'in': cycle.eff_retr,  # TODO add battery?
+                    'trans': cycle.eff_trans,
+                    'out': cycle.eff_trac,
+                    }
             },
             'min_tether_force': {
                 'in': cycle.retraction_phase.min_tether_force,

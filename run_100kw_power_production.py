@@ -23,7 +23,7 @@ sel_types = [
     [1, 1, 1]
     ]
 do_settings_scan = False  # True
-read_curve = True
+read_curve = False
 use_phase_eff = False  # True
 if do_settings_scan:
     # Scan kitepower 100kW system
@@ -129,14 +129,14 @@ wind_speeds_sel = {10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                         13, 14, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19,
                         19.5, 20, 21],
                    100:  # [11, 12, 13],
-                         # [1, 2,
+                         # [1, 2, ## 3, 4
                          [3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                           13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                          24]  # , 25, 26, 27, 28]
+                          24, 25]  # 26, 27, 28]
                    }  # m/s
 wind_speeds = wind_speeds_sel[ref_height]
 
-# scan_tag = '78_kN_' + scan_tag
+scan_tag = 'eff_' + scan_tag
 config.update({'General': {'ref_height': ref_height},
                'Power': {'profile_type': '{}kW_log_profile'.format(
                    rated_power),

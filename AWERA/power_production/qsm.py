@@ -2397,6 +2397,29 @@ class Cycle(TimeSeries):
         except FloatingPointError:
             self.pumping_efficiency = 0.
 
+        # Evaluate generator efficiencies
+        from .kitepower_generator import get_gen_eff,\
+            get_winch_eff
+        print(trac.average_power, retr.average_power, self.pumping_efficiency)
+        eff_traction, eff_retraction, eff_winch = (None, None, None)
+        if trac.average_power is not None:
+            eff_traction = get_gen_eff(trac.average_power,
+                                       trac.average_reeling_speed)
+            print('traction efficiency determined:', eff_traction)
+        if retr.average_power is not None:
+            eff_retraction = get_gen_eff(retr.average_power,
+                                         retr.average_reeling_speed)
+            print('retraction efficiency determined:', eff_retraction)
+        if eff_traction not in [None, 0] and \
+                eff_retraction not in [None, 0]:
+            eff_winch = get_winch_eff(self.pumping_efficiency,
+                                      eff_traction,
+                                      eff_retraction)
+            print('winch efficiency determined:', eff_winch)
+        self.eff_trac = eff_traction
+        self.eff_trans = 1.
+        self.eff_retr = eff_retraction
+        self.eff_winch = eff_winch
         return error_in_phase, self.average_power
 
     def trajectory_plot3d(self, fig_num=None):

@@ -85,7 +85,7 @@ class PowerCurveConstructor:
                         vw)
                     x0_opt, x_opt, op_res, cons, kpis = \
                         power_optimizer.run_optimization(x0_next,
-                                                         # n_x_test=4,
+                                                         n_x_test=1,  # TODO change again
                                                          second_attempt=True)
                     self.wind_speeds[i] = vw
                 except (OperationalLimitViolation, SteadyStateError,
@@ -106,7 +106,7 @@ class PowerCurveConstructor:
                         x0_opt, x_opt, op_res, cons, kpis = \
                             power_optimizer.run_optimization(
                                 x0_next,
-                                # n_x_test=4,
+                                n_x_test=1,  # TODO change again
                                 second_attempt=True)
                         self.wind_speeds[i] = vw
                     except (OperationalLimitViolation, SteadyStateError,
