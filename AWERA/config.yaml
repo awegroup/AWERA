@@ -49,7 +49,7 @@ Clustering:
     save_pca_pipeline: True
 
 Power:
-    kite_and_QSM_settings_file: 'kitepower_100kW_78'  # '/home/s6lathim/physik/AWE/AWERA/kitepower_100kW.py'
+    kite_and_QSM_settings_file: 'kitepower_100kW'  # '_78'  # '/home/s6lathim/physik/AWE/AWERA/kitepower_100kW.py'
     # Estimate cut-in/out wind speeds for the model
     estimate_cut_in_out: True
     # Run power production simulation for the velocity ranges defined
@@ -87,8 +87,8 @@ Data:
     read_model_level_up_to: 112
     n_locs: 1 # -1  # Randomly select this many locations | -1 for all locations
     # TODO if no n_locs given: set to len(locations) ?
-    location_type: 'Rotterdam' # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
-    init_locs: [[51.91, 4.47]]
+    location_type: 'Maasvlakte_2' # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
+    init_locs: [[51.982782, 4.010359]]
     lat_range: [65, 30]  #[51, 56]  #
     lon_range: [-20, 20]  # [-12, -5.25]  # [-12, -6]  #
     grid_size: 0.25

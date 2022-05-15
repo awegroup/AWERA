@@ -57,6 +57,7 @@ def read_netcdf(i_lat, i_lon, data_dir):
     iy, ix = i_lat+1, i_lon+1
     file = '{}DOWA_40h12tg2_fERA5_NETHERLANDS.NL_' \
            'ix{:03d}_iy{:03d}_2008010100-2018010100_v1.0.nc'.format(data_dir, ix, iy)
+    print(file)
     ds = xr.open_dataset(file)
     # Variables: Lambert_Conformal, wdir, wspeed, ta (air temperature), p (air pressure), hur (relative humidity)
 
