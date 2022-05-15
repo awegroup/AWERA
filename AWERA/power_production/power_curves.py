@@ -870,17 +870,25 @@ def compare_kpis(config, power_curves, compare_profiles=None):
         print(eff_cycle)
         print(eff_in)
         print(eff_out)
-        plt.plot(pc.wind_speeds, np.array(eff_cycle)*100,
-                 label=str(int(idx + 1)))
-        plt.plot(pc.wind_speeds, np.array(eff_in)*100,
-                 label=str(int(idx + 1)), marker=6)
-        plt.plot(pc.wind_speeds, np.array(eff_out)*100,
-                 label=str(int(idx + 1)), marker=7)
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None, None]
+        else:
+            labels = ['cycle', 'reel-in', 'reel-out']
+        p = plt.plot(pc.wind_speeds, np.array(eff_cycle)*100,
+                     label=labels[0])
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+        plt.plot(pc.wind_speeds, np.array(eff_in)*100, color=clr,
+                 label=labels[1], marker=6, linestyle='None')
+        plt.plot(pc.wind_speeds, np.array(eff_out)*100, color=clr,
+                 label=labels[2], marker=7, linestyle='None')
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Generator Efficiency [%]')
-        if compare_profiles is not None:
-            plt.legend()
+
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_eff_gen_vs_'

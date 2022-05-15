@@ -46,6 +46,9 @@ class PowerCurveConstructor:
                 vw_switch = next(wind_speed_tresholds)
 
             power_optimizer = seq[vw_switch]['power_optimizer']
+            # TODO set in settings?
+
+            power_optimizer.random_x0 = False
             dx0 = seq[vw_switch].get('dx0', None)
 
             if x_opt_last is None:

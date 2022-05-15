@@ -1384,16 +1384,19 @@ class Phase(TimeSeries):
         else:
             min_force = sys_props.tether_force_min_limit
             max_force = sys_props.tether_force_max_limit
+
+        min_speed = sys_props.reeling_speed_min_limit
         if "RetractionPhase" in self.__class__.__name__ \
                 and sys_props.reeling_speed_max_limit_retr is not None:
             max_speed = sys_props.reeling_speed_max_limit_retr
+            min_speed = 6.5
         elif "TractionPhase" in self.__class__.__name__ \
                 and sys_props.reeling_speed_max_limit_trac is not None:
             max_speed = sys_props.reeling_speed_max_limit_trac
         else:
             max_speed = sys_props.reeling_speed_max_limit
 
-        min_speed = sys_props.reeling_speed_min_limit
+
         assert max_speed > 0 and min_speed >= 0, "Reeling speed limits should be positive."
 
         # When operational limits are imposed, evaluate if the primary control setting yield limit violations.
