@@ -252,11 +252,14 @@ def get_cut_out_wind_speed(sys_props, env=LogProfile()):
         beta -= dbeta
 
 
-def export_to_csv(config, v, v_cut_out, p, x_opts, n_cwp, i_profile):
+def export_to_csv(config, v, v_cut_out, p, p_mech, eff,
+                  x_opts, n_cwp, i_profile):
     df = {
         'v_100m [m/s]': v,
         'v/v_cut-out [-]': np.array(v)/v_cut_out,
         'P [W]': p,
+        'P mech [W]': p_mech,
+        'eff [-]': eff,
         'F_out [N]': [x[0] for x in x_opts],
         'F_in [N]': [x[1] for x in x_opts],
         'theta_out [rad]': [x[2] for x in x_opts],
@@ -558,9 +561,16 @@ def generate_power_curves(config,
         n_cwp = np.array([kpis['n_crosswind_patterns']
                           for kpis in pc.performance_indicators]
                          )[sel_succ]  # [sel_succ_power]
+        eff = [kpis['generator']['eff']['cycle']
+               for kpis in pc.performance_indicators]
+        for i, e in enumerate(eff):
+            if e is None:
+                eff[i] = 0
+        eff = np.array(eff)[sel_succ]
+        p_eff = eff * p_cycle
         x_opts = np.array(pc.x_opts)[sel_succ]  # [sel_succ_power]
         if config.General.write_output:
-            export_to_csv(config, wind, vw_cut_out, p_cycle,
+            export_to_csv(config, wind, vw_cut_out, p_eff, p_cycle, eff,
                           x_opts, n_cwp, i_profile)
         # Refine the wind speed operational limits to wind speeds for
         # which optimal solutions are found.
@@ -625,13 +635,13 @@ def compare_kpis(config, power_curves, compare_profiles=None):
     # TODO adapt label to config ref height
     x_label = '$v_{w,' + str(config.General.ref_height) + 'm}$ [m/s]'
     if compare_profiles is not None:
-        fig_nums = [plt.figure().number for _ in range(10)]
+        fig_nums = [plt.figure().number for _ in range(15)]
         tag = '_compare'
     else:
         tag = ''
     for idx, pc in enumerate(power_curves):
         if compare_profiles is None:
-            fig_nums = [plt.figure().number for _ in range(10)]
+            fig_nums = [plt.figure().number for _ in range(15)]
         if compare_profiles is not None:
             if idx+1 not in compare_profiles:
                 continue
@@ -812,6 +822,107 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                 title=('performance_indicator_v_at_avg_traction_height_vs_'
                        'wind_speeds_profile_{}{}'.format(idx+1, tag))))
 
+        plt.figure(fig_nums[10])
+        p_cycle = [kpis['average_power']['cycle']
+                   for kpis in performance_indicators_success]
+        p_in = [kpis['average_power']['in']
+                for kpis in performance_indicators_success]
+        p_out = [kpis['average_power']['out']
+                 for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(p_cycle)/1000,
+                 label=str(int(idx + 1)))
+        plt.plot(pc.wind_speeds, np.array(p_in)/1000,
+                 label=str(int(idx + 1)), marker=6)
+        plt.plot(pc.wind_speeds, np.array(p_out)/1000,
+                 label=str(int(idx + 1)), marker=7)
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Power [kW]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_phase_power_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[11])
+        p_trans = [kpis['average_power']['trans']
+                   for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(p_trans)/1000,
+                 label=str(int(idx + 1)))
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Power [kW]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_transisiton_phase_power_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[12])
+        eff_cycle = [kpis['generator']['eff']['cycle']
+                     for kpis in performance_indicators_success]
+        eff_in = [kpis['generator']['eff']['in']
+                  for kpis in performance_indicators_success]
+        eff_out = [kpis['generator']['eff']['out']
+                   for kpis in performance_indicators_success]
+        print(eff_cycle)
+        print(eff_in)
+        print(eff_out)
+        plt.plot(pc.wind_speeds, np.array(eff_cycle)*100,
+                 label=str(int(idx + 1)))
+        plt.plot(pc.wind_speeds, np.array(eff_in)*100,
+                 label=str(int(idx + 1)), marker=6)
+        plt.plot(pc.wind_speeds, np.array(eff_out)*100,
+                 label=str(int(idx + 1)), marker=7)
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Generator Efficiency [%]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_eff_gen_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[13])
+        load_in = [kpis['generator']['load']['in']
+                   for kpis in performance_indicators_success]
+        load_out = [kpis['generator']['load']['out']
+                    for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(load_in),
+                 label=str(int(idx + 1)), marker=6)
+        plt.plot(pc.wind_speeds, np.array(load_out),
+                 label=str(int(idx + 1)), marker=7)
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Load [%]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_load_gen_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[14])
+        freq_in = [kpis['generator']['freq']['in']
+                   for kpis in performance_indicators_success]
+        freq_out = [kpis['generator']['freq']['out']
+                    for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(freq_in),
+                 label=str(int(idx + 1)), marker=6)
+        plt.plot(pc.wind_speeds, np.array(freq_out),
+                 label=str(int(idx + 1)), marker=7)
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Frequency [Hz]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_freq_gen_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
 
 def combine_separate_profile_files(config,
                                    io_file='refined_cut_wind_speeds',

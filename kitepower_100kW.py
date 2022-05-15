@@ -15,9 +15,9 @@ sys_props = {
     'kite_lift_coefficient_depowered': .2,  # [-]
     'kite_drag_coefficient_depowered': .1,  # [-] - in the range of .1 - .2
     'reeling_speed_min_limit': 0.05,  # 2,  # [m/s] - ratio of 4 between lower and upper limit would reduce generator costs
-    'reeling_speed_max_limit_retr': 10,
+    'reeling_speed_max_limit_retr': 9.3493,  # 10,
     'reeling_speed_max_limit_trac': 5,
-    # 'reeling_speed_max_limit': 10,  # [m/s]
+    'reeling_speed_max_limit': 10,  # [m/s]  #  relevant for general settings, set in transition, but transition control is zero reeling speed
     'tether_drag_coefficient': 1.1,  # [-]
 }
 

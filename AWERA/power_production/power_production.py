@@ -389,12 +389,13 @@ class PowerProduction(SingleProduction):
             except AttributeError:
                 raise ValueError('No valid option to get '
                                  'power curve input found.')
-        loss_factor = [1, 0.9]
+        no_loss = [True, False]
         loss_labels = ['Mechanical Power', 'Electrical Power']
         loss_styles = ['solid', 'dashdot']
         for i_profile in range(n_profiles):
-            for loss_i, loss_f in enumerate(loss_factor):
+            for loss_i, use_mech in enumerate(no_loss):
                 if n_profiles > 1 and not plot_full_electrical and loss_i > 0:
+                    # TODO this always plot electrical for single profile
                     continue
                 if n_profiles > 1:
                     cmap = plt.get_cmap("gist_ncar")
@@ -420,7 +421,7 @@ class PowerProduction(SingleProduction):
                     # Get power and wind speeds from pc input
                     pc = pcs[i_profile]
                 if isinstance(pc, PowerCurveConstructor):
-                    wind_speeds, power = pc.curve()
+                    wind_speeds, power = pc.curve(return_mech=use_mech)
                     if speed_at_op_height:
                         wind_speeds = [kpis[
                             'wind_speed_at_avg_traction_height']
@@ -428,10 +429,13 @@ class PowerProduction(SingleProduction):
                         power = np.array([x for _, x in sorted(zip(wind_speeds, power))])
                         wind_speeds = np.array(sorted(wind_speeds))
                 else:
+                    if not plot_full_electrical and loss_i > 0:
+                        continue
                     wind_speeds, power = pc[0], pc[1]
                     if speed_at_op_height:
                         print('Wind Speed input interpreted'
                               ' as at operational height')
+
                 # Plot power
                 if labels is None:
                     label = str(i_profile+1)
@@ -442,7 +446,7 @@ class PowerProduction(SingleProduction):
                 if n_profiles == 1:
                     # Single labeling
                     label = loss_labels[loss_i] + ' ' + label
-                elif loss_f < 1:
+                elif loss_i > 0:
                     # No labels - no legend entries for multple profile plots
                     label = ''
                     # TODO is this needed? :
@@ -456,7 +460,7 @@ class PowerProduction(SingleProduction):
                     linestyle = lines[(i_profile+1) % 10]
                 else:
                     linestyle = loss_styles[loss_i]
-                ax_pcs.plot(wind_speeds, power/1000*loss_f, label=label,
+                ax_pcs.plot(wind_speeds, power/1000, label=label,
                             linestyle=linestyle, zorder=2,
                             color=color)
 

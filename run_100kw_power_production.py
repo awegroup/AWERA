@@ -130,13 +130,15 @@ wind_speeds_sel = {10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                         19.5, 20, 21],
                    100:  # [11, 12, 13],
                          # [1, 2, ## 3, 4
-                         [3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-                          13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                          24, 25]  # 26, 27, 28]
+                         # [4, 5, 6, 7, 8, 9, 10, 11, 12,
+                         #  13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                         #  ]  # 22, 23,
+                          # 24, 25]  # 26, 27, 28]
+                        [5, 8, 11, 14, 17, 20]
                    }  # m/s
 wind_speeds = wind_speeds_sel[ref_height]
 
-scan_tag = 'eff_' + scan_tag
+scan_tag = 'eff_short_78' + scan_tag
 config.update({'General': {'ref_height': ref_height},
                'Power': {'profile_type': '{}kW_log_profile'.format(
                    rated_power),
@@ -184,12 +186,28 @@ if read_curve:
     pc = prod.read_curve(i_profile='log', return_constructor=True)
     env_state = LogProfile()
     env_state.set_reference_height(ref_height)
-    env_state.set_reference_wind_speed(wind_speeds[0])
-    env_state.plot_wind_profile(color='#2ca02c')
-    plt.xlim([-2.2, 3.2])
+    env_state.set_reference_wind_speed(1)
+    heights = [10, 25, 50., 75., 100., 150., 200., 300., 400., 500., 600.]
+    wind_speeds = [env_state.calculate_wind(h) for h in heights]
+    # env_state.plot_wind_profile(color='#2ca02c')
+
+    cm = 1/2.54
+    fig = plt.figure(figsize=(5.5*cm, 7.5*cm))
+    ax = fig.add_subplot(111)
+
+    ax.set_ylabel("Height [m]")
+    ax.set_xlim([-2.2, 3.2])
     plt.ylim([0, 600])
+    ax.set_title("Log Profile")
+    ax.grid(True)
+    ax.set_xlabel('v [-]')
+
+    ax.plot(wind_speeds, heights, '--',
+            label='Magnitude', ms=3, color='#2ca02c')
+    plt.tight_layout()
     plt.savefig(prod.config.IO.plot_output.format(
         title='log_wind_profile_shape'))
+
     oc = prod.create_optimizer(env_state, wind_speeds[0],
                                sys_props=sys_props,
                                cycle_sim_settings=settings,
@@ -241,10 +259,20 @@ pc.plot_optimal_trajectories(plot_info='_profile_log',
 n_cwp = np.array([kpis['n_crosswind_patterns']
                   for kpis in pc.performance_indicators]
                  )[sel_succ]  # [sel_succ_power]
+eff = [kpis['generator']['eff']['cycle']
+       for kpis in pc.performance_indicators]
+print('eff:', eff)
+for i, e in enumerate(eff):
+    if e is None:
+        eff[i] = 0
+eff = np.array(eff)[sel_succ]
+p_eff = eff * p_cycle
+print(eff, p_cycle)
+print(p_eff)
 x_opts = np.array(pc.x_opts)[sel_succ]  # [sel_succ_power]
 if config.General.write_output:
     from AWERA.power_production.power_curves import export_to_csv
-    export_to_csv(config, wind, wind[-1], p_cycle,
+    export_to_csv(config, wind, wind[-1], p_eff, p_cycle, eff,
                   x_opts, n_cwp, 'log')
 
 

@@ -1384,7 +1384,7 @@ class Phase(TimeSeries):
         else:
             min_force = sys_props.tether_force_min_limit
             max_force = sys_props.tether_force_max_limit
-        if self.__class__.__name__ == "RetractionPhase" \
+        if "RetractionPhase" in self.__class__.__name__ \
                 and sys_props.reeling_speed_max_limit_retr is not None:
             max_speed = sys_props.reeling_speed_max_limit_retr
         elif "TractionPhase" in self.__class__.__name__ \
@@ -2399,26 +2399,34 @@ class Cycle(TimeSeries):
 
         # Evaluate generator efficiencies
         from .kitepower_generator import get_gen_eff,\
-            get_winch_eff
+            get_winch_eff, get_gen_bounds
         print(trac.average_power, retr.average_power, self.pumping_efficiency)
-        eff_traction, eff_retraction, eff_winch = (None, None, None)
+        self.load_bounds, self.freq_bounds = get_gen_bounds()
+        eff_trac, eff_retr, eff_winch = (None, None, None)
         if trac.average_power is not None:
-            eff_traction = get_gen_eff(trac.average_power,
-                                       trac.average_reeling_speed)
-            print('traction efficiency determined:', eff_traction)
+            eff_trac, load_trac, freq_trac = get_gen_eff(
+                trac.average_power,
+                trac.average_reeling_speed)
+            eff_trac = eff_trac[0]
+            self.traction_phase.gen_eff = eff_trac
+            self.traction_phase.gen_load = load_trac
+            self.traction_phase.gen_freq = freq_trac
+            print('traction efficiency determined:', eff_trac)
         if retr.average_power is not None:
-            eff_retraction = get_gen_eff(retr.average_power,
-                                         retr.average_reeling_speed)
-            print('retraction efficiency determined:', eff_retraction)
-        if eff_traction not in [None, 0] and \
-                eff_retraction not in [None, 0]:
+            eff_retr, load_retr, freq_retr = get_gen_eff(
+                retr.average_power,
+                retr.average_reeling_speed)
+            eff_retr = eff_retr[0]
+            self.retraction_phase.gen_eff = eff_retr
+            self.retraction_phase.gen_load = load_retr
+            self.retraction_phase.gen_freq = freq_retr
+            print('retraction efficiency determined:', eff_retr)
+        if eff_trac not in [None, 0] and \
+                eff_retr not in [None, 0]:
             eff_winch = get_winch_eff(self.pumping_efficiency,
-                                      eff_traction,
-                                      eff_retraction)
+                                      eff_trac,
+                                      eff_retr)
             print('winch efficiency determined:', eff_winch)
-        self.eff_trac = eff_traction
-        self.eff_trans = 1.
-        self.eff_retr = eff_retraction
         self.eff_winch = eff_winch
         return error_in_phase, self.average_power
 

@@ -1,6 +1,7 @@
 from pyoptsparse import Optimization, SLSQP, Gradient
 from pyoptsparse import History
 from scipy import optimize as op
+import copy
 import numpy as np
 import matplotlib as mpl
 #mpl.use('Pdf')
@@ -553,7 +554,7 @@ class OptimizerCycle(Optimizer):
         if np.any(np.isnan(bounds[1, :])):
             bounds[1, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
         if reduce_ineq_cons is None:
-            reduce_ineq_cons = np.arange(6)  # 7)  # Inequality constraints
+            reduce_ineq_cons = np.arange(8)  # Inequality constraints
         super().__init__(self.X0_REAL_SCALE_DEFAULT.copy(), bounds, self.SCALING_X_DEFAULT.copy(),
                          reduce_x, reduce_ineq_cons, system_properties, environment_state)
 
@@ -598,10 +599,17 @@ class OptimizerCycle(Optimizer):
 
         # Determine optimization objective and constraints.
         obj = -res['average_power']['cycle']/power_wind_100m/self.system_properties.kite_projected_area
-        if res['average_power']['eff']['cycle'] is not None:
-            obj = obj * res['average_power']['eff']['cycle']
+        if res['generator']['eff']['cycle'] is not None:
+            obj = obj * res['generator']['eff']['cycle']  # <0
         else:
-            obj = 0
+            # Favor feasible and large efficiencies if cycle eff not calculated
+            obj_effs = 1
+            if res['generator']['eff']['in'] not in [0, None]:
+                obj_effs = obj_effs / res['generator']['eff']['in']
+            if res['generator']['eff']['out'] not in [0, None]:
+                obj_effs = obj_effs / res['generator']['eff']['out']
+            obj = 1/copy.deepcopy(obj_effs)  # >0
+
         # When speed limits are active during the optimization (see determine_new_steady_state method of Phase
         # class in qsm.py), the setpoint reel-out/reel-in forces are overruled. For special cases, the respective
         # optimization variables won't affect the simulation. The lower constraints avoid random steps between
@@ -636,6 +644,29 @@ class OptimizerCycle(Optimizer):
         else:
             ineq_cons_cw_patterns = 0.  # Constraint set to 0 does not affect the optimization.
 
+        # Generator efficiency constraint: all efficiencies greater than 0
+        if res['generator']['eff']['in'] not in [None, 0]:
+            effs = res['generator']['eff']['in']
+        else:
+            effs = -1
+        if res['generator']['eff']['out'] not in [None, 0]:
+            effs = effs * res['generator']['eff']['out']
+        elif effs != -1:
+            effs = effs * -1
+        # Rather: Constraints for load and frequency violation:
+        max_load = res['generator']['load_bounds'][1]
+        max_freq = res['generator']['freq_bounds'][1]
+        load_violation = 0
+        for phase, load in res['generator']['load'].items():
+            if load is not None:
+                violation = max_load - load
+                load_violation = np.min((load_violation, violation))
+        freq_violation = 0
+        for phase, freq in res['generator']['freq'].items():
+            if freq is not None:
+                violation = max_freq - freq
+                freq_violation = np.min((freq_violation, violation))
+
         # TODO add ineq constraint: less maximum power
         # TODO default max reel out force * max reel out speed
         # TODO set explicitly: check agains maximum traction power
@@ -650,7 +681,10 @@ class OptimizerCycle(Optimizer):
                               min_reeling_factor_out,
                               res['speed_viol_diff']['in'],
                               res['speed_viol_diff']['out'],
-                              ineq_cons_cw_patterns])
+                              load_violation,
+                              freq_violation,
+                              ineq_cons_cw_patterns
+                              ])
         if self.print_details:
             print('inequality constraints: min f_out, max f_out, max f_in,'
                   ' min f_in, max f_out_sys, speed_viol_diff, n_cwp - obj ',
@@ -708,12 +742,35 @@ class OptimizerCycle(Optimizer):
                 'in': cycle.retraction_phase.average_power,
                 'trans': cycle.transition_phase.average_power,
                 'out': cycle.traction_phase.average_power,
+                },
+            'generator': {
+                'load_bounds': getattr(cycle, 'load_bounds', [0, np.inf]),
+                'freq_bounds': getattr(cycle, 'freq_bounds', [0, np.inf]),
                 'eff': {
                     'cycle': cycle.eff_winch,
-                    'in': cycle.eff_retr,  # TODO add battery?
-                    'trans': cycle.eff_trans,
-                    'out': cycle.eff_trac,
-                    }
+                    'in': getattr(cycle.retraction_phase,
+                                  'gen_eff', None),
+                    'trans': getattr(cycle.transition_phase,
+                                     'gen_eff', None),
+                    'out': getattr(cycle.traction_phase,
+                                   'gen_eff', None),
+                    },
+                'load': {
+                    'in': getattr(cycle.retraction_phase,
+                                  'gen_load', None),
+                    'trans': getattr(cycle.transition_phase,
+                                     'gen_load', None),
+                    'out': getattr(cycle.traction_phase,
+                                   'gen_load', None),
+                    },
+                'freq': {
+                    'in': getattr(cycle.retraction_phase,
+                                  'gen_freq', None),
+                    'trans': getattr(cycle.transition_phase,
+                                     'gen_freq', None),
+                    'out': getattr(cycle.traction_phase,
+                                   'gen_freq', None),
+                    },
             },
             'min_tether_force': {
                 'in': cycle.retraction_phase.min_tether_force,

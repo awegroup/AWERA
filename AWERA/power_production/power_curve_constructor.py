@@ -444,10 +444,18 @@ class PowerCurveConstructor:
             plt.savefig(self.plot_output_file.format(
                 title='optimization_results{}'.format(plot_info)))
 
-    def curve(self):
+    def curve(self, return_mech=False):
         wind_speeds = self.wind_speeds
         power = np.array([kpis['average_power']['cycle']
                           for kpis in self.performance_indicators])
+        if not return_mech:
+            eff = [kpis['generator']['eff']['cycle']
+                   for kpis in self.performance_indicators]
+            for i, e in enumerate(eff):
+                if e is None:
+                    eff[i] = 0
+            eff = np.array(eff)
+            power = eff * power
         return wind_speeds, power
 
     def export_results(self, file_name):

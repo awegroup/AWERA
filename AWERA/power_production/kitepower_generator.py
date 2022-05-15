@@ -20,7 +20,7 @@ efficiency_by_frequency_load = [
 
 def get_frequency_from_reeling_speed(vr,
                                      gear_ratio=10,
-                                     r_drum=0.105):
+                                     r_drum=0.45):
     """
     Get Generator frequency from tether reeling speed.
 
@@ -30,28 +30,28 @@ def get_frequency_from_reeling_speed(vr,
         Tether reeling speed in m/s.
     gear_ratio : float, optional
         Gear conversion from input to output angular reeling velocity.
-        The default is gear_ratio.
+        The default is 10.
     r_drum : float, optional
         Drum radius of the generator in meter, converting reeling speed
-        to angular velocity.
-        Soure: 53.5 kW upscaled system AWE book ch14 Fechner:
-        Fechner, Uwe & Schmehl, Roland. (2013). Model-Based Efficiency Analysis of Wind Power Conversion by a Pumping Kite Power System. 10.1007/978-3-642-39965-7_14.
-        The default is r_drum.
+        to angular velocity. The default is 0.45m.
 
     Returns
     -------
     freq : float
-        Generator frequency resulting from given reeling speed, in Hz.
+        Generator current frequency resulting from given reeling speed, in Hz.
 
     """
     vr = np.abs(vr)  # no gear switch for reel-in/out
-    freq = gear_ratio/(2*np.pi * r_drum)
-
+    freq_turn = gear_ratio * vr/(2*np.pi * r_drum)  # Hz
+    rpm = freq_turn * 60  # 1/min
+    # 992 rpm is 50Hz electrical frequency depending on number of poles
+    freq = rpm * 50/992  # Hz
+    print(vr, freq)
     return freq
 
 
 def get_gen_eff(power, vr,
-                rated_power=100000,
+                rated_power=160000,
                 load_steps=load_steps, freq_steps=freq_steps,
                 efficiency_by_frequency_load=efficiency_by_frequency_load):
     """
@@ -64,8 +64,8 @@ def get_gen_eff(power, vr,
         Impacts efficiency relative to generator rated power.
     vr : Float
         Tether reeling speed in m/s.
-    rated_power: Float
-        Generator rated power in Watt.
+    rated_power: Float, optional
+        Generator rated power in Watt. The default is 160kW.
     load_steps : list(Float), optional
         Load values described in the efficiency table.
         The default is load_steps in %.
@@ -91,7 +91,32 @@ def get_gen_eff(power, vr,
     print('load and freq:', load, freq)
     eff = eff_table(load, freq)/100.
 
-    return eff
+    return eff, load, freq
+
+def get_gen_bounds(load_steps=load_steps, freq_steps=freq_steps):
+    """
+    Return bounds for load and frequency of the generator, given in the table.
+
+    Parameters
+    ----------
+    load_steps : list(Float), optional
+        Load values described in the efficiency table.
+        The default is load_steps in %.
+    freq_steps : list(Float), optional
+        Frequency values described in the efficiency table.
+        The default is freq_steps.
+
+    Returns
+    -------
+    load_bounds : list(Float)
+        Minimum and maximum load of the given generator.
+    freq_bounds : list(Float)
+        Minimum and maximum frequency of the given generator.
+
+    """
+    load_bounds = [load_steps[0], load_steps[-1]]
+    freq_bounds = [freq_steps[0], freq_steps[-1]]
+    return load_bounds, freq_bounds
 
 
 def get_winch_eff(eff_pump, eff_o, eff_i, eff_batt=0.95):
