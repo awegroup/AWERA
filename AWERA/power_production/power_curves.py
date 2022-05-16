@@ -436,7 +436,8 @@ def generate_power_curves(config,
         # estimated cut-out wind speed.
         vw_cut_in = limit_estimates.iloc[i_profile-1]['vw_100m_cut_in']
         vw_cut_out = limit_estimates.iloc[i_profile-1]['vw_100m_cut_out']
-        wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
+        #wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
+        wind_speeds = np.linspace(3, 27, 50)
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
         # wind_speeds = np.concatenate((wind_speeds,
         #                               np.linspace(vw_cut_out-1,
@@ -490,7 +491,7 @@ def generate_power_curves(config,
         critical_force = limit_estimates.iloc[i_profile-1][
             'tether_force_cut_in']
         if read_x0 is None:
-            x0 = np.array([critical_force, 300., theta_ro_ci, 150., 200.0])
+            x0 = np.array([critical_force, 300., theta_ro_ci, 150., 200.0, 1])
         else:
             x0 = read_x0
         # Start optimizations.

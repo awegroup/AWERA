@@ -141,7 +141,7 @@ class PowerProduction(SingleProduction):
 
     def single_power_curve(self,
                            wind_speeds,
-                           x0=[4100., 850., 0.5, 240., 200.0],
+                           x0=[4100., 850., 0.5, 240., 200.0, 1],
                            sys_props=sys_props_v3,
                            cycle_sim_settings=None,
                            plot_output_file=None,
