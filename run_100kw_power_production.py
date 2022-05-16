@@ -23,7 +23,7 @@ sel_types = [
     [1, 1, 1]
     ]
 do_settings_scan = False  # True
-read_curve = False
+read_curve = True  # False
 use_phase_eff = False  # True
 if do_settings_scan:
     # Scan kitepower 100kW system
@@ -130,14 +130,14 @@ ref_height = ref_height_sel[sel[2]]  # m
 wind_speeds_sel = {10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                         13, 14, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19,
                         19.5, 20, 21],
-                   100:   [5, 8, 11, 14, 17, 19, 20, 22, 24, 25, 26],
-                           # [4, 5, 6, 7, 8, 9, 10, 11, 12,
-                            # 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-                          # 23, 24, 25, 26, 27, 28]
+                   100: #  [5, 8, 11, 14, 17, 19, 20, 22, 24, 25, 26],
+                            [4, 5, 6, 7, 8, 9, 10, 11, 12,
+                            13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                            23, 24, 25, 26, 27, 28]
                    }  # m/s
 wind_speeds = wind_speeds_sel[ref_height]
 
-scan_tag = 'powering_short' + scan_tag  # short, high
+scan_tag = 'powering' + scan_tag  # short, high
 config.update({'General': {'ref_height': ref_height},
                'Power': {'profile_type': '{}kW_log_profile'.format(
                    rated_power),
@@ -187,7 +187,7 @@ if read_curve:
     env_state.set_reference_height(ref_height)
     env_state.set_reference_wind_speed(1)
     heights = [10, 25, 50., 75., 100., 150., 200., 300., 400., 500., 600.]
-    wind_speeds = [env_state.calculate_wind(h) for h in heights]
+    wind_speeds_at_h = [env_state.calculate_wind(h) for h in heights]
     # env_state.plot_wind_profile(color='#2ca02c')
 
     cm = 1/2.54
@@ -201,7 +201,7 @@ if read_curve:
     ax.grid(True)
     ax.set_xlabel('v [-]')
 
-    ax.plot(wind_speeds, heights, '--',
+    ax.plot(wind_speeds_at_h, heights, '--',
             label='Magnitude', ms=3, color='#2ca02c')
     plt.tight_layout()
     plt.savefig(prod.config.IO.plot_output.format(
@@ -278,7 +278,7 @@ if config.General.write_output:
 prod.compare_kpis([pc])
 prod.plot_trajectories(pc)
 prod.plot_power_curves(pcs=pc, labels='{}kW log profile'.format(rated_power),
-                       lim=[wind_speeds[0], wind_speeds[-1]],
+                       lim=[wind[0], wind[-1]],
                        speed_at_op_height=True)  # False)
 with open(prod.config.IO.plot_output.format(
         title='power_curve_constructor_{}kw_log_profile_opt'.format(rated_power))

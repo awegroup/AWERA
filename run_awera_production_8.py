@@ -16,6 +16,7 @@ if __name__ == '__main__':
 
     # n_locs = 1 # [200, 500, 1000, 5000]
     n_l = 1  # n_locs[settings_id]
+    scan_tag = 'fix_vw_'  # more_
     settings = {
         'Data': {'n_locs': 1,
                  'location_type': 'Maasvlakte_2'},
@@ -27,7 +28,29 @@ if __name__ == '__main__':
                 }
             },
         'Processing': {'n_cores': n_clusters},
-    }
+        'General': {'ref_height': 100},
+        # 'Power':{ 'bounds': bounds},
+        'IO': {
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Rotterdam/",
+            'format': {
+                'plot_output':
+                    scan_tag + config.IO.format.plot_output,
+                'power_curve':
+                    scan_tag + config.IO.format.power_curve,
+                'cut_wind_speeds':
+                    scan_tag + config.IO.format.cut_wind_speeds,
+                'refined_cut_wind_speeds':
+                    scan_tag + config.IO.format.refined_cut_wind_speeds,
+                # Only Power Production - no chain plot output for now
+                'plot_output_data':
+                    scan_tag + config.IO.format.plot_output_data,
+                'training_plot_output':
+                    scan_tag + config.IO.format.training_plot_output,
+                'freq_distr':
+                    scan_tag + config.IO.format.freq_distr,
+                    }
+                }
+        }
     # settings['General'] = {'use_memmap': True}
     # settings[
     print(settings)

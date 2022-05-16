@@ -637,13 +637,13 @@ def compare_kpis(config, power_curves, compare_profiles=None):
     # TODO adapt label to config ref height
     x_label = '$v_{w,' + str(config.General.ref_height) + 'm}$ [m/s]'
     if compare_profiles is not None:
-        fig_nums = [plt.figure().number for _ in range(16)]
+        fig_nums = [plt.figure().number for _ in range(17)]
         tag = '_compare'
     else:
         tag = ''
     for idx, pc in enumerate(power_curves):
         if compare_profiles is None:
-            fig_nums = [plt.figure().number for _ in range(16)]
+            fig_nums = [plt.figure().number for _ in range(17)]
         if compare_profiles is not None:
             if idx+1 not in compare_profiles:
                 continue
@@ -812,6 +812,8 @@ def compare_kpis(config, power_curves, compare_profiles=None):
         plt.figure(fig_nums[9])
         v_trac_height = [kpis['wind_speed_at_avg_traction_height']
                          for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, pc.wind_speeds,
+                 color='darkslategrey', linestyle='--', alpha=0.5)
         plt.plot(pc.wind_speeds, np.array(v_trac_height),
                  label=str(int(idx + 1)))
         plt.grid(True)
@@ -947,6 +949,33 @@ def compare_kpis(config, power_curves, compare_profiles=None):
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_powering_trac_vs_wind_'
                        'speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[16])
+        t_cycle = [kpis['duration']['cycle']
+                   for kpis in performance_indicators_success]
+        t_in = [kpis['duration']['in']
+                for kpis in performance_indicators_success]
+        t_out = [kpis['duration']['out']
+                 for kpis in performance_indicators_success]
+        t_trans = [kpis['duration']['trans']
+                   for kpis in performance_indicators_success]
+        plt.plot(pc.wind_speeds, np.array(t_cycle),
+                 label='cycle')
+        plt.plot(pc.wind_speeds, np.array(t_in),
+                 label='reel-in', marker=6)
+        plt.plot(pc.wind_speeds, np.array(t_out),
+                 label='reel-out', marker=7)
+        plt.plot(pc.wind_speeds, np.array(t_trans),
+                 label='transition', linestyle='-.')
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Time [s]')
+        if compare_profiles is None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_phase_duration_vs_'
+                       'wind_speeds_profile_{}{}'.format(idx+1, tag))))
 
 def combine_separate_profile_files(config,
                                    io_file='refined_cut_wind_speeds',
