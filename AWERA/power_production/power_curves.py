@@ -437,7 +437,8 @@ def generate_power_curves(config,
         vw_cut_in = limit_estimates.iloc[i_profile-1]['vw_100m_cut_in']
         vw_cut_out = limit_estimates.iloc[i_profile-1]['vw_100m_cut_out']
         #wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
-        wind_speeds = np.linspace(3, 27, 50)
+        # wind_speeds = np.linspace(3, 27, 50)
+        wind_speeds = np.linspace(3, 27, 25)
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
         # wind_speeds = np.concatenate((wind_speeds,
         #                               np.linspace(vw_cut_out-1,
@@ -636,13 +637,13 @@ def compare_kpis(config, power_curves, compare_profiles=None):
     # TODO adapt label to config ref height
     x_label = '$v_{w,' + str(config.General.ref_height) + 'm}$ [m/s]'
     if compare_profiles is not None:
-        fig_nums = [plt.figure().number for _ in range(15)]
+        fig_nums = [plt.figure().number for _ in range(16)]
         tag = '_compare'
     else:
         tag = ''
     for idx, pc in enumerate(power_curves):
         if compare_profiles is None:
-            fig_nums = [plt.figure().number for _ in range(15)]
+            fig_nums = [plt.figure().number for _ in range(16)]
         if compare_profiles is not None:
             if idx+1 not in compare_profiles:
                 continue
@@ -932,6 +933,20 @@ def compare_kpis(config, power_curves, compare_profiles=None):
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_freq_gen_vs_'
                        'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[15])
+        powering_out = [x[5] for x in x_opts_success]
+        p = plt.plot(pc.wind_speeds, powering_out, label=str(int(idx + 1)))
+
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('Traction Powering Factor [-]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_powering_trac_vs_wind_'
+                       'speeds_profile_{}{}'.format(idx+1, tag))))
 
 def combine_separate_profile_files(config,
                                    io_file='refined_cut_wind_speeds',
