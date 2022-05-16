@@ -122,7 +122,7 @@ class SingleProduction:
             sys_props = SystemProperties(sys_props)
 
         oc = OptimizerCycle(cycle_sim_settings, sys_props,
-                            env_state, reduce_x=np.array([0, 1, 2, 3]),
+                            env_state, reduce_x=np.array([0, 1, 2, 3, 5]),
                             print_details=print_details,
                             bounds=bounds)
         # !!! optional reduce_x, settingsm ref wind speed -> also in class?
@@ -181,11 +181,11 @@ class PowerProduction(SingleProduction):
         # preceding optimization.
         op_seq = {
             7.: {'power_optimizer': oc,
-                 'dx0': np.array([0., 0., 0., 0., 0.])},
+                 'dx0': np.array([0., 0., 0., 0., 0., 0.])},
             17.: {'power_optimizer': oc_g_7,
-                  'dx0': np.array([0., 0., 0., 0., 0.])},
+                  'dx0': np.array([0., 0., 0., 0., 0., 0.])},
             np.inf: {'power_optimizer': oc_g_7,
-                     'dx0': np.array([0., 0., 0.1, 0., 0.])},
+                     'dx0': np.array([0., 0., 0.1, 0., 0., 0.])},
             }
 
         # Start optimizations.

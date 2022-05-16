@@ -49,12 +49,14 @@ settings = kite_qsm_settings[kite]
 # Update bounds
 if kite == '100':
     # cycle start set to 150m at lowest, not optimised
-    bounds = [None, None, None, None, [150, 250]]
-    x0 = [8000., 1000., 0.5, 240., 150.0]
+    bounds = [None, None, None, None, [150, 250], [0, 1]]
+    x0 = [8000., 1000., 0.5, 240., 150.0, 1]
 elif 'kitepower' in kite:
     # Tether between 200 and 500m
-    bounds = [None, None, None, [150, 300], [200, 250]]
-    x0 = [25000., 1000., 0.5, 230., 200.0]
+    bounds = [None, None, None, [150, 300], [200, 250], [0, 1]]
+    # x0 = [25000., 1000., 0.5, 230., 200.0, 1]
+    # 20m/s only:
+    x0 = [49000., 2000., 0.9, 300., 200.0, 1]
 
 
 if do_settings_scan:
@@ -128,17 +130,14 @@ ref_height = ref_height_sel[sel[2]]  # m
 wind_speeds_sel = {10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                         13, 14, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19,
                         19.5, 20, 21],
-                   100:  # [11, 12, 13],
-                         # [1, 2, ## 3, 4
-                         # [4, 5, 6, 7, 8, 9, 10, 11, 12,
-                         #  13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-                         #  ]  # 22, 23,
-                          # 24, 25]  # 26, 27, 28]
-                        [5, 8, 11, 14, 17, 20]
+                   100:  [17, 19, 20, 22, 24, 25, 26],
+                          # [4, 5, 6, 7, 8, 9, 10, 11, 12,
+                           # 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                          # 23, 24, 25, 26, 27, 28]
                    }  # m/s
 wind_speeds = wind_speeds_sel[ref_height]
 
-scan_tag = 'eff_short_78' + scan_tag
+scan_tag = 'powering_high' + scan_tag
 config.update({'General': {'ref_height': ref_height},
                'Power': {'profile_type': '{}kW_log_profile'.format(
                    rated_power),

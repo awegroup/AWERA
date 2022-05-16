@@ -451,14 +451,14 @@ def generate_power_curves(config,
         # is set to 30 degrees.
         op_cycle_pc_phase1 = OptimizerCycle(cycle_sim_settings_pc_phase1,
                                             sys_props, env,
-                                            reduce_x=np.array([0, 1, 2, 3]),
+                                            reduce_x=np.array([0, 1, 2, 3, 5]),
                                             bounds=copy.deepcopy(
                                                 config.Power.bounds))
         op_cycle_pc_phase1.bounds_real_scale[2][1] = 30*np.pi/180.
 
         op_cycle_pc_phase2 = OptimizerCycle(cycle_sim_settings_pc_phase2,
                                             sys_props, env,
-                                            reduce_x=np.array([0, 1, 2, 3]),
+                                            reduce_x=np.array([0, 1, 2, 3, 5]),
                                             bounds=copy.deepcopy(
                                                 config.Power.bounds))
 
@@ -470,11 +470,11 @@ def generate_power_curves(config,
         # preceding optimization.
         op_seq = {
             7.: {'power_optimizer': op_cycle_pc_phase1,
-                 'dx0': np.array([0., 0., 0., 0., 0.])},
+                 'dx0': np.array([0., 0., 0., 0., 0., 0.])},
             17.: {'power_optimizer': op_cycle_pc_phase2,
-                  'dx0': np.array([0., 0., 0., 0., 0.])},
+                  'dx0': np.array([0., 0., 0., 0., 0., 0.])},
             np.inf: {'power_optimizer': op_cycle_pc_phase2,
-                     'dx0': np.array([0., 0., 0.1, 0., 0.])},
+                     'dx0': np.array([0., 0., 0.1, 0., 0., 0.])},
             # Convergence for
             # profiles 2 and 6 are sensitive to starting elevation.
             # The number of patterns constraint exhibits a

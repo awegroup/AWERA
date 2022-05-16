@@ -522,16 +522,18 @@ class OptimizerCycle(Optimizer):
         "Reel-in\nforce [N]",
         "Elevation\nangle [rad]",
         "Reel-in tether\nlength [m]",
-        "Minimum tether\nlength [m]"
+        "Minimum tether\nlength [m]",
+        "Kite traction powering scale [-]",
     ]
-    X0_REAL_SCALE_DEFAULT = np.array([5000, 500, 0.523599, 120, 150])
-    SCALING_X_DEFAULT = np.array([1e-4, 1e-4, 1, 1e-3, 1e-3])
+    X0_REAL_SCALE_DEFAULT = np.array([5000, 500, 0.523599, 120, 150, 1])
+    SCALING_X_DEFAULT = np.array([1e-4, 1e-4, 1, 1e-3, 1e-3, 1])
     BOUNDS_REAL_SCALE_DEFAULT = np.array([
         [np.nan, np.nan],
         [np.nan, np.nan],
         [25*np.pi/180, 60.*np.pi/180.],
-        [150, 250],
+        [150, 300],
         [200, 250],
+        [0, 1],
     ])
 
     def __init__(self, cycle_settings, system_properties,
@@ -699,7 +701,8 @@ class OptimizerCycle(Optimizer):
         # Map the optimization vector to the separate variables.
         tether_force_traction, tether_force_retraction, \
             elevation_angle_traction, tether_length_diff, \
-            tether_length_min = x_real_scale
+            tether_length_min, powering_traction = x_real_scale
+        print('powering:', powering_traction)
 
         # Configure the cycle settings and run simulation.
         self.cycle_settings['cycle']['elevation_angle_traction'] = elevation_angle_traction
@@ -714,6 +717,8 @@ class OptimizerCycle(Optimizer):
         iterative_procedure_config = {
             'enable_steady_state_errors': not relax_errors,
         }
+        self.system_properties.kite_powering_traction = powering_traction
+
         cycle.run_simulation(self.system_properties, self.environment_state, iterative_procedure_config,
                              not relax_errors)
 
@@ -1137,7 +1142,7 @@ def test():
             'course_angle': 100 * np.pi / 180.,
         },
     }
-    oc = OptimizerCycle(cycle_sim_settings, sys_props_v3, env_state, reduce_x=np.array([0, 1, 2, 3]))
+    oc = OptimizerCycle(cycle_sim_settings, sys_props_v3, env_state, reduce_x=np.array([0, 1, 2, 3, 5]))
     oc.x0_real_scale = np.array([4500, 1000, 30*np.pi/180., 150, 230])
     print('Optimization on:', oc.x0_real_scale)
     print(oc.optimize())

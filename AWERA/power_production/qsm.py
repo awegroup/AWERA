@@ -384,6 +384,7 @@ class SystemProperties(SysPropsFixedAeroCoeffs):
         self.kite_lift_coefficient_depowered = .34  # [-]
         self.kite_drag_coefficient_depowered = .15  # [-]
         self.tether_drag_coefficient = 1.1  # [-]
+        self.kite_powering_traction = 1
 
         # Relevant operational limits.
         self.reeling_speed_min_limit = 0.
@@ -422,9 +423,19 @@ class SystemProperties(SysPropsFixedAeroCoeffs):
         s = self.kite_projected_area
         le = self.tether_length
 
+        powering = getattr(self, 'kite_powering_traction', 1)
+
+        # Transition from powered to depowered kite
+        d_lift = self.kite_lift_coefficient_powered \
+            - self.kite_lift_coefficient_depowered
+        d_drag = self.kite_drag_coefficient_powered \
+            - self.kite_drag_coefficient_depowered
+
         if kite_powered:
-            kite_lift_coefficient = self.kite_lift_coefficient_powered
-            kite_drag_coefficient = self.kite_drag_coefficient_powered
+            kite_lift_coefficient = self.kite_lift_coefficient_powered \
+                - d_lift * (1 - powering)
+            kite_drag_coefficient = self.kite_drag_coefficient_powered\
+                - d_drag * (1 - powering)
         else:
             kite_lift_coefficient = self.kite_lift_coefficient_depowered
             kite_drag_coefficient = self.kite_drag_coefficient_depowered
@@ -438,6 +449,11 @@ class SystemProperties(SysPropsFixedAeroCoeffs):
         self.tether_length = tether_length
         self.calculate_tether_mass()
         self.calculate_aerodynamic_properties(kite_powered)
+
+    def powering(self, powering, kite_powered=True):
+        self.kite_powering = powering
+        self.calculate_aerodynamic_properties(kite_powered)
+
 
 
 class SysPropsAeroCurves(SysPropsFixedAeroCoeffs):

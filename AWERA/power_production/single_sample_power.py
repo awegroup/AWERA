@@ -284,7 +284,7 @@ def single_profile_power(config, processed_data, single_sample_id, i_loc):
     if backscaling > 7:  # TODO test what happen if I always use Hybrid?
         cycle_sim_settings_pc['cycle']['traction_phase'] = TractionPhaseHybrid
     oc = OptimizerCycle(cycle_sim_settings_pc, sys_props_v3,
-                        env_state, reduce_x=np.array([0, 1, 2, 3]))
+                        env_state, reduce_x=np.array([0, 1, 2, 3, 5]))
     # !!! optional reduce_x, settingsm ref wind speed -> also in class?
     if backscaling <= 7:
         oc.bounds_real_scale[2][1] = 30*np.pi/180.

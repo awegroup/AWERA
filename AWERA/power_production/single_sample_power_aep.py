@@ -36,7 +36,7 @@ def test():
             'course_angle': 100 * np.pi / 180.,
         },
     }
-    oc = OptimizerCycle(cycle_sim_settings, sys_props_v3, env_state, reduce_x=np.array([0, 1, 2, 3]))
+    oc = OptimizerCycle(cycle_sim_settings, sys_props_v3, env_state, reduce_x=np.array([0, 1, 2, 3, 5]))
     oc.x0_real_scale = np.array([4500, 1000, 30*np.pi/180., 150, 230]) #read in from optimizer output
     print('Optimization on:', oc.x0_real_scale)
     #print(oc.optimize()) no optimization for now

@@ -57,7 +57,7 @@ sys_props_kitepower_100 = {
     'kite_mass': 100 + 70,  # [kg] - kite + KCU
     'tether_density': 724.,  # [kg/m^3] - 0.85 GPa
     'tether_diameter': 0.014,  # [m]
-    'tether_force_max_limit': 78000 * 9.81,  # 5000 * 9.81,  #5000/(.25*np.pi*0.004**2) * (.25*np.pi*0.014**2),  # ~61250 [N]
+    'tether_force_max_limit': 5000 * 9.81,  #5000/(.25*np.pi*0.004**2) * (.25*np.pi*0.014**2),  # ~61250 [N]
     'tether_force_min_limit': 500,  # [N]
     'kite_lift_coefficient_powered': 1.05,  # [-]
     'kite_drag_coefficient_powered': .13,  # [-]
