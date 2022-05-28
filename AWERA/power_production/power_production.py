@@ -88,7 +88,9 @@ class SingleProduction:
 
 
     def create_optimizer(self, env_state, ref_wind_speed,
-                         sys_props=sys_props_v3, cycle_sim_settings=None,
+                         sys_props=sys_props_v3,
+                         reduce_x=np.array([0, 1, 2, 3, 5]),
+                         cycle_sim_settings=None,
                          print_details=False,
                          bounds=[None]):
         # TODO use this in power_curves
@@ -122,7 +124,7 @@ class SingleProduction:
             sys_props = SystemProperties(sys_props)
 
         oc = OptimizerCycle(cycle_sim_settings, sys_props,
-                            env_state, reduce_x=np.array([0, 1, 2, 3, 5]),
+                            env_state, reduce_x=reduce_x,  # , 5]),
                             print_details=print_details,
                             bounds=bounds)
         # !!! optional reduce_x, settingsm ref wind speed -> also in class?
@@ -156,8 +158,13 @@ class PowerProduction(SingleProduction):
             env_state.set_reference_height(ref_height)
             env_state.set_reference_wind_speed(wind_speeds[0])
 
+        if wind_speeds[0] <= 7:
+            reduce_x = np.array([0, 1, 2, 3])
+        else:
+            reduce_x = np.array([0, 1, 2, 3, 5])
         oc = self.create_optimizer(env_state, wind_speeds[0],
                                    sys_props=sys_props,
+                                   reduce_x=reduce_x,
                                    cycle_sim_settings=
                                    copy.deepcopy(cycle_sim_settings),
                                    bounds=copy.deepcopy(
@@ -166,6 +173,7 @@ class PowerProduction(SingleProduction):
         if wind_speeds[0] <= 7:
             oc_g_7 = self.create_optimizer(env_state, 8,
                                            sys_props=sys_props,
+                                           reduce_x=np.array([0, 1, 2, 3, 5]),
                                            cycle_sim_settings=
                                            cycle_sim_settings,
                                            bounds=copy.deepcopy(
@@ -369,7 +377,7 @@ class PowerProduction(SingleProduction):
                           pcs=None,
                           n_profiles=None,
                           labels=None,
-                          lim=[3, 28], # was [5, 21]
+                          lim=[3, 30], # was [5, 21]
                           save_plot=True,
                           plot_full_electrical=False,
                           speed_at_op_height=False):
@@ -389,6 +397,12 @@ class PowerProduction(SingleProduction):
             except AttributeError:
                 raise ValueError('No valid option to get '
                                  'power curve input found.')
+
+        if speed_at_op_height:
+            tag = ''
+        else:
+            tag = '_ref'
+
         no_loss = [True, False]
         loss_labels = ['Mechanical Power', 'Electrical Power']
         loss_styles = ['solid', 'dashdot']
@@ -397,6 +411,11 @@ class PowerProduction(SingleProduction):
                 if n_profiles > 1 and not plot_full_electrical and loss_i > 0:
                     # TODO this always plot electrical for single profile
                     continue
+                if n_profiles > 1 and plot_full_electrical and loss_i == 0:
+                    # TODO this only plots electrical for mult profiles if el.
+                    continue
+                if not plot_full_electrical:
+                    tag = tag + 'mech'
                 if n_profiles > 1:
                     cmap = plt.get_cmap("gist_ncar")
                     if n_profiles > 25:
@@ -446,7 +465,7 @@ class PowerProduction(SingleProduction):
                 if n_profiles == 1:
                     # Single labeling
                     label = loss_labels[loss_i] + ' ' + label
-                elif loss_i > 0:
+                elif loss_i > 0 and not plot_full_electrical and n_profiles > 1:
                     # No labels - no legend entries for multple profile plots
                     label = ''
                     # TODO is this needed? :
@@ -481,7 +500,7 @@ class PowerProduction(SingleProduction):
 
                 plt.legend()
                 # Save plot
-                title = 'power_curve_up_to_{}'.format(i_profile+1)
+                title = 'power_curve_up_to_{}{}'.format(i_profile+1, tag)
                 plt.savefig(self.config.IO.plot_output.format(title=title))
 
                 fig, ax_pcs = plt.subplots(1, 1)
@@ -500,10 +519,7 @@ class PowerProduction(SingleProduction):
         if save_plot:
             plt.legend()
             # Save plot
-            if speed_at_op_height:
-                title = 'power_curve'
-            else:
-                title = 'power_curve_ref'
+            title = 'power_curve' + tag
             plt.savefig(self.config.IO.plot_output.format(title=title))
         # TODO automatise limits: min, round, ...?, make optional
         # plt.show()

@@ -52,7 +52,7 @@ def get_frequency_from_reeling_speed(vr,
 
 
 def get_gen_eff(power, vr,
-                rated_power=160000,
+                rated_power=160000,  # 500kW: 800kW, 100kW: 160kW, factor 1.6
                 load_steps=load_steps, freq_steps=freq_steps,
                 efficiency_by_frequency_load=efficiency_by_frequency_load):
     """
@@ -83,6 +83,8 @@ def get_gen_eff(power, vr,
         Interpolated efficiency for power and reeling speed setting.
 
     """
+    if power is None or vr is None:
+        return [0], 0, 0
     eff_table = interpolate.interp2d(load_steps, freq_steps,
                                      efficiency_by_frequency_load,
                                      bounds_error=False,

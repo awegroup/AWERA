@@ -40,6 +40,9 @@ class Clustering:
 
 # --------------------------- Full Clustering Procedure
 
+    def get_wind_data(self):
+        return get_wind_data(self.config)
+
     def preprocess_data(self,
                         data,
                         config=None,

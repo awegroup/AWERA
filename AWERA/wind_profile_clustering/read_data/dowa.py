@@ -44,7 +44,6 @@ def determine_grid_point_coords(lat, lon, point='ll'):
 def find_closest_dowa_grid_point(lat, lon):
     grid_cell_corners = ['ul', 'ur', 'lr', 'll']
     coords_grid_cell_corners = [determine_grid_point_coords(lat, lon, rp) for rp in grid_cell_corners]
-
     distances = []
     for a, b in coords_grid_cell_corners:
         distances.append(((a - lat)**2 + (b - lon)**2)**.5)

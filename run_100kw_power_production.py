@@ -23,7 +23,7 @@ sel_types = [
     [1, 1, 1]
     ]
 do_settings_scan = False  # True
-read_curve = True  # False
+read_curve = False
 use_phase_eff = False  # True
 if do_settings_scan:
     # Scan kitepower 100kW system
@@ -53,7 +53,7 @@ if kite == '100':
     x0 = [8000., 1000., 0.5, 240., 150.0, 1]
 elif 'kitepower' in kite:
     # Tether between 200 and 500m
-    bounds = [None, None, None, [150, 300], [200, 250], [0, 1]]
+    bounds = [None, None, None, [150, 300], [200, 250], [0.5, 1]]
     x0 = [25000., 1000., 0.5, 230., 200.0, 1]
     # 20m/s only:
     # x0 = [49000., 2000., 0.9, 300., 200.0, 1]
@@ -130,14 +130,15 @@ ref_height = ref_height_sel[sel[2]]  # m
 wind_speeds_sel = {10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                         13, 14, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19,
                         19.5, 20, 21],
-                   100: #  [5, 8, 11, 14, 17, 19, 20, 22, 24, 25, 26],
-                            [4, 5, 6, 7, 8, 9, 10, 11, 12,
-                            13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-                            23, 24, 25, 26, 27, 28]
+                   100: [5, 8, 9, 10, 11, 14, 19, 22, 26],
+                         #  [4, 5, 6, 7, 8, 9, 10, 11, 12,
+                         #  13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                         #  23, 24, 25, 26, 27, 28, 29]
                    }  # m/s
 wind_speeds = wind_speeds_sel[ref_height]
 
-scan_tag = 'powering' + scan_tag  # short, high
+scan_tag = 'short_vw_H' + scan_tag  # short, high, final_ final_half_powering_stages
+# scan_tag = 'final_half_powering' + scan_tag
 config.update({'General': {'ref_height': ref_height},
                'Power': {'profile_type': '{}kW_log_profile'.format(
                    rated_power),
@@ -279,7 +280,10 @@ prod.compare_kpis([pc])
 prod.plot_trajectories(pc)
 prod.plot_power_curves(pcs=pc, labels='{}kW log profile'.format(rated_power),
                        lim=[wind[0], wind[-1]],
-                       speed_at_op_height=True)  # False)
+                       speed_at_op_height=True, plot_full_electrical=True)  # False)
+prod.plot_power_curves(pcs=pc, labels='{}kW log profile'.format(rated_power),
+                       lim=[wind[0], wind[-1]],
+                       speed_at_op_height=False, plot_full_electrical=True)
 with open(prod.config.IO.plot_output.format(
         title='power_curve_constructor_{}kw_log_profile_opt'.format(rated_power))
         .replace('.pdf', '.pickle'), 'wb')\

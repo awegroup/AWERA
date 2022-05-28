@@ -808,7 +808,6 @@ class SteadyState:
                 raise ValueError("Invalid control setting.")
             # print(v_wind, self.control_settings, theta, phi, rf)
             if np.sin(theta) * np.cos(phi) < rf:
-                # print('reeling factor error')
                 error_message = "Reeling factor of {} is not feasible.".format(rf)
                 if np.sin(theta) < 0.:
                     error_message += " Elevation angle is larger than 90 degrees."
@@ -1405,7 +1404,7 @@ class Phase(TimeSeries):
         if "RetractionPhase" in self.__class__.__name__ \
                 and sys_props.reeling_speed_max_limit_retr is not None:
             max_speed = sys_props.reeling_speed_max_limit_retr
-            min_speed = 6.5
+            # min_speed = 6.5
         elif "TractionPhase" in self.__class__.__name__ \
                 and sys_props.reeling_speed_max_limit_trac is not None:
             max_speed = sys_props.reeling_speed_max_limit_trac
@@ -1434,7 +1433,6 @@ class Phase(TimeSeries):
 
                 if max_speed is not None and abs(new_state.reeling_speed) > max_speed:
                     self.speed_viol_diff = - abs(new_state.reeling_speed) + max_speed
-                    # print('greater')
                     if self.__class__.__name__ == "RetractionPhase":
                         setpoint_speed = -max_speed
                     else:
@@ -1922,13 +1920,6 @@ class TractionPhaseHybrid(TractionPhase):
         avg_pattern_duration = np.mean(pattern_durations)
         phase_duration_aim = (self.tether_length_end - self.tether_length_start_aim)/np.mean(reeling_speeds)
         self.n_crosswind_patterns = phase_duration_aim/avg_pattern_duration
-        # print('tangetial speed factor, tangential speed, apparent wind speed',
-        #       'pattern duration, phase duration aim',
-        #       np.mean(np.array([(ss.tangential_speed_factor,
-        #                          ss.kite_tangential_speed,
-        #                          ss.apparent_wind_speed)
-        #                         for ss in self.steady_states]), axis=0),
-        #       pattern_durations, phase_duration_aim)
 
 
 
@@ -2316,7 +2307,6 @@ class Cycle(TimeSeries):
         retr.tether_length_end = self.tether_length_end_retraction
         retr.elevation_angle_start = self.elevation_angle_traction
         retr.finalize_start_and_end_kite_obj()
-        print('Retraction')
         try:
             retr.run_simulation(system_properties, env_retr, steady_state_config, 0.)
             last_straight_tether_length = retr.kinematics[-1].straight_tether_length
@@ -2331,7 +2321,6 @@ class Cycle(TimeSeries):
         last_time = retr.time[-1]
 
         # Second, run the transition phase.
-        print('Transition')
         trans = self.transition_phase
         trans.follow_wind = self.follow_wind
         trans.enable_limit_violation_error = False
@@ -2353,7 +2342,6 @@ class Cycle(TimeSeries):
         # trans.energy = 0
 
         # Third, run the traction phase.
-        print('Traction')
         trac = self.traction_phase
         trac.follow_wind = self.follow_wind
         trac.enable_limit_violation_error = enable_limit_violation_error
@@ -2373,7 +2361,6 @@ class Cycle(TimeSeries):
         try:
             trac.run_simulation(system_properties, env_trac, steady_state_config, last_time)
         except PhaseError as e:
-            print('phase Error in traction', e.args[0])
             if e.code not in [1, 2]:  # Simulation does not seem to reach end criteria.
                 raise
             trac.energy = -1e2
@@ -2395,7 +2382,6 @@ class Cycle(TimeSeries):
         # TODO efficiencies only in final result - and nothing for transition
         self.energy = eff_retr_energy + eff_trac_energy
         # trac.energy + retr.energy
-        print('transistion energy', trans.energy)
         if self.include_transition_energy:
             self.energy += trans.energy
         self.duration = self.time[-1]
@@ -2430,7 +2416,6 @@ class Cycle(TimeSeries):
             self.traction_phase.gen_eff = eff_trac
             self.traction_phase.gen_load = load_trac
             self.traction_phase.gen_freq = freq_trac
-            print('traction efficiency determined:', eff_trac)
         if retr.average_power is not None:
             eff_retr, load_retr, freq_retr = get_gen_eff(
                 retr.average_power,
@@ -2439,13 +2424,11 @@ class Cycle(TimeSeries):
             self.retraction_phase.gen_eff = eff_retr
             self.retraction_phase.gen_load = load_retr
             self.retraction_phase.gen_freq = freq_retr
-            print('retraction efficiency determined:', eff_retr)
         if eff_trac not in [None, 0] and \
                 eff_retr not in [None, 0]:
             eff_winch = get_winch_eff(self.pumping_efficiency,
                                       eff_trac,
                                       eff_retr)
-            print('winch efficiency determined:', eff_winch)
         self.eff_winch = eff_winch
         return error_in_phase, self.average_power
 

@@ -23,7 +23,7 @@ import cartopy.crs as ccrs
 cline_label_format_default = '%.1f'
 n_fill_levels_default = 14
 n_line_levels_default = 6
-color_map = plt.get_cmap('YlOrRd')  # 'coolwarm' 'RdBu' 'bwr'  # plt.get_cmap('YlOrRd')
+color_map = plt.get_cmap('coolwarm')  # 'coolwarm' 'RdBu' 'bwr'  # plt.get_cmap('YlOrRd')
 
 if __name__ == "__main__":
     # TODO this has to be changed to work via class!
@@ -154,7 +154,7 @@ def individual_plot(z, cf_lvls, cl_lvls,
     # colors_stack = np.vstack((colors_undersea, colors_land))
     # color_map = colors.LinearSegmentedColormap.from_list('color_map',
     #                                                      colors_stack)
-    color_map = plt.get_cmap('YlOrRd')
+    color_map = plt.get_cmap('coolwarm')  # YlOrRd
     if overflow is not None:
         n_normal = 224
         n_over = 32
@@ -258,7 +258,7 @@ def plot_single_panel(plot_item, plot_title='',
                         hspace=0.0, wspace=0.0)
 
     ax.coastlines(color='darkslategrey')  # TODO resolution='50m', color='black', linewidth=1)
-
+    ax.add_feature(cartopy.feature.BORDERS, linewidth=0.5, edgecolor='darkslategrey')
     # Plot the data.
 
     # Mapping individual properties of the plots.
@@ -1123,25 +1123,25 @@ def plot_surface_elevation_from_geopotential():
     plot_single_panel(plot_item, plot_title=plot_title)
 
 def plot_all():
-    # plot_mean_and_ratio(data_type='v',
-    #                     fill_range=[0, 15], # [6, 13],
-    #                     line_levels=[7, 9, 11],
-    #                     ratio_range=[0, 2.5],
-    #                     n_decimals=0)
+    plot_mean_and_ratio(data_type='v',
+                        fill_range=[0, 15], # [6, 13],
+                        line_levels=[7, 9, 11],
+                        ratio_range=[0, 2.5],
+                        n_decimals=0)
     # plot_mean_and_ratio(data_type='p',
     #                     fill_range=[0, 2.7],
     #                     line_levels=[0.3, 1.1, 1.5, 2],
     #                     ratio_range=[1, 17],
     #                     n_decimals=1)
     # plot_surface_elevation_from_geopotential()
-    plot_figure3()
-    plot_figure4()
-    plot_figure5()
-    plot_figure8()
-    plot_figure9_upper()
-    plot_figure9_lower()
-    plot_figure10()
-    plot_figure11()
+    # plot_figure3()
+    # plot_figure4()
+    # plot_figure5()
+    # plot_figure8()
+    # plot_figure9_upper()
+    # plot_figure9_lower()
+    # plot_figure10()
+    # plot_figure11()
     plt.show()
 
 if __name__ == "__main__":

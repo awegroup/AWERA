@@ -48,7 +48,7 @@ class PowerCurveConstructor:
             power_optimizer = seq[vw_switch]['power_optimizer']
             # TODO set in settings?
 
-            power_optimizer.random_x0 = False
+            power_optimizer.smear_x0 = True
             dx0 = seq[vw_switch].get('dx0', None)
 
             if x_opt_last is None:
@@ -88,7 +88,7 @@ class PowerCurveConstructor:
                         vw)
                     x0_opt, x_opt, op_res, cons, kpis = \
                         power_optimizer.run_optimization(x0_next,
-                                                         n_x_test=1,  # TODO change again
+                                                         n_x_test=2,  # TODO change again
                                                          second_attempt=True)
                     self.wind_speeds[i] = vw
                 except (OperationalLimitViolation, SteadyStateError,
@@ -109,7 +109,7 @@ class PowerCurveConstructor:
                         x0_opt, x_opt, op_res, cons, kpis = \
                             power_optimizer.run_optimization(
                                 x0_next,
-                                n_x_test=1,  # TODO change again
+                                n_x_test=2,  # TODO change again
                                 second_attempt=True)
                         self.wind_speeds[i] = vw
                     except (OperationalLimitViolation, SteadyStateError,

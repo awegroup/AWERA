@@ -47,10 +47,29 @@ def read_dataset_user_input():
         nc = xr.open_dataset(file_name)
     import numpy as np
     # TODO change this --> config
-    #lons = list(np.arange(-12, -5.0, .25))  # config.Data.all_lons
-    #lats = list(np.arange(51, 56.25, .25))
-    #nc = nc.sel(latitude=lats)
-    #nc = nc.sel(longitude=lons)
+    # Ireland
+    # lons = list(np.arange(-12, -5.0, .25))  # config.Data.all_lons
+    # lats = list(np.arange(51, 56.25, .25))
+    # UK
+    # lons = list(np.arange(-7, 2.5, .25))  # config.Data.all_lons
+    # lats = list(np.arange(49.5, 61.5, .25))
+    # GER
+    # lons = list(np.arange(5.5, 16.0, .25))  # config.Data.all_lons
+    # lats = list(np.arange(47.0, 55.5, .25))
+    # ES
+    # lons = list(np.arange(-11.25, 6.5, .25))  # config.Data.all_lons
+    # lats = list(np.arange(35.5, 47.0, .25))
+    # FR
+    # lons = list(np.arange(-5.75, 10.5, .25))  # config.Data.all_lons
+    # lats = list(np.arange(42, 51.75, .25))
+    # NO
+    # lons = list(np.arange(4, 20.25, .25))  # config.Data.all_lons
+    # lats = list(np.arange(57.5, 65.25, .25))
+    # IT
+    lons = list(np.arange(6.5, 19.5, .25))  # config.Data.all_lons
+    lats = list(np.arange(35.5, 47.75, .25))
+    nc = nc.sel(latitude=lats)
+    nc = nc.sel(longitude=lons)
 
 
     return nc

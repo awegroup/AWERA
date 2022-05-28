@@ -59,15 +59,15 @@ Power:
     OPT_VARIABLES: [
         "Reel-out\nforce [N]", "Reel-in\nforce [N]",
         "Elevation\nangle [rad]", "Reel-in tether\nlength [m]",
-        "Minimum tether\nlength [m]"
+        "Minimum tether\nlength [m]", "Reel-out powering [-]"
         ]
     BOUNDS_DEFAULT: [
         'system', 'system',
         '25 to 60 deg', '150 to 250m',
-        '200 to 250',
+        '200 to 250', '1 to 0',
     ]
     # Bounds to be updated, None/null is keep default
-    bounds: [null, null, null, null, null]
+    bounds: [null, null, null, null, null, [0.5, 1]]
 
 Data:
     start_year: 2011  # 2010  # (4-digit int): Process the wind data starting from this year

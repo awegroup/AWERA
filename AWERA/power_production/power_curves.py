@@ -436,9 +436,9 @@ def generate_power_curves(config,
         # estimated cut-out wind speed.
         vw_cut_in = limit_estimates.iloc[i_profile-1]['vw_100m_cut_in']
         vw_cut_out = limit_estimates.iloc[i_profile-1]['vw_100m_cut_out']
-        #wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
-        # wind_speeds = np.linspace(3, 27, 50)
-        wind_speeds = np.linspace(3, 27, 25)
+        # wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
+        wind_speeds = np.linspace(3, 29, 70)
+        # wind_speeds = np.linspace(3, 29, 15)
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
         # wind_speeds = np.concatenate((wind_speeds,
         #                               np.linspace(vw_cut_out-1,
@@ -453,7 +453,7 @@ def generate_power_curves(config,
         # is set to 30 degrees.
         op_cycle_pc_phase1 = OptimizerCycle(cycle_sim_settings_pc_phase1,
                                             sys_props, env,
-                                            reduce_x=np.array([0, 1, 2, 3, 5]),
+                                            reduce_x=np.array([0, 1, 2, 3]),
                                             bounds=copy.deepcopy(
                                                 config.Power.bounds))
         op_cycle_pc_phase1.bounds_real_scale[2][1] = 30*np.pi/180.
@@ -637,13 +637,13 @@ def compare_kpis(config, power_curves, compare_profiles=None):
     # TODO adapt label to config ref height
     x_label = '$v_{w,' + str(config.General.ref_height) + 'm}$ [m/s]'
     if compare_profiles is not None:
-        fig_nums = [plt.figure().number for _ in range(17)]
+        fig_nums = [plt.figure().number for _ in range(18)]
         tag = '_compare'
     else:
         tag = ''
     for idx, pc in enumerate(power_curves):
         if compare_profiles is None:
-            fig_nums = [plt.figure().number for _ in range(17)]
+            fig_nums = [plt.figure().number for _ in range(18)]
         if compare_profiles is not None:
             if idx+1 not in compare_profiles:
                 continue
@@ -660,17 +660,26 @@ def compare_kpis(config, power_curves, compare_profiles=None):
         f_out_max = [kpis['max_tether_force']['out']
                      for kpis in performance_indicators_success]
         f_out = [x[0] for x in x_opts_success]
-        p = plt.plot(pc.wind_speeds, f_out, label=str(int(idx + 1)))
-        clr = p[-1].get_color()
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None, None]
+        else:
+            labels = ['control', 'min', 'max']
+        p = plt.plot(pc.wind_speeds, f_out, label=labels[0])
+
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+
         plt.plot(pc.wind_speeds, f_out_min, linestyle='None', marker=6,
-                 color=clr, markersize=7, markerfacecolor="None")
+                 color=clr, markersize=7, markerfacecolor="None",
+                 label=labels[1])
         plt.plot(pc.wind_speeds, f_out_max, linestyle='None', marker=7,
-                 color=clr, markerfacecolor="None")
+                 color=clr, markerfacecolor="None", label=labels[2])
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Reel-out force [N]')
-        if compare_profiles is not None:
-            plt.legend()
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_force_vs_wind_'
@@ -682,17 +691,25 @@ def compare_kpis(config, power_curves, compare_profiles=None):
         f_in_max = [kpis['max_tether_force']['in']
                     for kpis in performance_indicators_success]
         f_in = [x[1] for x in x_opts_success]
-        p = plt.plot(pc.wind_speeds, f_in, label=str(int(idx + 1)))
-        clr = p[-1].get_color()
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None, None]
+        else:
+            labels = ['control', 'min', 'max']
+        p = plt.plot(pc.wind_speeds, f_in, label=labels[0])
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+
         plt.plot(pc.wind_speeds, f_in_min, linestyle='None', marker=6,
-                 color=clr, markersize=7, markerfacecolor="None")
+                 color=clr, markersize=7, markerfacecolor="None",
+                 label=labels[1])
         plt.plot(pc.wind_speeds, f_in_max, linestyle='None', marker=7,
-                 color=clr, markerfacecolor="None")
+                 color=clr, markerfacecolor="None", label=labels[2])
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Reel-in force [N]')
-        if compare_profiles is not None:
-            plt.legend()
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_in_force_vs_wind_'
@@ -703,15 +720,22 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                     for kpis in performance_indicators_success]
         f_in_max = [kpis['max_reeling_speed']['out']
                     for kpis in performance_indicators_success]
-        p = plt.plot(pc.wind_speeds, f_in_min, label=str(int(idx + 1)))
-        clr = p[-1].get_color()
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None]
+        else:
+            labels = ['min', 'max']
+        p = plt.plot(pc.wind_speeds, f_in_min, label=labels[0], marker=6)
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+
         plt.plot(pc.wind_speeds, f_in_max, linestyle='None', marker=7,
-                 color=clr, markerfacecolor="None")
+                 color=clr, markerfacecolor="None", label=labels[1])
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Reel-out speed [m/s]')
-        if compare_profiles is not None:
-            plt.legend()
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_out_speed_vs_'
@@ -722,16 +746,22 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                     for kpis in performance_indicators_success]
         v_in_max = [kpis['max_reeling_speed']['in']
                     for kpis in performance_indicators_success]
-        print(v_in_min, v_in_max)
-        p = plt.plot(pc.wind_speeds, v_in_min, label=str(int(idx + 1)))
-        clr = p[-1].get_color()
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None]
+        else:
+            labels = ['min', 'max']
+        p = plt.plot(pc.wind_speeds, v_in_min, label=labels[0], marker=6)
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+
         plt.plot(pc.wind_speeds, v_in_max, linestyle='None', marker=7,
-                 color=clr, markerfacecolor="None")
+                 color=clr, markerfacecolor="None", label=labels[1])
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Reel-in speed [m/s]')
-        if compare_profiles is not None:
-            plt.legend()
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_reel_in_speed_vs_'
@@ -833,17 +863,26 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                 for kpis in performance_indicators_success]
         p_out = [kpis['average_power']['out']
                  for kpis in performance_indicators_success]
-        plt.plot(pc.wind_speeds, np.array(p_cycle)/1000,
-                 label=str(int(idx + 1)))
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None, None, None]
+        else:
+            labels = ['cycle', 'reel-in', 'reel-out', 'transition']
+
+        p = plt.plot(pc.wind_speeds, np.array(p_cycle)/1000,
+                     label=labels[0])
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+
         plt.plot(pc.wind_speeds, np.array(p_in)/1000,
-                 label=str(int(idx + 1)), marker=6)
+                 label=labels[1], marker=6, color=clr)
         plt.plot(pc.wind_speeds, np.array(p_out)/1000,
-                 label=str(int(idx + 1)), marker=7)
+                 label=labels[2], marker=7, color=clr)
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Power [kW]')
-        if compare_profiles is not None:
-            plt.legend()
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_phase_power_vs_'
@@ -871,9 +910,7 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                   for kpis in performance_indicators_success]
         eff_out = [kpis['generator']['eff']['out']
                    for kpis in performance_indicators_success]
-        print(eff_cycle)
-        print(eff_in)
-        print(eff_out)
+
         if compare_profiles is not None:
             labels = [str(int(idx + 1)), None, None]
         else:
@@ -885,9 +922,9 @@ def compare_kpis(config, power_curves, compare_profiles=None):
         else:
             clr = None
         plt.plot(pc.wind_speeds, np.array(eff_in)*100, color=clr,
-                 label=labels[1], marker=6, linestyle='None')
+                 label=labels[1], marker=6)  # , linestyle='None')
         plt.plot(pc.wind_speeds, np.array(eff_out)*100, color=clr,
-                 label=labels[2], marker=7, linestyle='None')
+                 label=labels[2], marker=7)  # , linestyle='None')
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Generator Efficiency [%]')
@@ -903,15 +940,23 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                    for kpis in performance_indicators_success]
         load_out = [kpis['generator']['load']['out']
                     for kpis in performance_indicators_success]
-        plt.plot(pc.wind_speeds, np.array(load_in),
-                 label=str(int(idx + 1)), marker=6)
-        plt.plot(pc.wind_speeds, np.array(load_out),
-                 label=str(int(idx + 1)), marker=7)
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None]
+        else:
+            labels = ['reel-in', 'reel-out']
+        p = plt.plot(pc.wind_speeds, np.array(load_in),
+                     label=labels[0], marker=6)
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+
+        plt.plot(pc.wind_speeds, np.array(load_out), color=clr,
+                 label=labels[1], marker=7)
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Load [%]')
-        if compare_profiles is not None:
-            plt.legend()
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_load_gen_vs_'
@@ -922,15 +967,22 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                    for kpis in performance_indicators_success]
         freq_out = [kpis['generator']['freq']['out']
                     for kpis in performance_indicators_success]
-        plt.plot(pc.wind_speeds, np.array(freq_in),
-                 label=str(int(idx + 1)), marker=6)
-        plt.plot(pc.wind_speeds, np.array(freq_out),
-                 label=str(int(idx + 1)), marker=7)
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None]
+        else:
+            labels = ['reel-in', 'reel-out']
+        p = plt.plot(pc.wind_speeds, np.array(freq_in),
+                     label=labels[0], marker=6)
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+        plt.plot(pc.wind_speeds, np.array(freq_out), color=clr,
+                 label=labels[1], marker=7)
         plt.grid(True)
         plt.xlabel(x_label)
-        plt.ylabel('Frequency [Hz]')
-        if compare_profiles is not None:
-            plt.legend()
+        plt.ylabel('Electric Current Frequency [Hz]')
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_freq_gen_vs_'
@@ -959,23 +1011,44 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                  for kpis in performance_indicators_success]
         t_trans = [kpis['duration']['trans']
                    for kpis in performance_indicators_success]
-        plt.plot(pc.wind_speeds, np.array(t_cycle),
-                 label='cycle')
-        plt.plot(pc.wind_speeds, np.array(t_in),
-                 label='reel-in', marker=6)
-        plt.plot(pc.wind_speeds, np.array(t_out),
-                 label='reel-out', marker=7)
-        plt.plot(pc.wind_speeds, np.array(t_trans),
-                 label='transition', linestyle='-.')
+        if compare_profiles is not None:
+            labels = [str(int(idx + 1)), None, None, None]
+        else:
+            labels = ['cycle', 'reel-in', 'reel-out', 'transition']
+
+        p = plt.plot(pc.wind_speeds, np.array(t_cycle),
+                     label=labels[0])
+        if compare_profiles is not None:
+            clr = p[-1].get_color()
+        else:
+            clr = None
+        plt.plot(pc.wind_speeds, np.array(t_in), color=clr,
+                 label=labels[1], marker=6)
+        plt.plot(pc.wind_speeds, np.array(t_out), color=clr,
+                 label=labels[2], marker=7)
+        plt.plot(pc.wind_speeds, np.array(t_trans), color=clr,
+                 label=labels[3], linestyle='-.')
         plt.grid(True)
         plt.xlabel(x_label)
         plt.ylabel('Time [s]')
-        if compare_profiles is None:
-            plt.legend()
+        plt.legend()
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.training_plot_output.format(
                 title=('performance_indicator_phase_duration_vs_'
                        'wind_speeds_profile_{}{}'.format(idx+1, tag))))
+
+        plt.figure(fig_nums[17])
+        l_tether = [x[3]+x[4] for x in x_opts_success]
+        p = plt.plot(pc.wind_speeds, l_tether, label=str(int(idx + 1)))
+        plt.grid(True)
+        plt.xlabel(x_label)
+        plt.ylabel('max tether length [m]')
+        if compare_profiles is not None:
+            plt.legend()
+        if not config.Plotting.plots_interactive:
+            plt.savefig(config.IO.training_plot_output.format(
+                title=('performance_indicator_max_tether_length_vs_wind_'
+                       'speeds_profile_{}{}'.format(idx+1, tag))))
 
 def combine_separate_profile_files(config,
                                    io_file='refined_cut_wind_speeds',

@@ -165,6 +165,15 @@ class Optimizer:
         else:
             x_full = x_vals
 
+        if 3 in self.reduce_x and 5 in self.reduce_x:
+            # Optimising on both elevation angle and powering C_L,C_D
+            # Only optimise over powering after reaching max elevation angle
+            elevation_angle_traction = x_full[2]
+            max_elev_border = self.bounds_real_scale[2, 1]*self.scaling_x[2] * 0.95
+            if elevation_angle_traction - max_elev_border < 0:
+                # Set powering random starting value to 1
+                x_full[5] = 1
+
         bounds_adhered = (x_full - self.bounds_real_scale[:, 0]*self.scaling_x >= -1e-3).all() and \
                          (x_full - self.bounds_real_scale[:, 1]*self.scaling_x <= 1e-3).all()
         if not bounds_adhered:
@@ -174,10 +183,21 @@ class Optimizer:
             lower = (x_full - self.bounds_real_scale[:, 0]*self.scaling_x >= -1e-3)
             upper = (x_full - self.bounds_real_scale[:, 1]*self.scaling_x <= 1e-3)
             print('lower:', lower, 'upper:', upper)
-            raise OptimizerError("Optimization bounds violated.")
+            # Set violated values to bounds, simulation is very sensitive to this:
+            overwrite_lower = np.logical_and(
+                np.logical_not(lower), [i in self.reduce_x for i in range(len(x_full))])
+            overwrite_upper = np.logical_and(
+                np.logical_not(upper), [i in self.reduce_x for i in range(len(x_full))])
+            x_full[overwrite_lower] = (self.bounds_real_scale[:, 0]*self.scaling_x)[overwrite_lower]
+            x_full[overwrite_upper] = (self.bounds_real_scale[:, 1]*self.scaling_x)[overwrite_upper]
+            # Test
+            lower = (x_full - self.bounds_real_scale[:, 0]*self.scaling_x >= -1e-3)
+            upper = (x_full - self.bounds_real_scale[:, 1]*self.scaling_x <= 1e-3)
+            print('Test', 'lower:', lower, 'upper:', upper)
+            # raise OptimizerError("Optimization bounds violated.")
 
         obj, ineq_cons = self.eval_fun(x_full, *args)
-        #print(x_full, ineq_cons)
+        print(x_full, ineq_cons)
         funcs = {}
         funcs['obj'] = obj
         for idx, i_c in enumerate(self.reduce_ineq_cons):
@@ -225,7 +245,7 @@ class Optimizer:
             raise OptimizerError("Optimization vector contains nan's.")
         self.x_progress.append(x.copy())
 
-    def optimize(self, *args, maxiter=50, iprint=-1):  # 0):
+    def optimize(self, *args, maxiter=80, iprint=-1):  # 0):
         """Perform optimization."""
         self.clear_result_attributes()
         # Construct scaled starting point and bounds
@@ -556,7 +576,7 @@ class OptimizerCycle(Optimizer):
         if np.any(np.isnan(bounds[1, :])):
             bounds[1, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
         if reduce_ineq_cons is None:
-            reduce_ineq_cons = np.arange(8)  # Inequality constraints
+            reduce_ineq_cons = np.arange(9)  # 10)  # Inequality constraints
         super().__init__(self.X0_REAL_SCALE_DEFAULT.copy(), bounds, self.SCALING_X_DEFAULT.copy(),
                          reduce_x, reduce_ineq_cons, system_properties, environment_state)
 
@@ -573,7 +593,8 @@ class OptimizerCycle(Optimizer):
         self.cycle_settings = cycle_settings
 
         self.set_max_traction_power = 20000.  # TODO make optional in config
-        self.random_x0 = True  # Randomize starting x0 (smearing, gaussian selection)
+        self.random_x0 = False  # Randomize starting x0 (over bounds gaussian selection)
+        self.smear_x0 = False  # Randomize starting x0 (gaussian smearing)
 
         # TODO remove? reorganise?
         self.optimization_rounds = {'total_opts': [],
@@ -647,28 +668,33 @@ class OptimizerCycle(Optimizer):
             ineq_cons_cw_patterns = 0.  # Constraint set to 0 does not affect the optimization.
 
         # Generator efficiency constraint: all efficiencies greater than 0
-        if res['generator']['eff']['in'] not in [None, 0]:
-            effs = res['generator']['eff']['in']
-        else:
-            effs = -1
-        if res['generator']['eff']['out'] not in [None, 0]:
-            effs = effs * res['generator']['eff']['out']
-        elif effs != -1:
-            effs = effs * -1
         # Rather: Constraints for load and frequency violation:
         max_load = res['generator']['load_bounds'][1]
         max_freq = res['generator']['freq_bounds'][1]
         load_violation = 0
         for phase, load in res['generator']['load'].items():
             if load is not None:
-                violation = max_load - load
+                violation = max_load - load - self.precision
                 load_violation = np.min((load_violation, violation))
         freq_violation = 0
         for phase, freq in res['generator']['freq'].items():
             if freq is not None:
-                violation = max_freq - freq
+                violation = max_freq - freq - self.precision
                 freq_violation = np.min((freq_violation, violation))
 
+        # max_duration = 360  # 6 min
+        # # TODO set as option in settings file, ...?
+        # duration_violation = max_duration - res['duration']['cycle']
+
+        # Constrain the sequence of depowering: first elevation angle
+        # and when within 5% of the maximum elevation angle, allow depowering
+        elevation_angle_traction = x_real_scale[2]
+        max_elev_border = self.bounds_real_scale[2][1] * 0.95
+        powering = x_real_scale[5]
+        if elevation_angle_traction - max_elev_border < 0 and powering < 1:
+            allow_depowering = -1/powering
+        else:
+            allow_depowering = 0
         # TODO add ineq constraint: less maximum power
         # TODO default max reel out force * max reel out speed
         # TODO set explicitly: check agains maximum traction power
@@ -685,13 +711,14 @@ class OptimizerCycle(Optimizer):
                               res['speed_viol_diff']['out'],
                               load_violation,
                               freq_violation,
+                              # duration_violation,
+                              allow_depowering,
                               ineq_cons_cw_patterns
                               ])
-        if self.print_details:
-            print('inequality constraints: min f_out, max f_out, max f_in,'
-                  ' min f_in, max f_out_sys, speed_viol_diff, n_cwp - obj ',
-                  ineq_cons, obj)
-
+        # if self.print_details:
+        #     print('inequality constraints: min f_out, max f_out, max f_in,'
+        #           ' min f_in, max f_out_sys, speed_viol_diff, n_cwp - obj ',
+        #           ineq_cons, obj)
 
         return obj, ineq_cons[4:]
 
@@ -702,7 +729,6 @@ class OptimizerCycle(Optimizer):
         tether_force_traction, tether_force_retraction, \
             elevation_angle_traction, tether_length_diff, \
             tether_length_min, powering_traction = x_real_scale
-        print('powering:', powering_traction)
 
         # Configure the cycle settings and run simulation.
         self.cycle_settings['cycle']['elevation_angle_traction'] = elevation_angle_traction
@@ -727,12 +753,6 @@ class OptimizerCycle(Optimizer):
             phase_switch_points = [cycle.transition_phase.time[0], cycle.traction_phase.time[0]]
             cycle.time_plot(['straight_tether_length', 'reeling_speed', 'tether_force_ground', 'power_ground'],
                             plot_markers=phase_switch_points)
-        if self.print_details:
-            print('min, qsm, control, max',
-                  cycle.traction_phase.min_tether_force,
-                  cycle.traction_phase.average_tether_force_ground,
-                  tether_force_traction,
-                  cycle.traction_phase.max_tether_force)
 
         env_state = self.environment_state
         power_wind_trac = []
@@ -867,22 +887,31 @@ class OptimizerCycle(Optimizer):
             return test_smearing
 
         for n_test in range(n_x_test):
-            if not self.random_x0:
+            if self.random_x0:
                 continue
-            # Gaussian random selection of x0 within bounds
-            # TODO or just use uniform distr, mostly at bounds anyways...?
-            x0_range_random.append([truncnorm(a=bounds[i][0]/bounds[i][1],
-                                              b=1, scale=bounds[i][1]).rvs()
-                                    if i in reduce_x else x0[i]
-                                    for i in range(len(x0))])
+                # Gaussian random selection of x0 within bounds
+                # TODO or just use uniform distr, mostly at bounds anyways...?
+                x0_range_random.append([truncnorm(a=bounds[i][0]/bounds[i][1],
+                                                  b=1, scale=bounds[i][1]).rvs()
+                                        if i in reduce_x else x0[i]
+                                        for i in range(len(x0))])
+            if self.smear_x0:
+                # Gaussian random smearing of x0 within bounds
+                smearing = 0.05  # 10% smearing of the respective values
 
-            # Gaussian random smearing of x0 within bounds
-            smearing = 0.1  # 10% smearing of the respective values
-
-            # Test on two smeared variations of x0
-            x0_range.append(smearing_x0())
-            smearing = 0.5
-            x0_range.append(smearing_x0())
+                # Test on two smeared variations of x0
+                x0_range_random.append(smearing_x0())
+                smearing = 0.1
+                x0_range_random.append(smearing_x0())
+                # Constrain the sequence of depowering: first elevation angle
+                # and when within 5% of the maximum elevation angle, allow depowering
+                # elevation_angle_traction = x0[2]
+                # max_elev_border = bounds[2][1] * 0.95
+                # if elevation_angle_traction - max_elev_border < 0:
+                #     # Set powering random starting value to 1
+                #     x0_range_random[-1][5] = 1
+                #     x0_range_random[-2][5] = 1
+                x0_range_random[-2][0] = bounds[0][1]
 
         x0_range += x0_range_random
         print(x0_range)
@@ -917,7 +946,6 @@ class OptimizerCycle(Optimizer):
                     try:
                         cons, kpis = self.eval_point()
                         if not np.all(cons >= -self.precision):
-                            print('cons:', cons)
                             x_opts = x_opts[:-1]
                             op_ress = op_ress[:-1]
                             opt_successfuls = opt_successfuls[:-1]
@@ -933,15 +961,14 @@ class OptimizerCycle(Optimizer):
                             break
                     except (SteadyStateError, OperationalLimitViolation,
                             PhaseError) as e:
-                        # TODO log? print("Error occurred while evaluating the"
-                        #       "resulting optimal point: {}".format(e))
+                        print("Error occurred while evaluating the"
+                              "resulting optimal point: {}".format(e))
                         # Evaluate results with relaxed errors
                         # relaxed errors only relax OperationalLimitViolation
                         cons, kpis = self.eval_point(
                             relax_errors=True)
                         conss.append(cons)
                         if not np.all(cons >= -self.precision):
-                            print('cons:', cons)
                             x_opts = x_opts[:-1]
                             op_ress = op_ress[:-1]
                             opt_successfuls = opt_successfuls[:-1]
@@ -951,54 +978,39 @@ class OptimizerCycle(Optimizer):
                         kpiss.append(kpis)
                         sim_err = e
                         sim_successfuls.append(False)
-                        if self.print_details:
-                            print('........')
-                            print(i, x0_test, self.x_opt_real_scale,
-                                  self.op_res, e)
                         continue
                         # TODO log?print('Simulation failed -> errors relaxed')
                 else:
-                    # TODO log? print("Optimization number "
-                    #       "{} finished with an error: {}".format(
-                    #           i, 'Optimization bounds violated'))
+                    print("Optimization number "
+                           "{} finished with an error: {}".format(
+                               i, 'Optimization bounds violated'))
                     # Drop last x_opts, bonds are not adhered
                     x_opts = x_opts[:-1]
-                    print('Optimizer bounds check:', bounds_adhered,
-                          'with precision: ', self.precision)
                     # TODO remove?
                     raise OptimizerError('Optimization bounds violated '
                                          'in final result')
 
             except (OptimizerError) as e:
-                # TODO log? print("Optimization number "
-                #      "{} finished with an error: {}".format(i, e))
+                print("Optimization number "
+                      "{} finished with an error: {}".format(i, e))
                 opt_err = e
                 opt_successfuls.append(False)
-                if self.print_details:
-                    print('...')
-                    print(i, x0_test, self.x_opt_real_scale, e)
                 continue
             except (SteadyStateError, PhaseError,
                     OperationalLimitViolation) as e:
-                # TODO log? print("Optimization number "
-                #      "{} finished with a simulation error: {}".format(i, e))
+                print("Optimization number "
+                      "{} finished with a simulation error: {}".format(i, e))
                 opt_err = e
                 opt_successfuls.append(False)
-                if self.print_details:
-                    print('...')
-                    print(i, x0_test, e)
                 continue
             except (FloatingPointError) as e:
-                # TODO log? print("Optimization number "
-                #      "{} finished due to a mathematical simulation error: {}"
-                #      .format(i, e))
+                print("Optimization number "
+                      "{} finished due to a mathematical simulation error: {}"
+                      .format(i, e))
                 opt_err = e
                 opt_successfuls.append(False)
-                if self.print_details:
-                    print('...')
-                    print(i, x0_test, e)
                 continue
-            print(i, 'cons:', cons, 'successful.')
+            print(self.environment_state.wind_speed_ref, i, 'successful.')
 
 
         # TODO Include test for correct power?
