@@ -23,7 +23,7 @@ def sliding_window_avg(data, i_window):
 
     # TODO make processing of i_sample parallel
 
-def count_consecutive_bool(data):
+def count_consecutive_bool(data, return_all_counts=False):
     max_True_time = np.empty(data.shape[0])
     max_False_time = np.empty(data.shape[0])
     n_locs = data.shape[0]
@@ -52,6 +52,8 @@ def count_consecutive_bool(data):
             max_False_time[i_loc] = 0
     # TODO option for time resolved return? -> radius eval?
     # , time-distance to change, ... ?
-
-    return max_True_time, max_False_time
+    if return_all_counts:
+        return consec_True, consec_False
+    else:
+        return max_True_time, max_False_time
 

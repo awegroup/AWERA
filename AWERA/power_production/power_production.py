@@ -158,10 +158,7 @@ class PowerProduction(SingleProduction):
             env_state.set_reference_height(ref_height)
             env_state.set_reference_wind_speed(wind_speeds[0])
 
-        if wind_speeds[0] <= 7:
-            reduce_x = np.array([0, 1, 2, 3])
-        else:
-            reduce_x = np.array([0, 1, 2, 3, 5])
+        reduce_x = np.array([0, 1, 2, 3])
         oc = self.create_optimizer(env_state, wind_speeds[0],
                                    sys_props=sys_props,
                                    reduce_x=reduce_x,
@@ -173,9 +170,9 @@ class PowerProduction(SingleProduction):
         if wind_speeds[0] <= 7:
             oc_g_7 = self.create_optimizer(env_state, 8,
                                            sys_props=sys_props,
-                                           reduce_x=np.array([0, 1, 2, 3, 5]),
+                                           reduce_x=np.array([0, 1, 2, 3]),
                                            cycle_sim_settings=
-                                           cycle_sim_settings,
+                                           copy.deepcopy(cycle_sim_settings),
                                            bounds=copy.deepcopy(
                                                self.config.Power.bounds),
                                            print_details=print_details)
@@ -196,6 +193,35 @@ class PowerProduction(SingleProduction):
                      'dx0': np.array([0., 0., 0.1, 0., 0., 0.])},
             }
 
+        reduce_x = np.array([0, 1, 3, 5])
+        oc_p = self.create_optimizer(env_state, wind_speeds[0],
+                                   sys_props=sys_props,
+                                   reduce_x=reduce_x,
+                                   cycle_sim_settings=
+                                   copy.deepcopy(cycle_sim_settings),
+                                   bounds=copy.deepcopy(
+                                       self.config.Power.bounds),
+                                   print_details=print_details)
+        if wind_speeds[0] <= 7:
+            oc_g_7_p = self.create_optimizer(env_state, 8,
+                                           sys_props=sys_props,
+                                           reduce_x=np.array([0, 1, 3, 5]),
+                                           cycle_sim_settings=
+                                           copy.deepcopy(cycle_sim_settings),
+                                           bounds=copy.deepcopy(
+                                               self.config.Power.bounds),
+                                           print_details=print_details)
+        else:
+            oc_g_7_p = oc_p
+        op_seq_powering = {
+            7.: {'power_optimizer': oc_p,
+                 'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+            17.: {'power_optimizer': oc_g_7_p,
+                  'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+            np.inf: {'power_optimizer': oc_g_7_p,
+                     'dx0': np.array([0., 0., 0.1, 0., 0., 0.])},
+            }
+
         # Start optimizations.
         pc = PowerCurveConstructor(wind_speeds, print_details=print_details)
         setattr(pc, 'plots_interactive',
@@ -204,7 +230,7 @@ class PowerProduction(SingleProduction):
             plot_output_file = self.config.IO.training_plot_output
         setattr(pc, 'plot_output_file', plot_output_file)
 
-        pc.run_predefined_sequence(op_seq, x0)
+        pc.run_predefined_sequence(op_seq, x0, depowering_seq=op_seq_powering)
         if return_optimizer:
             return pc, oc
         else:

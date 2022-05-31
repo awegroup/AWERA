@@ -191,6 +191,243 @@ class evalAWERA(ChainAWERA):
             print('Plotting done.')
         return t_below_bar
 
+    def consecutive_down_time_cut_in_out(self,
+                             test_max_consec=[1,2,3,4,5],  # Hours for hourly data
+                             at_night=False,
+                             read_if_possible=True,
+                             locs_slice=None,
+                             read_from_slices=None,
+                             read_only='down_times'):
+        file_name = self.config.IO.plot_output.format(
+            title='consecutive_down_time_cut_in_out').replace('.pdf', '.pickle')
+        # if time_window != 5:
+        #     file_name = file_name.replace(
+        #             '.pickle',
+        #             '_{:.0f}.pickle'.format(time_window))
+        if at_night:
+            file_name = file_name.replace(
+                    '.pickle',
+                    'at_night.pickle')
+        if locs_slice is not None:
+            file_name = file_name.replace(
+                    '.pickle',
+                    '{}_n_{}.pickle'.format(locs_slice[0], locs_slice[1]))
+
+        res = {}
+        if read_if_possible:
+            try:
+                if read_from_slices is not None:
+                    if locs_slice is not None:
+                        raise ValueError('Cannot read from all locs slices '
+                                         'and a single loc slice at the same'
+                                         ' time')
+
+                    def combine_labels(n_i=read_from_slices[0],
+                                       n_max=read_from_slices[1]):
+                        loc_file_name = file_name.replace(
+                            '.pickle',
+                            '{{}}_n_{}.pickle'.format(n_max))
+                        for i in range(n_i):
+                            print('{}/{}'.format(i+1, n_i))
+                            with open(loc_file_name.format(i), 'rb') as f:
+                                res_i = pickle.load(f)
+                            # First label is start for res
+                            if i == 0:
+                                res = {}
+                                res[read_only] = np.ma.empty(
+                                    [self.config.Data.n_locs])
+
+                            # Append labels to results, append locations
+                            end = (i+1)*read_from_slices[1]
+                            if end > self.config.Data.n_locs:
+                                end = self.config.Data.n_locs
+                            res[read_only][i*read_from_slices[1]:end] = \
+                                res_i[read_only]
+                        return res
+                    res = combine_labels()
+                else:
+                    with open(file_name, 'rb') as f:
+                        res = pickle.load(f)
+
+            except FileNotFoundError:
+                res = {}
+        if len(res) == 0:
+            # Read clustering power, masked values are out of
+            # cut-in/out wind speed window of matched power curve
+            p_cluster, _, _, n_samples_per_loc = \
+                self.match_clustering_power_results(locs_slice=locs_slice)
+            down = p_cluster.mask
+            print(down)
+            print(down.shape, np.sum(down))
+            # Restructure, per location
+            if locs_slice is not None:
+                n_locs = len(down)/n_samples_per_loc
+                if n_locs != int(n_locs):
+                    raise ValueError('Cannot interpret n_locs, '
+                                     'does not match n_samples_per_loc!')
+                else:
+                    n_locs = int(n_locs)
+            else:
+                n_locs = self.config.Data.n_locs
+            d = down.reshape((n_locs, int(n_samples_per_loc)))
+
+            if at_night:
+                night_time_file = self.config.IO.plot_output.format(
+                    title='datetime_night_mask').replace('.pdf', '.pickle')
+                try:
+                    if not read_if_possible:
+                        raise FileNotFoundError('Not supposed to read file.')
+
+                    with open(night_time_file, 'rb') as f:
+                        night_mask = pickle.load(f)
+                except FileNotFoundError:
+                    yearly_night_time = {
+                        # inclusive night hours: in Standard european time
+                        1: [17, 7], 2: [18, 7], 3: [19, 6], 4: [20, 5],
+                        5: [21, 4], 6: [22, 3], 7: [22, 3], 8: [21, 4],
+                        9: [20, 5], 10: [19, 6], 11: [18, 6], 12: [17, 7]}
+                    night_mask = np.empty((n_samples_per_loc), dtype='bool')
+                    single_loc_datetime = get_wind_data(
+                        self.config,
+                        locs=[self.config.Data.locations[0]])['datetime']
+                    dates = pd.to_datetime(single_loc_datetime)
+                    months = dates.month
+                    hours = dates.hour
+                    for i in range(1, 13):
+                        month_mask = months == i
+                        month_hours = hours[month_mask]
+                        night_time = yearly_night_time[i]
+                        night_mask[month_mask] = np.logical_or(
+                            # UTC = Standard European time - 1
+                            month_hours >= night_time[0] - 1,
+                            month_hours <= night_time[1] - 1)
+                    # Save night mask
+                    with open(night_time_file, 'wb') as f:
+                        pickle.dump(night_mask, f)
+                d = d[:, night_mask]
+
+            # Take a sliding window average over the given time_window
+
+            # Count consecutive times above bar
+            t_down, t_up = count_consecutive_bool(d, return_all_counts=True)
+            total_down = np.sum(t_down)
+            total_up = np.sum(t_up)
+            print('Total down/up (overall):', total_down, total_up,
+                  '({})'.format(d.shape))
+
+            res = {'down_times': d,
+                   't_down': t_down,
+                   't_up': t_up}
+
+            with open(file_name, 'wb') as f:
+                pickle.dump(res, f)
+            print('Output Written.')
+        else:
+            t_down = res['t_down']
+            # t_above_bar = res['t_above_bar']
+
+        n_bridge = []
+        for bridge_time in test_max_consec:
+            n = t_down[t_down <= bridge_time]
+            print('Bridging up to {} hours'.format(bridge_time),
+                  'in {} hourly samples'.format(np.sum(n)))
+            n_bridge.append(np.sum(n))
+
+        return n_bridge, test_max_consec
+
+    def get_night_mask(self, read_if_possible=True):
+        night_time_file = self.config.IO.plot_output.format(
+            title='datetime_night_mask').replace('.pdf', '.pickle')
+        try:
+            if not read_if_possible:
+                raise FileNotFoundError('Not supposed to read file.')
+
+            with open(night_time_file, 'rb') as f:
+                night_mask = pickle.load(f)
+        except FileNotFoundError:
+            data = get_wind_data(
+                self.config,
+                locs=[self.config.Data.locations[0]])
+            single_loc_datetime = data['datetime']
+            n_samples_per_loc = int(data['n_samples_per_loc'])
+
+            yearly_night_time = {
+                # inclusive night hours: in Standard european time
+                1: [17, 7], 2: [18, 7], 3: [19, 6], 4: [20, 5],
+                5: [21, 4], 6: [22, 3], 7: [22, 3], 8: [21, 4],
+                9: [20, 5], 10: [19, 6], 11: [18, 6], 12: [17, 7]}
+            night_mask = np.empty((n_samples_per_loc), dtype='bool')
+
+            dates = pd.to_datetime(single_loc_datetime)
+            months = dates.month
+            hours = dates.hour
+            for i in range(1, 13):
+                month_mask = months == i
+                month_hours = hours[month_mask]
+                night_time = yearly_night_time[i]
+                night_mask[month_mask] = np.logical_or(
+                    # UTC = Standard European time - 1
+                    month_hours >= night_time[0] - 1,
+                    month_hours <= night_time[1] - 1)
+            # Save night mask
+            with open(night_time_file, 'wb') as f:
+                pickle.dump(night_mask, f)
+        return night_mask
+
+    def cut_in_out_distr(self,
+                         i_loc=None):
+        # Returning masked array of power for
+        # masking v outside of wind speed bounds of power curve
+        labels, backscaling, n_samples_per_loc, _ = self.read_labels()
+
+        if i_loc is None:
+            matching_cluster = labels
+            profile_ids = np.array(matching_cluster) + 1
+            backscaling = np.array(backscaling)
+            n_locs = int(labels.shape[0]/n_samples_per_loc)
+            print('n_locs:', n_locs)
+        else:
+            matching_cluster = np.array(labels[i_loc*n_samples_per_loc:
+                                               (i_loc+1)*n_samples_per_loc])
+            backscaling = np.array(backscaling[i_loc*n_samples_per_loc:
+                                               (i_loc+1)*n_samples_per_loc])
+            profile_ids = np.array(matching_cluster) + 1
+            n_locs = 1
+        n_samples = backscaling.shape[0]
+        used_profiles = list(np.unique(profile_ids))
+
+        backscaling = backscaling.reshape((n_locs, int(n_samples_per_loc)))
+        profile_ids = profile_ids.reshape((n_locs, int(n_samples_per_loc)))
+
+        fail_cut_in = []
+        fail_cut_out = []
+        fail_cut_in_night = []
+        fail_cut_out_night = []
+        for profile_id in used_profiles:
+            v_data = backscaling[profile_ids == profile_id]
+            night_mask = self.get_night_mask()
+            v_data_night = backscaling[:, night_mask][
+                profile_ids[:, night_mask] == profile_id]
+
+            power_curve = self.read_curve(i_profile=profile_id)
+            v_curve = np.array(power_curve['v_100m [m/s]'])
+
+            v_bounds = (np.min(v_curve), np.max(v_curve))
+
+            fail_cut_in.append(np.sum(v_data < v_bounds[0]))
+            fail_cut_out.append(np.sum(v_data > v_bounds[1]))
+
+            fail_cut_in_night.append(np.sum(v_data_night < v_bounds[0]))
+            fail_cut_out_night.append(np.sum(v_data_night > v_bounds[1]))
+
+        res = (
+            [np.sum(fail_cut_in)/n_samples, np.sum(fail_cut_out)/n_samples],
+            [np.sum(fail_cut_in_night)/n_samples,
+             np.sum(fail_cut_out_night)/n_samples])
+        print('percentage of night time:', np.sum(night_mask/n_samples_per_loc))
+        print(res)
+        return res
+
     def aep_map(self):
         # TODO include here?
         from ..power_production.aep_map import aep_map
@@ -200,6 +437,16 @@ class evalAWERA(ChainAWERA):
         from ..power_production.plot_power_and_frequency import \
             plot_power_and_frequency
         plot_power_and_frequency(self.config)
+
+    def step_towing_AEP(self, power_consumption=20,
+                        bridge_times=[1, 2, 3, 4, 5]):
+        AEP = self.aep()[0]
+
+        n_bridge, bridge_times = self.consecutive_down_time_cut_in_out(test_max_consec=bridge_times)
+
+        loss = np.array(n_bridge)*power_consumption
+        print(loss, AEP, AEP-loss)
+        return loss, AEP-loss, bridge_times
 
     # def plot_operational_timeline(self):
     #     param = []

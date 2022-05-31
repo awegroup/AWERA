@@ -47,7 +47,7 @@ def get_frequency_from_reeling_speed(vr,
     rpm = freq_turn * 60  # 1/min
     # 992 rpm is 50Hz electrical frequency depending on number of poles
     freq = rpm * 50/992  # Hz
-    print(vr, freq)
+    # print(vr, freq)
     return freq
 
 
@@ -91,7 +91,7 @@ def get_gen_eff(power, vr,
                                      fill_value=0.)
     load = np.abs(power)/rated_power*100
     freq = get_frequency_from_reeling_speed(vr)
-    print('load and freq:', load, freq)
+    # print('load and freq:', load, freq)
     eff = eff_table(load, freq)/100.
 
     return eff, load, freq

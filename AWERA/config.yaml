@@ -63,11 +63,11 @@ Power:
         ]
     BOUNDS_DEFAULT: [
         'system', 'system',
-        '25 to 60 deg', '150 to 250m',
+        '25 to 60 deg', '150 to 300m',
         '200 to 250', '1 to 0',
     ]
     # Bounds to be updated, None/null is keep default
-    bounds: [null, null, null, null, null, [0.5, 1]]
+    bounds: [null, null, null, [150, 300], null, [0.5, 1]]
 
 Data:
     start_year: 2011  # 2010  # (4-digit int): Process the wind data starting from this year

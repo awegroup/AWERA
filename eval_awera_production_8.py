@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     # n_locs = 1 # [200, 500, 1000, 5000]
     n_l = 1  # n_locs[settings_id]
-    scan_tag = 'final_U_11_'  # full_ half_  35_vw_ more_, short full_powering_stages
+    scan_tag = 'final_U_'
     settings = {
         'Data': {'n_locs': 1,
                  'location_type': 'Maasvlakte_2'},
@@ -76,23 +76,23 @@ if __name__ == '__main__':
 
     # TODO check if clustering etc has to be done?
 
-    working_title = 'run_production'  #  'run_production' #'predict_labels' #  'file'
-    # awera.run_clustering()
-    # awera.plot_cluster_shapes()
-    limit_estimates = awera.estimate_wind_speed_operational_limits()
-    pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
-    # pcs = [awera.read_curve(i_profile=i+1, return_constructor=True)
-    #         for i in range(n_clusters)]
-    awera.compare_kpis(pcs, compare_profiles=list(range(1, n_clusters+1)))
+    working_title = 'eval_production'  #  'run_production' #'predict_labels' #  'file'
 
-    print(awera.read_limits(refined=True))
-    print(awera.read_profiles())
-    awera.plot_power_curves(plot_full_electrical=True)
-    awera.plot_power_curves(speed_at_op_height=True,
-                            plot_full_electrical=True)
-    awera.get_frequency()
-    awera.plot_cluster_frequency()
-    awera.aep()
+    # awera.plot_cluster_shapes()
+
+    pcs = [awera.read_curve(i_profile=i+1, return_constructor=True)
+           for i in range(n_clusters)]
+    # awera.compare_kpis(pcs, compare_profiles=list(range(1, n_clusters+1)))
+
+    # print(awera.read_limits(refined=True))
+    # print(awera.read_profiles())
+    # awera.plot_power_curves(plot_full_electrical=True)
+    # awera.plot_power_curves(speed_at_op_height=True,
+    #                         plot_full_electrical=True)
+    # awera.get_frequency()
+    # awera.plot_cluster_frequency()
+    # awera.aep()
+
 
     print('Done.')
     print('------------------------------ Config:')

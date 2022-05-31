@@ -2269,7 +2269,7 @@ class Cycle(TimeSeries):
         self.phase_efficiencies = settings.get('phase_efficiencies',
                                                      {'traction': 1,
                                                       'retraction': 1})
-        print(self.phase_efficiencies)
+        # TODO print(self.phase_efficiencies)
 
     def run_simulation(self, system_properties, environment_state, steady_state_config={},
                        enable_limit_violation_error=False, print_summary=False):
@@ -2405,7 +2405,7 @@ class Cycle(TimeSeries):
         # Evaluate generator efficiencies
         from .kitepower_generator import get_gen_eff,\
             get_winch_eff, get_gen_bounds
-        print(trac.average_power, retr.average_power, self.pumping_efficiency)
+        print('trac, retr power; pumping eff', trac.average_power, retr.average_power, self.pumping_efficiency)
         self.load_bounds, self.freq_bounds = get_gen_bounds()
         eff_trac, eff_retr, eff_winch = (None, None, None)
         if trac.average_power is not None:

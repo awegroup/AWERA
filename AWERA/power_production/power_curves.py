@@ -437,7 +437,9 @@ def generate_power_curves(config,
         vw_cut_in = limit_estimates.iloc[i_profile-1]['vw_100m_cut_in']
         vw_cut_out = limit_estimates.iloc[i_profile-1]['vw_100m_cut_out']
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
-        wind_speeds = np.linspace(3, 29, 70)
+        # wind_speeds = np.linspace(3, 29, 70)
+        # wind_speeds = np.array([3.5, 5, 8, 9, 10, 11, 14, 17, 20, 23, 25, 28])  # final_U_
+        wind_speeds = np.array([3.5, 5, 8, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 16, 17, 18.5, 20, 21.5, 23, 23.5, 25, 26.5, 28])  # final_U_X1
         # wind_speeds = np.linspace(3, 29, 15)
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
         # wind_speeds = np.concatenate((wind_speeds,
@@ -451,18 +453,20 @@ def generate_power_curves(config,
         # Therefore, the number of cross-wind patterns is not calculated for
         # this phase. Also the upper elevation bound
         # is set to 30 degrees.
-        op_cycle_pc_phase1 = OptimizerCycle(cycle_sim_settings_pc_phase1,
-                                            sys_props, env,
-                                            reduce_x=np.array([0, 1, 2, 3]),
-                                            bounds=copy.deepcopy(
-                                                config.Power.bounds))
+        op_cycle_pc_phase1 = OptimizerCycle(
+            deepcopy(cycle_sim_settings_pc_phase1),
+            sys_props, env,
+            reduce_x=np.array([0, 1, 2, 3]),
+            bounds=copy.deepcopy(
+                config.Power.bounds))
         op_cycle_pc_phase1.bounds_real_scale[2][1] = 30*np.pi/180.
 
-        op_cycle_pc_phase2 = OptimizerCycle(cycle_sim_settings_pc_phase2,
-                                            sys_props, env,
-                                            reduce_x=np.array([0, 1, 2, 3, 5]),
-                                            bounds=copy.deepcopy(
-                                                config.Power.bounds))
+        op_cycle_pc_phase2 = OptimizerCycle(
+            deepcopy(cycle_sim_settings_pc_phase2),
+            sys_props, env,
+            reduce_x=np.array([0, 1, 2, 3]),
+            bounds=copy.deepcopy(
+                config.Power.bounds))
 
         # Configuration of the sequential optimizations for which is
         # differentiated between the wind speed ranges
@@ -487,6 +491,39 @@ def generate_power_curves(config,
             # feasible solution.
         }
 
+        # Optmise depowering at end of traction:
+        op_cycle_pc_phase1_powering = OptimizerCycle(
+            cycle_sim_settings_pc_phase1,
+            sys_props, env,
+            reduce_x=np.array([0, 1, 3, 5]),
+            bounds=copy.deepcopy(
+                config.Power.bounds))
+        op_cycle_pc_phase1_powering.bounds_real_scale[2][1] = 30*np.pi/180.
+
+        op_cycle_pc_phase2_powering = OptimizerCycle(
+            cycle_sim_settings_pc_phase2,
+            sys_props, env,
+            reduce_x=np.array([0, 1, 3, 5]),
+            bounds=copy.deepcopy(
+                config.Power.bounds))
+
+        op_seq_powering = {
+            7.: {'power_optimizer': op_cycle_pc_phase1_powering,
+                 'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+            17.: {'power_optimizer': op_cycle_pc_phase2_powering,
+                  'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+            np.inf: {'power_optimizer': op_cycle_pc_phase2_powering,
+                     'dx0': np.array([0., 0., 0.1, 0., 0., 0.])},
+            # Convergence for
+            # profiles 2 and 6 are sensitive to starting elevation.
+            # The number of patterns constraint exhibits a
+            # minimum along the feasible elevation angle range. When the
+            # elevation angle of the starting point is lower
+            # than that of the minimum, the optimizer is driven towards lower
+            # elevation angles which do not yield a
+            # feasible solution.
+        }
+
         # Define starting point for the very first optimization at
         # the cut-in wind speed.
         critical_force = limit_estimates.iloc[i_profile-1][
@@ -499,7 +536,8 @@ def generate_power_curves(config,
         pc = PowerCurveConstructor(wind_speeds)
         setattr(pc, 'plots_interactive', config.Plotting.plots_interactive)
         setattr(pc, 'plot_output_file', config.IO.training_plot_output)
-        pc.run_predefined_sequence(op_seq, x0)
+        pc.run_predefined_sequence(op_seq, x0, depowering_seq=op_seq_powering)
+
         # export all results, including failed simulations, tagged in
         # kip and other performance flags
         pc.export_results(config.IO.power_curve.format(
@@ -863,6 +901,11 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                 for kpis in performance_indicators_success]
         p_out = [kpis['average_power']['out']
                  for kpis in performance_indicators_success]
+        for i in range(len(p_out)):
+            if p_out[i] is None:
+                print('Warning: Results contain None values for traction power')
+                p_out[i] = -1
+
         if compare_profiles is not None:
             labels = [str(int(idx + 1)), None, None, None]
         else:
@@ -910,7 +953,13 @@ def compare_kpis(config, power_curves, compare_profiles=None):
                   for kpis in performance_indicators_success]
         eff_out = [kpis['generator']['eff']['out']
                    for kpis in performance_indicators_success]
-
+        for i in range(len(p_out)):
+            if eff_cycle[i] is None:
+                print('Warning: Results contain None values for cycle eff')
+                eff_cycle[i] = -1
+            if eff_out[i] is None:
+                print('Warning: Results contain None values for traction eff')
+                eff_out[i] = -1
         if compare_profiles is not None:
             labels = [str(int(idx + 1)), None, None]
         else:

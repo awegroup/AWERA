@@ -1,6 +1,7 @@
 import matplotlib as mpl
 import numpy as np
 import pickle
+import copy
 from scipy.stats import truncnorm
 
 from .qsm import SteadyStateError, OperationalLimitViolation, PhaseError
@@ -30,7 +31,7 @@ class PowerCurveConstructor:
         self.plots_interactive = False
         self.plot_output_file = '{title}.pdf'
 
-    def run_predefined_sequence(self, seq, x0_start):
+    def run_predefined_sequence(self, seq, x0_start, depowering_seq=None):
         wind_speed_tresholds = iter(sorted(list(seq)))
         vw_switch = next(wind_speed_tresholds)
 
@@ -48,14 +49,21 @@ class PowerCurveConstructor:
             power_optimizer = seq[vw_switch]['power_optimizer']
             # TODO set in settings?
 
-            power_optimizer.smear_x0 = True
             dx0 = seq[vw_switch].get('dx0', None)
-
+            print('optimise on first: ', power_optimizer.reduce_x)
             if x_opt_last is None:
                 x0_next = x0_start
             else:
                 x0_next = x_opt_last + dx0*(vw - vw_last)
+            if x0_next[2] > power_optimizer.bounds_real_scale[2][1]*0.9\
+                    and depowering_seq is not None and vw > 7:
+                seq = copy.deepcopy(depowering_seq)
+                depowering_seq = None
+                power_optimizer = seq[vw_switch]['power_optimizer']
+                print('next: switch to depowering', seq)
 
+            print('optimise on: ', power_optimizer.reduce_x)
+            power_optimizer.smear_x0 = True
             # TODO log? print("[{}] Processing v={:.2f}m/s".format(i, vw))
             power_optimizer.environment_state.set_reference_wind_speed(vw)
             if self.print_details:
@@ -65,6 +73,7 @@ class PowerCurveConstructor:
             else:
                 dv = (self.wind_speeds[i+1]-self.wind_speeds[i])/3
             try:
+                print('try run first optimisation ')
                 x0_opt, x_opt, op_res, cons, kpis = \
                     power_optimizer.run_optimization(x0_next)
             except (OperationalLimitViolation, SteadyStateError,
