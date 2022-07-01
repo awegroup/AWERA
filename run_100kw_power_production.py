@@ -131,15 +131,15 @@ ref_height = ref_height_sel[sel[2]]  # m
 wind_speeds_sel = {10: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                         13, 14, 15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19,
                         19.5, 20, 21],
-                   100: # [3.5, 5, 8, 9, 10, 11, 14, 17, 20, 23, 25, 28],  #
-                   [3.5, 5, 8, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 16, 17, 18.5, 20, 21.5, 23, 23.5, 25, 26.5, 28]
+                   100:  [3.5, 5, 8, 9, 10, 11, 14, 17, 20, 23, 25, 28],  #
+                   # [3.5, 5, 8, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 16, 17, 18.5, 20, 21.5, 23, 23.5, 25, 26.5, 28]
                          #  [4, 5, 6, 7, 8, 9, 10, 11, 12,
                          #  13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
                          #  23, 24, 25, 26, 27, 28, 29]
                    }  # m/s
 wind_speeds = wind_speeds_sel[ref_height]
 
-scan_tag = 'final_U_11_' + scan_tag  # short, high, final_ final_half_powering_stages  #less_cons_even_short_vw_I
+scan_tag = 'final_U_90_' + scan_tag  # short, high, final_ final_half_powering_stages  #less_cons_even_short_vw_I
 # scan_tag = 'final_half_powering' + scan_tag
 config.update({'General': {'ref_height': ref_height},
                'Power': {'profile_type': '{}kW_log_profile'.format(
@@ -189,8 +189,10 @@ if read_curve:
     env_state = LogProfile()
     env_state.set_reference_height(ref_height)
     env_state.set_reference_wind_speed(1)
-    heights = [10, 25, 50., 75., 100., 150., 200., 300., 400., 500., 600.]
+    heights = [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
+                        180., 200., 220., 250., 300., 500., 600.]
     wind_speeds_at_h = [env_state.calculate_wind(h) for h in heights]
+    print(heights, wind_speeds_at_h)
     # env_state.plot_wind_profile(color='#2ca02c')
 
     cm = 1/2.54

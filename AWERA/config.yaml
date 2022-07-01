@@ -70,8 +70,8 @@ Power:
     bounds: [null, null, null, [150, 300], null, [0.5, 1]]
 
 Data:
-    start_year: 2011  # 2010  # (4-digit int): Process the wind data starting from this year
-    final_year: 2017  # 2020  # (4-digit int): Process the wind data up to this year
+    start_year: 2010  # (4-digit int): Process the wind data starting from this year
+    final_year: 2020  # (4-digit int): Process the wind data up to this year
     year_final_month: 12  # (int 1-12): Only read data from January to year_final_month | useful for testing on small amounts of data
 
     # Select single sample ids:
@@ -85,10 +85,10 @@ Data:
     # L137 model level definitions:
     #    https://www.ecmwf.int/en/forecasts/documentation-and-support/137-model-levels
     read_model_level_up_to: 112
-    n_locs: 1 # -1  # Randomly select this many locations | -1 for all locations
+    n_locs: -1  # Randomly select this many locations | -1 for all locations
     # TODO if no n_locs given: set to len(locations) ?
-    location_type: 'Maasvlakte_2' # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
-    init_locs: [[51.982782, 4.010359]]
+    location_type: 'europe'  # 'Maasvlakte_2' # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
+    # init_locs: [[51.982782, 4.010359]]
     lat_range: [65, 30]  #[51, 56]  #
     lon_range: [-20, 20]  # [-12, -5.25]  # [-12, -6]  #
     grid_size: 0.25
@@ -97,7 +97,7 @@ Data:
 
     # Choose dataset source
     # use_data_opts: ['ERA5', 'ERA5_1x1', 'DOWA', 'LIDAR']
-    use_data: 'DOWA'  # 'ERA5'
+    use_data: 'ERA5'  # 'DOWA'  #
     # DOWA data contains years 2008 to 2017
     DOWA_data_dir: "/cephfs/user/s6lathim/DOWA/" #TODO test for DOWA data again
     # TODO test multiple locations input DOWA
@@ -121,14 +121,14 @@ Data:
     # Requested height range:
     # DOWA height range
     # height_range_DOWA:
-    height_range: [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
-                        180., 200., 220., 250., 300., 500., 600.]
+    # height_range: [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
+    #                     180., 200., 220., 250., 300., 500., 600.]
     # Equidistant height range ~40m
-    # height_range: [10.,  50.,  100.,  140.,  180., 220., 260., 300., 340., 380.,
-    #                 420., 500., 600.]
+    height_range: [10.,  50.,  100.,  140.,  180., 220., 260., 300., 340., 380.,
+                    420., 500., 600.]
 
 IO:
-    result_dir: "/cephfs/user/s6lathim/AWERA_results_Rotterdam/"
+    result_dir: "/cephfs/user/s6lathim/AWERA_results_AWEC/"  # "Rotterdam/"
     format:
         # Data
         locations: 'locations_{location_type}_n_{n_locs}.pickle'

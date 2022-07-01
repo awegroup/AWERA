@@ -292,9 +292,11 @@ class Clustering:
                       n_samples_per_loc=None):
         # TODO make this also parallel/serial, not all input at same time
         if labels is None:
+            print('Get Frequency. Read labels...')
             labels, backscaling, n_samples_per_loc, _ = \
                 self.read_labels(data_type='data')
 
+        print('Get Frequency. Evaluate labels...')
         freq_distr = location_wise_frequency_distribution(
             self.config,
             self.config.Data.locations,

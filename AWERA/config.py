@@ -100,10 +100,9 @@ class Config:
             self.Data.all_lats,
             self.Data.all_lons,
             self.Data.grid_size,
-            init_locs=self.Data.init_locs
+            init_locs=getattr(self, 'init_locs', None)
             ))
         # Get loction indices w.r.t. to full dataset
-        print(self.Data.locations)
         try:
             setattr(self.Data, 'i_locations', [(self.Data.all_lats.index(lat),
                                                 self.Data.all_lons.index(lon))
@@ -114,9 +113,9 @@ class Config:
             # TODO nit printing e? e.text...?
         # Check for individual training data selection, otherwise set to Data
         for key in self.Clustering.training.__dict__:
-            if getattr(self.Clustering.training, key) is None:
+            if getattr(self.Clustering.training, key, None) is None:
                 # Fill None Values in training with Data values
-                setattr(self.Clustering.training, key, getattr(self.Data, key))
+                setattr(self.Clustering.training, key, getattr(self.Data, key, None))
         # Evaluate which locations to use for the clustering training
         if self.Clustering.training.n_locs == self.Data.n_locs \
                 and self.Clustering.training.location_type == \
@@ -217,6 +216,8 @@ class Config:
                 self.Power.kite_and_QSM_settings_file).kite_name + '_'
         except AttributeError:
             pass
+        import copy
+        settings_info_labels = copy.deepcopy(settings_info)
         settings_info = kite_name + settings_info
         setattr(self.Power, 'kite', kite_name)
         setattr(self.Clustering.training, 'settings_info', settings_info)
@@ -229,20 +230,27 @@ class Config:
                 setattr(self.IO, key,
                         self.IO.result_dir + getattr(self.IO.format, key))
 
-            if key in ['freq_distr', 'labels']:
+            if key == 'freq_distr':
                 setattr(self.IO, key,
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
                             data_info=data_info,
                             data_info_training=data_info_training,
                             settings_info=settings_info))
-                if key == 'labels':
-                    setattr(self.IO, 'training_' + key,
-                            self.IO.result_dir +
-                            getattr(self.IO.format, key).format(
-                                data_info=data_info_training,
-                                data_info_training=data_info_training,
-                                settings_info=settings_info))
+            elif key == 'labels':
+                # No kite information for cluster labels files
+                setattr(self.IO, key,
+                        self.IO.result_dir +
+                        getattr(self.IO.format, key).format(
+                            data_info=data_info,
+                            data_info_training=data_info_training,
+                            settings_info=settings_info_labels))
+                setattr(self.IO, 'training_' + key,
+                        self.IO.result_dir +
+                        getattr(self.IO.format, key).format(
+                            data_info=data_info_training,
+                            data_info_training=data_info_training,
+                            settings_info=settings_info_labels))
             elif key in ['plot_output']:
                 setattr(self.IO, key,
                         self.IO.result_dir +

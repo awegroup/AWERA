@@ -67,6 +67,7 @@ def evaluate_aep(config):
     wind_speed_bin_limits = freq_distr['wind_speed_bin_limits']
 
     loc_aep = []
+    loc_aep_sq = []
     p_n = []
     for i_loc, loc in enumerate(config.Data.locations):
         # Select location data
@@ -111,11 +112,17 @@ def evaluate_aep(config):
         # Weight profile energy production with the frequency of the cluster
         # sum(freq) < 100: non-operation times included
         aep_bins = p_bins * freq/100. * 24*365
-
         aep_sum = np.sum(aep_bins)*1e-6
         loc_aep.append(aep_sum)
+
+        aep_bins_sq = (p_bins * freq/100. * 24*365) **2
+
+        aep_sq_sum = np.sqrt(np.sum(aep_bins_sq))*1e-6
+        loc_aep_sq.append(aep_sq_sum)
         if i_loc % 100 == 0:
-            print("AEP: {:.2f} MWh".format(aep_sum))
+            print("AEP: {:.2f} MWh".format(aep_sum),
+                  'AEP squared in sum {:.2f} MWh, {:.2f}%'.format(
+                      aep_sq_sum, aep_sq_sum/aep_sum*100))
             # plot_aep_matrix(config, freq, p_bins, aep_bins,
             #                 plot_info=(config.Data.data_info+str(i_loc)))
             # print(('AEP matrix plotted for location number'
@@ -168,7 +175,7 @@ def plot_aep_map(p_loc, aep_loc, c_f_loc,
     }
     linspace02 = np.linspace(0, 60, 21)
     plot_item02 = {
-        'data': c_f_loc*100,
+        'data': c_f_loc,
         'contour_fill_levels': linspace02,
         'contour_line_levels': [20., 40., 60.],
         'contour_line_label_fmt': '%.0f',
@@ -277,19 +284,40 @@ def plot_discrete_map(config, values, title='', label='',
 
 def aep_map(config):
     # TODO cleanup - what is needed in the end?
-    aep, aep_n = evaluate_aep(config)
-    # TODO reinclude map plotting
-    # Match locations with values - rest NaN
-    n_lats = len(config.Data.all_lats)
-    n_lons = len(config.Data.all_lons)
-    p_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
-    aep_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
-    c_f_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
-    # TODO right way around?
-    for i, i_loc in enumerate(config.Data.i_locations):
-        p_loc[i_loc[0], i_loc[1]] = aep[i]/365/24*1000  # p [kW]
-        aep_loc[i_loc[0], i_loc[1]] = aep[i]  # aep [MWh]
-        c_f_loc[i_loc[0], i_loc[1]] = aep[i]/aep_n  # c_f [-]
+    aep_file = config.IO.plot_output.replace('.pdf', '.pickle').format(
+        title='AEP')
+    import os
+    if os.path.isfile(aep_file):
+        # Locations already generated
+        print('Reading AEP results..')
+        with open(aep_file, 'rb') as f:
+            res = pickle.load(f)
+        p_loc = res['P [W]']
+        aep_loc = res['AEP [MWh]']
+        c_f_loc = res['c_f [%]']
+    else:
+        print('Calculating AEP results from cluster frequency..')
+        aep, aep_n = evaluate_aep(config)
+        # TODO reinclude map plotting
+        # Match locations with values - rest NaN
+        n_lats = len(config.Data.all_lats)
+        n_lons = len(config.Data.all_lons)
+        p_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
+        aep_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
+        c_f_loc = np.ma.array(np.zeros((n_lats, n_lons)), mask=True)
+        # TODO right way around?
+        for i, i_loc in enumerate(config.Data.i_locations):
+            p_loc[i_loc[0], i_loc[1]] = aep[i]/365/24*1000  # p [kW]
+            aep_loc[i_loc[0], i_loc[1]] = aep[i]  # aep [MWh]
+            c_f_loc[i_loc[0], i_loc[1]] = aep[i]/aep_n*100  # c_f [-]
+        res = {
+            'P [W]': p_loc,
+            'AEP [MWh]': aep_loc,
+            'c_f [%]': c_f_loc
+            }
+        with open(aep_file, 'wb') as f:
+            pickle.dump(res, f)
+
     if np.sum(p_loc.mask) == 0:
         # Plot continuous aep map
         print('Location wise AEP determined. Plot map:')
@@ -302,6 +330,29 @@ def aep_map(config):
         #              )
 
         # Plot single
+        estim_max_cf = 80
+        if '100kW' in config.Power.kite_and_QSM_settings_file:
+            p_nom = 100
+            fill_range = [0, p_nom*24*365*estim_max_cf/100]
+            # line_levels = [fill_range[1]/5, fill_range[1]*2/5,
+            #                fill_range[1]*3/5, fill_range[1]*4/5]
+            line_levels = np.array([150, 350, 550, 700])*1000
+        elif '500kW' in config.Power.kite_and_QSM_settings_file:
+            p_nom = 500
+            # fill_range = [0, p_nom*24*365*estim_max_cf/100]
+            fill_range = [0, 3500000]
+            line_levels = [fill_range[1]/5, fill_range[1]*2/5,
+                           fill_range[1]*3/5, fill_range[1]*4/5]
+
+        else:
+            p_nom = 10
+            fill_range = [0, p_nom*24*365*estim_max_cf/100]
+            line_levels = [fill_range[1]/5, fill_range[1]*2/5,
+                           fill_range[1]*3/5, fill_range[1]*4/5]
+
+        # TODO round nicely!
+
+
         plot_map(config, aep_loc,
                  title='AEP',
                  label=r'AEP [MWh/a]',
@@ -309,8 +360,8 @@ def aep_map(config):
                  n_decimals=0,
                  output_file_name=config.IO.plot_output.format(
                          title='aep_map'),
-                 line_levels=[10., 30., 50.],
-                 fill_range=[0, 54],
+                 line_levels=np.array(line_levels)/1000,
+                 fill_range=np.array(fill_range)/1000,
                  overflow=None)
 
         plot_map(config, p_loc,
@@ -320,19 +371,19 @@ def aep_map(config):
                  n_decimals=0,
                  output_file_name=config.IO.plot_output.format(
                          title='p_map'),
-                 line_levels=[1., 3., 6.],
-                 fill_range=[0, 6],
+                 line_levels=list(np.array(line_levels)/365/24),
+                 fill_range=list(np.array(fill_range)/365/24),
                  overflow=None)
 
-        plot_map(config, c_f_loc*100,
+        plot_map(config, c_f_loc,
                  title=r'$c_f$',
                  label=r'$c_f$ [%]',
                  log_scale=False,
                  n_decimals=0,
                  output_file_name=config.IO.plot_output.format(
                          title='cf_map'),
-                 line_levels=[20., 40., 60.],
-                 fill_range=[0, 60],
+                 line_levels=[20., 40., 60., 70.],
+                 fill_range=[0, 75],
                  overflow=None)
     else:
         plot_discrete_map(config,
@@ -403,7 +454,7 @@ def cf_turbine(config):
 def compare_cf_AWE_turbine(config):
     cf_turb = cf_turbine(config)
     aep_AWE, cf_AWE = aep_map(config)
-    plot_cf_map(cf_turb, cf_AWE)
+    plot_cf_map(cf_turb, cf_AWE/100)
     plt.show()
 
 

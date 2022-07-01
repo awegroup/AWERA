@@ -20,6 +20,9 @@ def export_single_loc_frequency_distribution(config,
         v = np.linspace(cut_wind_speeds['vw_100m_cut_in'][i_c],
                         cut_wind_speeds['vw_100m_cut_out'][i_c],
                         config.Clustering.n_wind_speed_bins+1)
+        # v = np.linspace(0,
+        #                 30,
+        #                 config.Clustering.n_wind_speed_bins+1)
         v_bin_limits[i_c, :] = v
 
         # procedure consistent with the wind property used for characterizing
@@ -38,6 +41,7 @@ def export_single_loc_frequency_distribution(config,
     if write_output:
         with open(config.IO.freq_distr, 'wb') as f:
             pickle.dump(distribution_data, f, protocol=2)
+    print('Sum of freq:', np.sum(freq_2d))
 
     return freq_2d, v_bin_limits
 

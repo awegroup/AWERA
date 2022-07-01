@@ -590,7 +590,7 @@ class OptimizerCycle(Optimizer):
         if np.any(np.isnan(bounds[1, :])):
             bounds[1, :] = [system_properties.tether_force_min_limit, system_properties.tether_force_max_limit]
         if reduce_ineq_cons is None:
-            reduce_ineq_cons = np.arange(7)  # 10)  # Inequality constraints
+            reduce_ineq_cons = np.arange(8)  # 10)  # Inequality constraints
         super().__init__(self.X0_REAL_SCALE_DEFAULT.copy(), bounds, self.SCALING_X_DEFAULT.copy(),
                          reduce_x, reduce_ineq_cons, system_properties, environment_state)
 
@@ -700,6 +700,11 @@ class OptimizerCycle(Optimizer):
         # # TODO set as option in settings file, ...?
         duration_violation = max_duration - res['duration']['cycle']
 
+        # Constraint: Working traction phase
+        if res['average_power']['out'] is None:
+            trac_phase_working = -1
+        else:
+            trac_phase_working = 0
         # Constrain the sequence of depowering: first elevation angle
         # and when within 5% of the maximum elevation angle, allow depowering
         elevation_angle_traction = x_real_scale[2]
@@ -722,6 +727,7 @@ class OptimizerCycle(Optimizer):
                               allow_depowering,
                               ineq_cons_cw_patterns,
                               ineq_cons_traction_max_force,
+                              trac_phase_working,
                               min_reeling_factor_in,
                               min_reeling_factor_out,
                               res['speed_viol_diff']['in'],
@@ -958,6 +964,23 @@ class OptimizerCycle(Optimizer):
                 #     x0_range_random[-1][5] = 1
                 #     x0_range_random[-2][5] = 1
                 x0_range_random[-2][0] = bounds[0][1]
+
+        # Add custom x0 from previous results:
+        vw = self.environment_state.wind_speed_ref
+        if vw >= 10:
+            wind_speed_steps = [10, 16, 30]
+            x0_vs_wind_speeds = np.array([
+                [bounds[0][1], 2000, 0.7, bounds[3][1], 200, 1],
+                [bounds[0][1], 5000, bounds[2][1], bounds[3][1], 200, 0.8],
+                [bounds[0][1], 8000, bounds[2][1], bounds[3][1], 200, 0.8]])
+            if bounds[0][1] > 100000:
+                # larger (500kW) system
+                print('shape', x0_vs_wind_speeds.shape)
+                x0_vs_wind_speeds[:, 1] = (8000, 15000, 25000)
+            # Interpolation
+            preset_x0 = [np.interp(vw, wind_speed_steps,
+                                   x0_vs_wind_speeds[:, i]) for i in range(len(x0))]
+            x0_range.append(preset_x0)
 
         x0_range += x0_range_random
         print(x0_range)

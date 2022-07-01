@@ -313,18 +313,26 @@ def estimate_wind_speed_operational_limits(config,
               .format(i_profile, n_profiles))
         # TODO logging? / timing info print('Profile {}'.format(i_profile))
         env = create_environment(input_profiles, i_profile)
-
+        print(env.heights, env.normalised_wind_speeds)
+        # heights = [10.,  20.,  40.,  60.,  80., 100., 120., 140., 150., 160.,
+        #                     180., 200., 220., 250., 300., 500., 600.]
+        # wind_speeds_at_h = [env.calculate_wind(h) for h in heights]
+        # print(heights, wind_speeds_at_h)
+        # continue
         # Get cut-in wind speed.
         sys_props = sys_props_v3
         _, _, read_sys_props, read_x0 = read_system_settings(config)
         if read_sys_props is not None:
             sys_props = read_sys_props
-        vw_cut_in, _, tether_force_cut_in = get_cut_in_wind_speed(env, sys_props)
+        # vw_cut_in, _, tether_force_cut_in = get_cut_in_wind_speed(env, sys_props)
+        vw_cut_in, tether_force_cut_in = 3, 500
         res['vw_100m_cut_in'].append(vw_cut_in)
         res['tether_force_cut_in'].append(tether_force_cut_in)
 
         # Get cut-out wind speed
-        vw_cut_out, elev = get_cut_out_wind_speed(sys_props, env)
+        # vw_cut_out, elev = get_cut_out_wind_speed(sys_props, env)
+        vw_cut_out, elev = 30, 1.1
+        # TODO remove
         # if vw_cut_out > 27:
         #     vw_cut_out = 27
 
@@ -439,7 +447,7 @@ def generate_power_curves(config,
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
         # wind_speeds = np.linspace(3, 29, 70)
         # wind_speeds = np.array([3.5, 5, 8, 9, 10, 11, 14, 17, 20, 23, 25, 28])  # final_U_
-        wind_speeds = np.array([3.5, 5, 8, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 16, 17, 18.5, 20, 21.5, 23, 23.5, 25, 26.5, 28])  # final_U_X1
+        wind_speeds = np.array([3.5, 5, 8, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 15.5, 17, 18.5, 20, 21.5, 23, 23.5, 25, 26.5, 28])  # final_U_X1
         # wind_speeds = np.linspace(3, 29, 15)
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
         # wind_speeds = np.concatenate((wind_speeds,
@@ -476,11 +484,11 @@ def generate_power_curves(config,
         # preceding optimization.
         op_seq = {
             7.: {'power_optimizer': op_cycle_pc_phase1,
-                 'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+                 'dx0': np.array([0., 0., 0., 0.1, 0., 0.])},
             17.: {'power_optimizer': op_cycle_pc_phase2,
-                  'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+                  'dx0': np.array([0., 0., 0., 0.2, 0., 0.])},
             np.inf: {'power_optimizer': op_cycle_pc_phase2,
-                     'dx0': np.array([0., 0., 0.1, 0., 0., 0.])},
+                     'dx0': np.array([0., 0., 0.1, 0.2, 0., 0.])},
             # Convergence for
             # profiles 2 and 6 are sensitive to starting elevation.
             # The number of patterns constraint exhibits a
@@ -509,11 +517,11 @@ def generate_power_curves(config,
 
         op_seq_powering = {
             7.: {'power_optimizer': op_cycle_pc_phase1_powering,
-                 'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+                 'dx0': np.array([0., 0., 0., 0.1, 0., 0.])},
             17.: {'power_optimizer': op_cycle_pc_phase2_powering,
-                  'dx0': np.array([0., 0., 0., 0., 0., 0.])},
+                  'dx0': np.array([0., 0., 0., 0.2, 0., 0.])},
             np.inf: {'power_optimizer': op_cycle_pc_phase2_powering,
-                     'dx0': np.array([0., 0., 0.1, 0., 0., 0.])},
+                     'dx0': np.array([0., 0., 0.1, 0.2, 0., 0.])},
             # Convergence for
             # profiles 2 and 6 are sensitive to starting elevation.
             # The number of patterns constraint exhibits a

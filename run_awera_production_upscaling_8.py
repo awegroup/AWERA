@@ -9,29 +9,29 @@ if __name__ == '__main__':
     # read config from jobnumber
     # 8 small jobs
     # 4 big jobs
-    settings_id = int(os.environ['SETTINGS_ID'])
+    # settings_id = int(os.environ['SETTINGS_ID'])
 
-    n_clusters_settings = [8, 24]  # 16, 80]
-    n_clusters = n_clusters_settings[settings_id]
+    # n_clusters_settings = [80]
+    # n_clusters = n_clusters_settings[settings_id]
 
     # n_locs = 1 # [200, 500, 1000, 5000]
-    n_l = 1  # n_locs[settings_id]
-    scan_tag = 'final_U_99_'  # full_ half_  35_vw_ more_, short full_powering_stages
+    n_l = -1  # n_locs[settings_id]
+    scan_tag = ''  # full_ half_  35_vw_ more_, short full_powering_stages
     settings = {
-        'Data': {'n_locs': 1,
-                 'location_type': 'Maasvlakte_2'},
+        'Data': {'n_locs': -1,
+                 'location_type': 'europe'}, # 'Maasvlakte_2'},
         'Clustering': {
-            'n_clusters': n_clusters,
+            'n_clusters': 8,
             'training': {
-                'n_locs': n_l,
-                'location_type': 'Maasvlakte_2'
+                'n_locs': 5000,
+                'location_type': 'europe'
                 }
             },
-        'Processing': {'n_cores': n_clusters},
+        'Processing': {'n_cores': 8},
         'General': {'ref_height': 100},
         # 'Power':{ 'bounds': bounds},
         'IO': {
-            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Rotterdam/",
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results_AWEC/",
             'format': {
                 'plot_output':
                     scan_tag + config.IO.format.plot_output,
@@ -79,23 +79,23 @@ if __name__ == '__main__':
     working_title = 'run_production'  #  'run_production' #'predict_labels' #  'file'
     # awera.run_clustering()
     # awera.plot_cluster_shapes()
-    # limit_estimates = awera.estimate_wind_speed_operational_limits()
-    # pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
-    pcs = [awera.read_curve(i_profile=i+1, return_constructor=True)
-            for i in range(n_clusters)]
-    # awera.compare_kpis(pcs, compare_profiles=list(range(1, n_clusters+1)))
+    limit_estimates = awera.estimate_wind_speed_operational_limits()
+    pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
+    # pcs = [awera.read_curve(i_profile=i+1, return_constructor=True)
+    #         for i in range(n_clusters)]
+    # awera.compare_kpis(pcs, compare_profiles=list(range(1, 80+1)))
 
-    # print(awera.read_limits(refined=True))
-    # print(awera.read_profiles())
-    # awera.plot_power_curves(plot_full_electrical=True)
-    # awera.plot_power_curves(speed_at_op_height=True,
-    #                         plot_full_electrical=True)
-    for i, pc in enumerate(pcs):
-        pc.plot_output_file = config.IO.plot_output
-        pc.plot_optimal_trajectories(plot_info='_profile_{}'.format(i+1))
+    print(awera.read_limits(refined=True))
+    print(awera.read_profiles())
+    awera.plot_power_curves(plot_full_electrical=True)
+    awera.plot_power_curves(speed_at_op_height=True,
+                            plot_full_electrical=True)
+    # for i, pc in enumerate(pcs):
+    #     pc.plot_output_file = config.IO.plot_output
+    #     pc.plot_optimal_trajectories(plot_info='_profile_{}'.format(i+1))
     # awera.get_frequency()
-    awera.plot_cluster_frequency()
-    awera.aep()
+    # awera.plot_cluster_frequency()
+    # awera.aep()
 
     print('Done.')
     print('------------------------------ Config:')

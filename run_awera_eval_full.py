@@ -25,27 +25,25 @@ if __name__ == '__main__':
     #     'IO': {'result_dir':
     #            "/cephfs/user/s6lathim/AWERA_results/"}
     # }
-    n_clusters = 8
-    n_l = 1
+    n_clusters = 80
+    n_cores = 2
 
-    # n_locs = 1 # [200, 500, 1000, 5000]
-    n_l = 1  # n_locs[settings_id]
-    scan_tag = 'final_U_90_'
+    scan_tag = 'short_'
     settings = {
-        'Data': {'n_locs': 1,
-                 'location_type': 'Maasvlakte_2'},
+        'Data': {'n_locs': -1,
+                 'location_type': 'europe'},
         'Clustering': {
             'n_clusters': n_clusters,
             'training': {
-                'n_locs': n_l,
-                'location_type': 'Maasvlakte_2'
+                'n_locs': 5000,
+                'location_type': 'europe'
                 }
             },
         'Processing': {'n_cores': n_clusters},
         'General': {'ref_height': 100},
         # 'Power':{ 'bounds': bounds},
         'IO': {
-            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Rotterdam/",
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results_AWEC/",
             'format': {
                 'plot_output':
                     scan_tag + config.IO.format.plot_output,
@@ -73,6 +71,12 @@ if __name__ == '__main__':
 
     # working_title = 'eval_locs_{}'.format(loc_id)  # 'run_profile'
 
+    from AWERA import ChainAWERA
+    awera = ChainAWERA(config)
+    # awera.get_frequency()
+    # print('Frequency estimated.')
+    # awera.plot_cluster_frequency()
+    # print('Frequency plotted.')
     from AWERA.eval.evaluation import evalAWERA
     e = evalAWERA(config)
     # working_title = 'sliding_window_eval'
@@ -84,13 +88,15 @@ if __name__ == '__main__':
     #                        locs_slice=None,  # (loc_id, 1000)) # ,
     #                        read_from_slices=(23, 1000))  #
     # ----------------------------------------------------------
-    e.step_towing_AEP(power_consumption=20,
-                      bridge_times=[1, 2, 3, 4, 5])
-    e.cut_in_out_distr()
+    # e.step_towing_AEP(power_consumption=20,
+    #                   bridge_times=[1, 2, 3, 4, 5])
+    # e.cut_in_out_distr()
     # ----------------------------------------------------------
-    # e.aep_map()
-    # print('Map plotted.')
     # e.power_freq()
+    # print('power and frequency plotted.')
+    e.aep_map()
+    print('AEP Map plotted.')
+
 
     # profiler.disable()
     # # # Write profiler output

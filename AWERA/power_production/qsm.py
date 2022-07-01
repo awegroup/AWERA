@@ -1404,7 +1404,7 @@ class Phase(TimeSeries):
         if "RetractionPhase" in self.__class__.__name__ \
                 and sys_props.reeling_speed_max_limit_retr is not None:
             max_speed = sys_props.reeling_speed_max_limit_retr
-            # min_speed = 6.5
+            min_speed = 7.5
         elif "TractionPhase" in self.__class__.__name__ \
                 and sys_props.reeling_speed_max_limit_trac is not None:
             max_speed = sys_props.reeling_speed_max_limit_trac
