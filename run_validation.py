@@ -23,15 +23,15 @@ since = time.time()
 #         },
 #     }
 
-scan_tag = 'final_U_'  # full_ half_  35_vw_ more_, short full_powering_stages
+scan_tag = 'final'  # full_ half_  35_vw_ more_, short full_powering_stages
 settings = {
     'Data': {'n_locs': 1,
-             'location_type': 'Maasvlakte_2'},
+             'location_type': 'Marseille'},
     'Clustering': {
         'n_clusters': 8,
         'training': {
             'n_locs': 1,
-            'location_type': 'Maasvlakte_2'
+            'location_type': 'Marseille'
             }
         },
     'Processing': {'n_cores': 2},

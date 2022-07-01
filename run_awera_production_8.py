@@ -19,12 +19,12 @@ if __name__ == '__main__':
     scan_tag = 'final_U_99_'  # full_ half_  35_vw_ more_, short full_powering_stages
     settings = {
         'Data': {'n_locs': 1,
-                 'location_type': 'Maasvlakte_2'},
+                 'location_type': 'Marseille'},
         'Clustering': {
             'n_clusters': n_clusters,
             'training': {
                 'n_locs': n_l,
-                'location_type': 'Maasvlakte_2'
+                'location_type': 'Marseille'
                 }
             },
         'Processing': {'n_cores': n_clusters},

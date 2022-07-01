@@ -87,7 +87,7 @@ Data:
     read_model_level_up_to: 112
     n_locs: -1  # Randomly select this many locations | -1 for all locations
     # TODO if no n_locs given: set to len(locations) ?
-    location_type: 'europe'  # 'Maasvlakte_2' # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
+    location_type: 'europe'  # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
     # init_locs: [[51.982782, 4.010359]]
     lat_range: [65, 30]  #[51, 56]  #
     lon_range: [-20, 20]  # [-12, -5.25]  # [-12, -6]  #

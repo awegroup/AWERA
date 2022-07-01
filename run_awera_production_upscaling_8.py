@@ -19,7 +19,7 @@ if __name__ == '__main__':
     scan_tag = ''  # full_ half_  35_vw_ more_, short full_powering_stages
     settings = {
         'Data': {'n_locs': -1,
-                 'location_type': 'europe'}, # 'Maasvlakte_2'},
+                 'location_type': 'europe'},
         'Clustering': {
             'n_clusters': 8,
             'training': {
