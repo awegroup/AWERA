@@ -446,8 +446,8 @@ def generate_power_curves(config,
         vw_cut_out = limit_estimates.iloc[i_profile-1]['vw_100m_cut_out']
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out, 20)
         # wind_speeds = np.linspace(3, 29, 70)
-        # wind_speeds = np.array([3.5, 5, 8, 9, 10, 11, 14, 17, 20, 23, 25, 28])  # final_U_
-        wind_speeds = np.array([3.5, 5, 8, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 15.5, 17, 18.5, 20, 21.5, 23, 23.5, 25, 26.5, 28])  # final_U_X1
+        wind_speeds = np.array([3.5, 5, 8, 9, 10, 11, 14, 17, 20, 23, 25, 28])  # final_U_
+        # wind_speeds = np.array([3.5, 5, 8, 9, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 15.5, 17, 18.5, 20, 21.5, 23, 23.5, 25, 26.5, 28])  # final_U_X1
         # wind_speeds = np.linspace(3, 29, 15)
         # wind_speeds = np.linspace(vw_cut_in, vw_cut_out-1, 50)
         # wind_speeds = np.concatenate((wind_speeds,

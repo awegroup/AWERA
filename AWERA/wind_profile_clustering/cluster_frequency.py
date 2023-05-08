@@ -9,20 +9,24 @@ def export_single_loc_frequency_distribution(config,
                                              labels_full,
                                              backscaling,
                                              n_samples,
-                                             write_output=True):
-    cut_wind_speeds = pd.read_csv(
-        config.IO.refined_cut_wind_speeds)
+                                             write_output=True,
+                                             bounds=None):
+    if bounds is None:
+        cut_wind_speeds = pd.read_csv(
+            config.IO.refined_cut_wind_speeds)
     freq_2d = np.zeros((config.Clustering.n_clusters,
                         config.Clustering.n_wind_speed_bins))
     v_bin_limits = np.zeros((config.Clustering.n_clusters,
                              config.Clustering.n_wind_speed_bins+1))
     for i_c in range(config.Clustering.n_clusters):
-        v = np.linspace(cut_wind_speeds['vw_100m_cut_in'][i_c],
-                        cut_wind_speeds['vw_100m_cut_out'][i_c],
-                        config.Clustering.n_wind_speed_bins+1)
-        # v = np.linspace(0,
-        #                 30,
-        #                 config.Clustering.n_wind_speed_bins+1)
+        if bounds is None:
+            v = np.linspace(cut_wind_speeds['vw_100m_cut_in'][i_c],
+                            cut_wind_speeds['vw_100m_cut_out'][i_c],
+                            config.Clustering.n_wind_speed_bins+1)
+        else:
+            v = np.linspace(bounds[0],
+                            bounds[1],
+                            config.Clustering.n_wind_speed_bins+1)
         v_bin_limits[i_c, :] = v
 
         # procedure consistent with the wind property used for characterizing
@@ -49,7 +53,8 @@ def export_single_loc_frequency_distribution(config,
 def location_wise_frequency_distribution(config,
                                          locations,
                                          labels, n_samples, n_samples_per_loc,
-                                         backscaling):
+                                         backscaling,
+                                         bounds=None):
     #if len(locations) > 1:
     n_samples_per_loc = int(n_samples_per_loc)
     distribution_data = {
@@ -68,7 +73,8 @@ def location_wise_frequency_distribution(config,
                 backscaling[n_samples_per_loc*i:
                             n_samples_per_loc*(i+1)],
                 n_samples_per_loc,
-                write_output=False)
+                write_output=False,
+                bounds=bounds)
     distribution_data['wind_speed_bin_limits'] = wind_speed_bin_limits
 
     with open(config.IO.freq_distr, 'wb') as f:

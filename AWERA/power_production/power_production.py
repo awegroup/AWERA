@@ -86,7 +86,6 @@ class SingleProduction:
             (wind_profile_u**2 + wind_profile_v**2)**.5)
         return env
 
-
     def create_optimizer(self, env_state, ref_wind_speed,
                          sys_props=sys_props_v3,
                          reduce_x=np.array([0, 1, 2, 3, 5]),

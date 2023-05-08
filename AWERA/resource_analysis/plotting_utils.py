@@ -39,6 +39,7 @@ def read_dataset_user_input():
                 print('All data for {} to {} is read from subset_files from 0 to {}'.format(start_year, final_year,
                                                                                             max_subset_id))
                 nc = xr.open_mfdataset(all_year_subset_files, concat_dim='latitude')
+                # nc.to_netcdf('/cephfs/user/s6lathim/ERA5Data/results/processed_data_europe_2010_2020.nc')
             elif opt in ("-c", "--combined"):  # User Input to use combined file
                 file_name = output_file_name.format(**{'start_year': start_year, 'final_year': final_year})
                 nc = xr.open_dataset(file_name)
@@ -66,10 +67,10 @@ def read_dataset_user_input():
     # lons = list(np.arange(4, 20.25, .25))  # config.Data.all_lons
     # lats = list(np.arange(57.5, 65.25, .25))
     # IT
-    lons = list(np.arange(6.5, 19.5, .25))  # config.Data.all_lons
-    lats = list(np.arange(35.5, 47.75, .25))
-    nc = nc.sel(latitude=lats)
-    nc = nc.sel(longitude=lons)
+    # lons = list(np.arange(6.5, 19.5, .25))  # config.Data.all_lons
+    # lats = list(np.arange(35.5, 47.75, .25))
+    # nc = nc.sel(latitude=lats)
+    # nc = nc.sel(longitude=lons)
 
 
     return nc
