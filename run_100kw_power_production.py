@@ -1,3 +1,7 @@
+"""
+This sript runs the AWERA QSM power production for different kites and different reference heigts. 
+A range of starting settings is tested.
+"""
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
@@ -14,7 +18,7 @@ import os
 
 sel_types = [
     # # 10m
-    # [0, 0, 0],
+    # [0, 0, 0], # kite type
     # [0, 1, 0],
     # [1, 1, 0],
     # 100m

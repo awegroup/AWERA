@@ -1,3 +1,6 @@
+"""
+Run AWERA for Marseille.
+"""
 import os
 from AWERA import config, ChainAWERA
 import numpy as np

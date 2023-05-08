@@ -1,3 +1,6 @@
+"""
+Only power production, no clustering. Log Profile Evaluation.
+"""
 import matplotlib.pyplot as plt
 import numpy as np
 

@@ -1,3 +1,7 @@
+"""
+Run eval functions after all processing...
+"""
+
 import os
 from AWERA import config, ChainAWERA
 import numpy as np
@@ -33,19 +37,19 @@ if __name__ == '__main__':
     scan_tag = 'final_U_90_'
     settings = {
         'Data': {'n_locs': 1,
-                 'location_type': 'Maasvlakte_2'},
+                 'location_type': 'Marseille'},
         'Clustering': {
             'n_clusters': n_clusters,
             'training': {
                 'n_locs': n_l,
-                'location_type': 'Maasvlakte_2'
+                'location_type': 'Marseille'
                 }
             },
         'Processing': {'n_cores': n_clusters},
         'General': {'ref_height': 100},
         # 'Power':{ 'bounds': bounds},
         'IO': {
-            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Rotterdam/",
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results/",
             'format': {
                 'plot_output':
                     scan_tag + config.IO.format.plot_output,

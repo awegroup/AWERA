@@ -1,3 +1,6 @@
+"""
+All the output, incl. the pickled wind data.
+"""
 import os
 from AWERA import config, ChainAWERA
 import numpy as np

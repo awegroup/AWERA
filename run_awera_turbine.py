@@ -1,3 +1,6 @@
+"""
+Use AWERA to evaluate a custom power curve of a wind turbine.
+"""
 import os
 import numpy as np
 from AWERA import config, ChainAWERA
@@ -19,19 +22,19 @@ if __name__ == '__main__':
     scan_tag = 'fullfreq_'  # full_ half_  35_vw_ more_, short full_powering_stages
     settings = {
         'Data': {'n_locs': 1,
-                 'location_type': 'Maasvlakte_2'},
+                 'location_type': 'Marseille'},
         'Clustering': {
             'n_clusters': 8,
             'training': {
                 'n_locs': 1,
-                'location_type': 'Maasvlakte_2'
+                'location_type': 'Marseille'
                 }
             },
         'Processing': {'n_cores': 8},
         'General': {'ref_height': 100},
         # 'Power':{ 'bounds': bounds},
         'IO': {
-            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Rotterdam/",
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results/",
             'format': {
                 'plot_output':
                     scan_tag + config.IO.format.plot_output,

@@ -23,22 +23,22 @@ since = time.time()
 #         },
 #     }
 
-scan_tag = 'final_U_'  # full_ half_  35_vw_ more_, short full_powering_stages
+scan_tag = 'final' 
 settings = {
     'Data': {'n_locs': 1,
-             'location_type': 'Maasvlakte_2'},
+             'location_type': 'Marseille'},
     'Clustering': {
         'n_clusters': 8,
         'training': {
             'n_locs': 1,
-            'location_type': 'Maasvlakte_2'
+            'location_type': 'Marseille'
             }
         },
     'Processing': {'n_cores': 2},
     'General': {'ref_height': 100},
     # 'Power':{ 'bounds': bounds},
     'IO': {
-        'result_dir': "/cephfs/user/s6lathim/AWERA_results_Rotterdam/",
+        'result_dir': "/cephfs/user/s6lathim/AWERA_results/",
         'format': {
             'plot_output':
                 scan_tag + config.IO.format.plot_output,

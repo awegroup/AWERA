@@ -16,22 +16,22 @@ if __name__ == '__main__':
 
     # n_locs = 1 # [200, 500, 1000, 5000]
     n_l = 1  # n_locs[settings_id]
-    scan_tag = 'final_U_99_'  # full_ half_  35_vw_ more_, short full_powering_stages
+    scan_tag = 'final'  # full_ half_  35_vw_ more_, short full_powering_stages
     settings = {
         'Data': {'n_locs': 1,
-                 'location_type': 'Maasvlakte_2'},
+                 'location_type': 'Marseille'},
         'Clustering': {
             'n_clusters': n_clusters,
             'training': {
                 'n_locs': n_l,
-                'location_type': 'Maasvlakte_2'
+                'location_type': 'Marseille'
                 }
             },
         'Processing': {'n_cores': n_clusters},
         'General': {'ref_height': 100},
         # 'Power':{ 'bounds': bounds},
         'IO': {
-            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Rotterdam/",
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results/",
             'format': {
                 'plot_output':
                     scan_tag + config.IO.format.plot_output,

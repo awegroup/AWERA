@@ -50,6 +50,10 @@ Clustering:
 
 Power:
     kite_and_QSM_settings_file: 'kitepower_100kW'  # '_78'  # '/home/s6lathim/physik/AWE/AWERA/kitepower_100kW.py'
+    # !!! careful, this settings file does not (yet) change the rated power of the generator!!!
+    # manually change in 
+    # def get_gen_eff(power, vr,
+    #            rated_power=160000,  # 500kW: 800kW, 100kW: 160kW, factor 1.6
     # Estimate cut-in/out wind speeds for the model
     estimate_cut_in_out: True
     # Run power production simulation for the velocity ranges defined
@@ -87,7 +91,7 @@ Data:
     read_model_level_up_to: 112
     n_locs: -1  # Randomly select this many locations | -1 for all locations
     # TODO if no n_locs given: set to len(locations) ?
-    location_type: 'europe'  # 'Maasvlakte_2' # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
+    location_type: 'europe'  # # 'europe_ref'  # 'ireland_full' #  # choose locations via location_selection
     # init_locs: [[51.982782, 4.010359]]
     lat_range: [65, 30]  #[51, 56]  #
     lon_range: [-20, 20]  # [-12, -5.25]  # [-12, -6]  #
@@ -128,7 +132,7 @@ Data:
                     420., 500., 600.]
 
 IO:
-    result_dir: "/cephfs/user/s6lathim/AWERA_results_AWEC/"  # "Rotterdam/"
+    result_dir: "/cephfs/user/s6lathim/AWERA_results/"  #
     format:
         # Data
         locations: 'locations_{location_type}_n_{n_locs}.pickle'
