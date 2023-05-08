@@ -108,6 +108,8 @@ def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
                 location_type=location_type,
                 n_locs=n_locs)
     if init_locs is not None:
+        print('fixed set initialisation locations:', init_locs)
+
         # TODO include option for custom locations in chain config/...
         locations = init_locs
         res = {'n_locs': n_locs,
@@ -120,6 +122,7 @@ def get_locations(file_name, location_type, n_locs, lat_range, lon_range,
         # Pickle results
         with open(locations_file, 'wb') as f:
             pickle.dump(res, f)
+        print('locs:', res)
     elif os.path.isfile(locations_file):
         # Locations already generated
         with open(locations_file, 'rb') as f:

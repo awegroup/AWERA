@@ -1,3 +1,6 @@
+"""
+Run AWERA for Marseille.
+"""
 import os
 from AWERA import config, ChainAWERA
 import numpy as np
@@ -25,25 +28,35 @@ if __name__ == '__main__':
     #     'IO': {'result_dir':
     #            "/cephfs/user/s6lathim/AWERA_results/"}
     # }
-    n_clusters = 80
-    n_cores = 2
+    n_clusters = 8
+    n_l = 1
 
-    scan_tag = 'short_'
+    # n_locs = 1 # [200, 500, 1000, 5000]
+    n_l = 1  # n_locs[settings_id]
+    scan_tag = 'short_'  # 'full_freq' short_
     settings = {
-        'Data': {'n_locs': -1,
-                 'location_type': 'europe'},
+        'Data': {'n_locs': 1,
+                 'start_year': 2016,  # (4-digit int): Process the wind data starting from this year
+                 'final_year': 2020,
+                 'location_type': 'Marseille',
+                 'init_locs': [[43.25, 5.25]],
+                 'use_data': 'ERA5'},
         'Clustering': {
             'n_clusters': n_clusters,
             'training': {
-                'n_locs': 5000,
-                'location_type': 'europe'
+                'start_year': 2016,  # (4-digit int): Process the wind data starting from this year
+                'final_year': 2020,
+                'n_locs': n_l,
+                'location_type': 'Marseille'
                 }
             },
+        # !!! careful, this settings file does not (yet) change the rated power of the generator!!!
+        'Power': {'kite_and_QSM_settings_file': 'kitepower_500kW'},
         'Processing': {'n_cores': n_clusters},
         'General': {'ref_height': 100},
         # 'Power':{ 'bounds': bounds},
         'IO': {
-            'result_dir': "/cephfs/user/s6lathim/AWERA_results_AWEC/",
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Marseille/",
             'format': {
                 'plot_output':
                     scan_tag + config.IO.format.plot_output,
@@ -71,14 +84,8 @@ if __name__ == '__main__':
 
     # working_title = 'eval_locs_{}'.format(loc_id)  # 'run_profile'
 
-    from AWERA import ChainAWERA
-    awera = ChainAWERA(config)
-    # awera.get_frequency()
-    # print('Frequency estimated.')
-    # awera.plot_cluster_frequency()
-    # print('Frequency plotted.')
     from AWERA.eval.evaluation import evalAWERA
-    e = evalAWERA(config)
+    # e = evalAWERA(config)
     # working_title = 'sliding_window_eval'
     # e.sliding_window_power(time_window=24,  # Hours for hourly data
     #                        at_night=False,  # True,
@@ -92,11 +99,44 @@ if __name__ == '__main__':
     #                   bridge_times=[1, 2, 3, 4, 5])
     # e.cut_in_out_distr()
     # ----------------------------------------------------------
+    # e.aep_map()
+    # print('Map plotted.')
     # e.power_freq()
-    # print('power and frequency plotted.')
-    e.aep_map()
-    print('AEP Map plotted.')
 
+    awera = ChainAWERA(config)
+    print(awera.config)
+    # awera.run_clustering()
+    # Get 99.9% full frequency via:
+    # Do this for 2016 to 2020
+    # awera.predict_labels()
+    # awera.get_frequency(bounds=[0, 35])
+    # awera.plot_cluster_frequency()
+
+    # awera.plot_cluster_shapes()
+
+    # print('Clustering Done.')
+    # import sys
+    # sys.exit()
+
+    # POWER
+    # limit_estimates = awera.estimate_wind_speed_operational_limits()
+    # pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
+    # pcs = [awera.read_curve(i_profile=i+1, return_constructor=True)
+    #         for i in range(n_clusters)]
+    # awera.compare_kpis(pcs, compare_profiles=list(range(1, 8+1)))
+
+    print(awera.read_limits(refined=True))
+    print(awera.read_profiles())
+    # awera.plot_power_curves(plot_full_electrical=True)
+    # awera.plot_power_curves(speed_at_op_height=True,
+                            # plot_full_electrical=True)
+    # for i, pc in enumerate(pcs):
+    #     pc.plot_output_file = config.IO.plot_output
+    #     pc.plot_optimal_trajectories(plot_info='_profile_{}'.format(i+1))
+    # awera.get_frequency()
+
+    # awera.plot_cluster_frequency()
+    awera.aep()
 
     # profiler.disable()
     # # # Write profiler output

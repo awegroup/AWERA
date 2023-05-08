@@ -289,7 +289,8 @@ class Clustering:
     def get_frequency(self,
                       labels=None,
                       backscaling=None,
-                      n_samples_per_loc=None):
+                      n_samples_per_loc=None,
+                      bounds=None):
         # TODO make this also parallel/serial, not all input at same time
         if labels is None:
             print('Get Frequency. Read labels...')
@@ -303,7 +304,8 @@ class Clustering:
             labels,
             len(labels),
             n_samples_per_loc,
-            backscaling)
+            backscaling,
+            bounds=bounds)
         # Frequency and corresponding wind speed bin limits
         return freq_distr['frequency'], freq_distr['wind_speed_bin_limits']
 

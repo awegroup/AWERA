@@ -1,7 +1,6 @@
 """
-Run eval functions after all processing...
+All the output, incl. the pickled wind data.
 """
-
 import os
 from AWERA import config, ChainAWERA
 import numpy as np
@@ -29,27 +28,36 @@ if __name__ == '__main__':
     #     'IO': {'result_dir':
     #            "/cephfs/user/s6lathim/AWERA_results/"}
     # }
-    n_clusters = 8
-    n_l = 1
+    n_clusters = 2
 
     # n_locs = 1 # [200, 500, 1000, 5000]
-    n_l = 1  # n_locs[settings_id]
-    scan_tag = 'final_U_90_'
+    n_l = 4  # n_locs[settings_id]
+    scan_tag = '150m_'  # 'short_'  # 'full_freq'
     settings = {
-        'Data': {'n_locs': 1,
-                 'location_type': 'Marseille'},
+        'Data': {'n_locs': 4,
+                 'location_type': 'Trombini',
+                 'init_locs': [[54.00, 0.00], [41.75, -9.25],
+                               [37.75, 12.00], [41.00, 10.00]],
+                 'use_data': 'ERA5',
+                 'start_year': 2015,  # (4-digit int): Process the wind data starting from this year
+                 'final_year': 2020,
+                 'height_range':
+                     [150.]},
         'Clustering': {
             'n_clusters': n_clusters,
             'training': {
-                'n_locs': n_l,
-                'location_type': 'Marseille'
+                'n_locs': 1,
+                'location_type': 'no_clustering'
                 }
             },
-        'Processing': {'n_cores': n_clusters},
+        # !!! careful, this settings file does not (yet) change the rated power of the generator!!!
+        'Power': {'kite_and_QSM_settings_file': 'kitepower_100kW'},
+        'Processing': {'parallel': False,
+                       'n_cores': n_clusters},
         'General': {'ref_height': 100},
         # 'Power':{ 'bounds': bounds},
         'IO': {
-            'result_dir': "/cephfs/user/s6lathim/AWERA_results/",
+            'result_dir': "/cephfs/user/s6lathim/AWERA_results_Trombini/",
             'format': {
                 'plot_output':
                     scan_tag + config.IO.format.plot_output,
@@ -71,14 +79,14 @@ if __name__ == '__main__':
         }
     # settings['General'] = {'use_memmap': True}
     # settings[
-    print(settings)
+    print('Settings:', settings)
     # Update settings to config
     config.update(settings)
 
     # working_title = 'eval_locs_{}'.format(loc_id)  # 'run_profile'
 
     from AWERA.eval.evaluation import evalAWERA
-    e = evalAWERA(config)
+    # e = evalAWERA(config)
     # working_title = 'sliding_window_eval'
     # e.sliding_window_power(time_window=24,  # Hours for hourly data
     #                        at_night=False,  # True,
@@ -88,13 +96,55 @@ if __name__ == '__main__':
     #                        locs_slice=None,  # (loc_id, 1000)) # ,
     #                        read_from_slices=(23, 1000))  #
     # ----------------------------------------------------------
-    e.step_towing_AEP(power_consumption=20,
-                      bridge_times=[1, 2, 3, 4, 5])
-    e.cut_in_out_distr()
+    # e.step_towing_AEP(power_consumption=20,
+    #                   bridge_times=[1, 2, 3, 4, 5])
+    # e.cut_in_out_distr()
     # ----------------------------------------------------------
     # e.aep_map()
     # print('Map plotted.')
     # e.power_freq()
+
+    awera = ChainAWERA(config)
+    print(awera.config)
+    # Read and dump wind data
+    data = awera.get_wind_data()
+    import pickle
+    with open('wind_data_Trombini_150m.pickle', 'wb') as f:
+        pickle.dump(data, f)
+
+    import sys
+    sys.exit()
+    awera.run_clustering()
+    # Get 99.9% full frequency via:
+    # Do this for 2016 to 2020
+    awera.predict_labels()
+    awera.get_frequency(bounds=[0, 35])
+    awera.plot_cluster_frequency()
+
+    awera.plot_cluster_shapes()
+
+    print('Clustering Done.')
+
+
+    # POWER
+    limit_estimates = awera.estimate_wind_speed_operational_limits()
+    pcs, limit_refined = awera.make_power_curves(limit_estimates=limit_estimates)
+    # pcs = [awera.read_curve(i_profile=i+1, return_constructor=True)
+    #         for i in range(n_clusters)]
+    awera.compare_kpis(pcs, compare_profiles=list(range(1, 8+1)))
+
+    print(awera.read_limits(refined=True))
+    print(awera.read_profiles())
+    awera.plot_power_curves(plot_full_electrical=True)
+    awera.plot_power_curves(speed_at_op_height=True,
+                            plot_full_electrical=True)
+    # for i, pc in enumerate(pcs):
+    #     pc.plot_output_file = config.IO.plot_output
+    #     pc.plot_optimal_trajectories(plot_info='_profile_{}'.format(i+1))
+    awera.get_frequency()
+
+    awera.plot_cluster_frequency()
+    awera.aep()
 
     # profiler.disable()
     # # # Write profiler output

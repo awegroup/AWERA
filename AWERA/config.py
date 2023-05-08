@@ -100,7 +100,7 @@ class Config:
             self.Data.all_lats,
             self.Data.all_lons,
             self.Data.grid_size,
-            init_locs=getattr(self, 'init_locs', None)
+            init_locs=getattr(self.Data, 'init_locs', None)
             ))
         # Get loction indices w.r.t. to full dataset
         try:
@@ -249,6 +249,13 @@ class Config:
                         self.IO.result_dir +
                         getattr(self.IO.format, key).format(
                             data_info=data_info_training,
+                            data_info_training=data_info_training,
+                            settings_info=settings_info_labels))
+            elif key in ['cluster_pipeline', 'pca_pipeline', 'profiles']:
+                # No kite information for cluster labels files
+                setattr(self.IO, key,
+                        self.IO.result_dir +
+                        getattr(self.IO.format, key).format(
                             data_info_training=data_info_training,
                             settings_info=settings_info_labels))
             elif key in ['plot_output']:

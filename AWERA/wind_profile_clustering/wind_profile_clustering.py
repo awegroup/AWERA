@@ -89,12 +89,18 @@ def plot_wind_profile_shapes(config,
                              x_lim_profiles=[-2.2, 3.2],
                              y_lim_profiles=[-1.7, 1.7]):
     n_profiles = len(wind_prl)
+    if n_profiles < 3:
+        n_rows = 1
     x_label0 = r"$\tilde{v}$ [-]"
     x_label1 = r"$\tilde{v}_{\parallel}$ [-]"
     y_label1 = r"$\tilde{v}_{\bot}$ [-]"
 
     n_cols = int(np.ceil(n_profiles/n_rows))
     figsize = (n_cols*2+.8, n_rows*4.8+.4)
+    if n_profiles < 8:
+        figsize = np.array(figsize) * 2
+        if n_profiles > 2:
+            figsize = np.array(figsize) * 2
     height_ratios = np.ones(2*n_rows)
     for j in range(n_rows):
         height_ratios[2*j] = 1.8
@@ -159,9 +165,14 @@ def plot_wind_profile_shapes(config,
             ax[j, k].set_yticklabels([])
             ax[j+1, k].set_yticklabels([])
 
-    ax[0, 0].legend(bbox_to_anchor=(-1.5+n_cols*.5, 1.05, 3.+wspace*(n_cols-1),
-                                    0.2), loc="lower left", mode="expand",
-                    borderaxespad=0, ncol=4)
+    if n_profiles < 8:
+        ax[0, 0].legend(bbox_to_anchor=(-1.5/(2.2)+n_cols*.5/(1.8), 1.025, (3.+wspace*(n_cols-1))/(1.8),
+                                        0.2/(1.8)), loc="lower left", mode="expand",
+                        borderaxespad=0, ncol=4)
+    else:
+        ax[0, 0].legend(bbox_to_anchor=(-1.5+n_cols*.5, 1.05, 3.+wspace*(n_cols-1),
+                                        0.2), loc="lower left", mode="expand",
+                        borderaxespad=0, ncol=4)
     if not config.Plotting.plots_interactive:
         plt.savefig(config.IO.training_plot_output
                     .format(title='cluster_wind_profile_shapes'))

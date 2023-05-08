@@ -1,3 +1,6 @@
+"""
+Run AWERA for a large number of locations, slice by slice... to build up maps.
+"""
 from AWERA import config
 from AWERA.eval.evaluation import evalAWERA
 import time

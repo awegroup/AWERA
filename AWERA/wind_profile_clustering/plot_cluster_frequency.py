@@ -76,7 +76,7 @@ def plot_frequency(config):
             ax.set_xlabel(x_label)
             ax.set_ylabel('Cluster frequency [%]')
             # TODO paper: nomalised frequency?
-            ax.set_xlim([3, 30])
+            ax.set_xlim([0, 30])
             if not config.Plotting.plots_interactive:
                 plt.savefig(config.IO.plot_output.format(
                         title='freq_up_to_{}'.format(i_profile+1)))
@@ -93,7 +93,7 @@ def plot_frequency(config):
         ax.set_ylabel('Cluster frequency [%]')
         # TODO paper: nomalised frequency?
         # TODO add custom
-        ax.set_xlim([3, 30])
+        ax.set_xlim([0, 30])
         if not config.Plotting.plots_interactive:
             plt.savefig(config.IO.plot_output.format(
                     title='freq'))

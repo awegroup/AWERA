@@ -1,3 +1,6 @@
+"""
+The clustering preprocessing showed odd validation results - double check and maybe change preprocessing settings? Ref Thesis Lavinia Thimm
+"""
 import os
 from AWERA import config
 from AWERA.validation.validation import ValidationProcessingClustering,\

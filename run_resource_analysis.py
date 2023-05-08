@@ -1,3 +1,6 @@
+"""
+Results from resource analysis can be displayed like this. Due to setting the plotting style to PDF, map plots need to be independent from computing center processing.
+"""
 import os
 import matplotlib.pyplot as plt
 from AWERA import config
@@ -40,5 +43,5 @@ print('Done.')
 print('------------------------------ Config:')
 print(ra.config)
 print('------------------------------ Time:')
-write_timing_info('Validation run finished.',
+write_timing_info('Run finished.',
                   time.time() - since)

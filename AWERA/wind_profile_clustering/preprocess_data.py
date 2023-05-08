@@ -16,6 +16,7 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
     else:
         wind_direction = np.arctan2(data['wind_speed_north'],
                                     data['wind_speed_east'])
+        # data['original_wind_direction_atan_NE'] = copy(wind_direction)
 
     # TODO: check if interpolation can be done without the loop
     if use_memmap:
@@ -100,6 +101,10 @@ def express_profiles_wrt_ref_vector(data, ref_vector_height,
             -data['wind_speed_east']*np.sin(ref_dir).reshape((-1, 1)) + \
             data['wind_speed_north']*np.cos(ref_dir).reshape((-1, 1))
 
+    # Pickle Data
+    # import pickle
+    # with open('original_wind_data_and_wrt_ref.pickle', 'wb') as f:
+    #     pickle.dump(data, f)
     return data
 
 
