@@ -1,8 +1,6 @@
 # AWERA - AWE Resource Analysis 
 
-An extensive discussion of AWERA, its concepts and results can be found in the master's thesis by Lavinia Thimm
-http://resolver.tudelft.nl/uuid:ba0c7fb2-baff-4110-9a51-c27a8498663b called The Airborne Wind Energy Resource Analysis Tool AWERA - 
-and the paper on the clustering approach for wind profile clustering by Mark Schelbergen. 
+An extensive discussion of AWERA, its concepts and results can be found in [[1,2]](#References).
 
 
 ## Installing and running the code
@@ -42,9 +40,9 @@ Running only the power production can be see in run_power_production.py for a Lo
 
 ### Evaluation
 
-# References
+## References
+[1] Thimm, L.: Wind Resource Parametrisation and Power Harvesting Estimation using AWERA - the Airborne Wind Energy Resource Analysis tool. MSc Thesis, University of Bonn, 2022. doi:[10.5281/zenodo.7848071](https://doi.org/10.5281/zenodo.7848071).
 
-
-Schelbergen, M., Kalverla, P. C., Schmehl, R., and Watson, S. J.: Clustering wind profile shapes to estimate airborne wind energy production, Wind Energ. Sci., 5, 1097–1120, https://doi.org/10.5194/wes-5-1097-2020, 2020. 
+[2] Schelbergen, M., Kalverla, P. C., Schmehl, R., and Watson, S. J.: Clustering wind profile shapes to estimate airborne wind energy production. Wind Energy Science, Vol. 5, No. 3, pp. 1097-1120, 2020. doi:[10.5194/wes-5-1097-2020](https://doi.org/10.5194/wes-5-1097-2020). 
 
 
